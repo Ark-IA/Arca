@@ -79,7 +79,7 @@ function LoginPageInner() {
     // del tema, para que la pantalla se vea igual sin importar si el visitante
     // tiene el sistema en claro o en oscuro. Es la puerta de entrada: la marca
     // no puede depender de la preferencia del navegador.
-    <div className="relative flex min-h-screen items-center justify-center overflow-hidden bg-[#080B0F] px-4 py-12">
+    <div className="ark-auth relative flex min-h-screen items-center justify-center overflow-hidden bg-[#080B0F] px-4 py-12">
       {/* resplandor de marca */}
       <div
         aria-hidden

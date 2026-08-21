@@ -22,16 +22,23 @@ const inter = Inter({
 
 export const metadata: Metadata = {
   title: {
-    default: "wacrm",
-    template: "%s — wacrm",
+    default: "ARK-IA CRM",
+    template: "%s — ARK-IA CRM",
   },
-  description: "Self-hostable CRM template for WhatsApp.",
+  description:
+    "CRM de ventas por WhatsApp con inteligencia artificial y automatizaciones.",
   robots: {
     index: false,
     follow: false,
   },
   icons: {
-    icon: [{ url: "/icon" }],
+    // El PNG circular de marca antes que el icono generado del producto: el
+    // navegador toma el primero que sabe leer.
+    icon: [
+      { url: "/brand/favicon.png", type: "image/png", sizes: "512x512" },
+      { url: "/icon" },
+    ],
+    apple: [{ url: "/brand/favicon.png" }],
   },
   formatDetection: {
     email: false,

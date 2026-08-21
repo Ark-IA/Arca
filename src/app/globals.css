@@ -228,3 +228,17 @@ html[data-theme="rose"] {
     @apply font-sans;
   }
 }
+/* Relleno automático de Chrome en la pantalla de acceso.
+   Chrome pinta el campo autocompletado con su propio celeste y marca la regla
+   como !important: la única forma de recuperar el fondo oscuro es tapar la
+   caja con una sombra interior gigante. La transición larguísima evita el
+   parpadeo blanco del primer instante. */
+.ark-auth input:-webkit-autofill,
+.ark-auth input:-webkit-autofill:hover,
+.ark-auth input:-webkit-autofill:focus,
+.ark-auth input:-webkit-autofill:active {
+  -webkit-text-fill-color: #eafff7;
+  -webkit-box-shadow: 0 0 0 1000px #0e141c inset;
+  caret-color: #eafff7;
+  transition: background-color 5000s ease-in-out 0s;
+}
