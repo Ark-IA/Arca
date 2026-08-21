@@ -75,20 +75,76 @@ function LoginPageInner() {
   };
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-background px-4">
-      <Card className="w-full max-w-md border-border bg-card">
+    // Identidad ARK-IA: los colores van en valores literales, no en los tokens
+    // del tema, para que la pantalla se vea igual sin importar si el visitante
+    // tiene el sistema en claro o en oscuro. Es la puerta de entrada: la marca
+    // no puede depender de la preferencia del navegador.
+    <div className="relative flex min-h-screen items-center justify-center overflow-hidden bg-[#080B0F] px-4 py-12">
+      {/* resplandor de marca */}
+      <div
+        aria-hidden
+        className="pointer-events-none absolute inset-x-0 top-0 h-[60vh]"
+        style={{
+          background:
+            "radial-gradient(900px 420px at 50% -10%, rgba(0,255,162,.14), transparent 65%)",
+        }}
+      />
+      {/* retícula */}
+      <div
+        aria-hidden
+        className="pointer-events-none absolute inset-0"
+        style={{
+          backgroundImage:
+            "linear-gradient(rgba(0,255,162,.05) 1px, transparent 1px), linear-gradient(90deg, rgba(0,255,162,.05) 1px, transparent 1px)",
+          backgroundSize: "56px 56px",
+          maskImage:
+            "radial-gradient(760px 420px at 50% 0%, #000 28%, transparent 78%)",
+          WebkitMaskImage:
+            "radial-gradient(760px 420px at 50% 0%, #000 28%, transparent 78%)",
+        }}
+      />
+
+      <div className="relative z-10 flex w-full max-w-md flex-col items-center">
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src="/brand/logo.svg"
+          alt="ARK-IA CRM"
+          className="mb-6 h-14 w-auto max-w-[300px]"
+        />
+
+        <p className="mb-5 text-center text-sm text-[#8FA59D]">
+          Inteligencia artificial y automatización para tu operación comercial
+        </p>
+
+        <div className="mb-8 flex flex-wrap justify-center gap-2">
+          {[
+            ["IA", "que atiende 24/7"],
+            ["Automatizaciones", "sin código"],
+            ["Omnicanal", "WhatsApp"],
+          ].map(([fuerte, resto]) => (
+            <span
+              key={fuerte}
+              className="inline-flex items-center gap-1.5 rounded-full border border-[#00FFA2]/25 bg-[#00FFA2]/[0.06] px-3.5 py-1.5 text-xs text-[#BFF5E0]"
+            >
+              <b className="font-semibold text-[#00FFA2]">{fuerte}</b>
+              {resto}
+            </span>
+          ))}
+        </div>
+
+      <Card className="w-full border-[#00FFA2]/20 bg-[#131922]/95 shadow-[0_26px_64px_-22px_rgba(0,255,162,.28)]">
         <CardHeader className="items-center text-center">
-          <div className="mb-2 flex h-12 w-12 items-center justify-center rounded-xl bg-primary/10">
+          <div className="mb-2 flex h-12 w-12 items-center justify-center rounded-xl bg-[#00FFA2]/10">
             {inviteToken ? (
-              <UsersRound className="h-6 w-6 text-primary" />
+              <UsersRound className="h-6 w-6 text-[#00FFA2]" />
             ) : (
-              <MessageSquare className="h-6 w-6 text-primary" />
+              <MessageSquare className="h-6 w-6 text-[#00FFA2]" />
             )}
           </div>
-          <CardTitle className="text-xl text-foreground">
+          <CardTitle className="text-xl text-[#EAFFF7]">
             {inviteToken ? t('titleAccept') : t('titleWelcome')}
           </CardTitle>
-          <CardDescription className="text-muted-foreground">
+          <CardDescription className="text-[#8FA59D]">
             {inviteToken
               ? t('descAccept')
               : t('descWelcome')}
@@ -103,7 +159,7 @@ function LoginPageInner() {
             )}
 
             <div className="flex flex-col gap-2">
-              <Label htmlFor="email" className="text-muted-foreground">
+              <Label htmlFor="email" className="text-[#9FB3AB]">
                 {t('emailLabel')}
               </Label>
               <Input
@@ -113,18 +169,18 @@ function LoginPageInner() {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 required
-                className="border-border bg-muted text-foreground placeholder:text-muted-foreground focus-visible:border-primary focus-visible:ring-primary/20"
+                className="border-white/10 bg-[#0E141C] text-[#EAFFF7] placeholder:text-[#5F7169] focus-visible:border-[#00FFA2] focus-visible:ring-[#00FFA2]/20"
               />
             </div>
 
             <div className="flex flex-col gap-2">
               <div className="flex items-center justify-between">
-                <Label htmlFor="password" className="text-muted-foreground">
+                <Label htmlFor="password" className="text-[#9FB3AB]">
                   {t('passwordLabel')}
                 </Label>
                 <Link
                   href="/forgot-password"
-                  className="text-sm text-primary hover:text-primary/80"
+                  className="text-sm text-[#00FFA2] hover:text-[#00FFA2]/80"
                 >
                   {t('forgotPassword')}
                 </Link>
@@ -136,20 +192,20 @@ function LoginPageInner() {
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 required
-                className="border-border bg-muted text-foreground placeholder:text-muted-foreground focus-visible:border-primary focus-visible:ring-primary/20"
+                className="border-white/10 bg-[#0E141C] text-[#EAFFF7] placeholder:text-[#5F7169] focus-visible:border-[#00FFA2] focus-visible:ring-[#00FFA2]/20"
               />
             </div>
 
             <Button
               type="submit"
               disabled={loading}
-              className="mt-2 h-10 w-full bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
+              className="mt-2 h-10 w-full bg-gradient-to-b from-[#00FFA2] to-[#00C97F] font-semibold text-[#04120C] hover:opacity-90 disabled:opacity-50"
             >
               {loading ? t('signingIn') : t('signIn')}
             </Button>
           </form>
 
-          <p className="mt-6 text-center text-sm text-muted-foreground">
+          <p className="mt-6 text-center text-sm text-[#8FA59D]">
             {t('noAccount')}{" "}
             <Link
               href={
@@ -157,13 +213,16 @@ function LoginPageInner() {
                   ? `/signup?invite=${encodeURIComponent(inviteToken)}`
                   : "/signup"
               }
-              className="text-primary hover:text-primary/80"
+              className="text-[#00FFA2] hover:text-[#00FFA2]/80"
             >
               {t('createAccount')}
             </Link>
           </p>
         </CardContent>
       </Card>
+
+        <p className="mt-8 text-xs text-[#5F7169]">ARK-IA CRM</p>
+      </div>
     </div>
   );
 }

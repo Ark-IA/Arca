@@ -1,0 +1,37 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 620 150" width="620" height="150" role="img" aria-label="ARK-IA">
+  <defs>
+    <filter id="halo" x="-60%" y="-60%" width="220%" height="220%">
+      <feGaussianBlur stdDeviation="11" result="b1"/>
+      <feMerge>
+        <feMergeNode in="b1"/>
+        <feMergeNode in="b1"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+    <linearGradient id="verde" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%"   stop-color="#7dffd0"/>
+      <stop offset="55%"  stop-color="#00FFA2"/>
+      <stop offset="100%" stop-color="#00d98a"/>
+    </linearGradient>
+  </defs>
+
+  <!-- motivo de flujo: nodos conectados, guiño a la automatizacion -->
+  <g stroke="#00FFA2" stroke-width="2.5" fill="none" opacity=".55">
+    <rect x="14"  y="26"  width="34" height="34" rx="9"/>
+    <rect x="14"  y="90"  width="34" height="34" rx="9"/>
+    <path d="M48 43 H74 a10 10 0 0 1 10 10 V97 a10 10 0 0 1 -10 10 H48"/>
+    <circle cx="31" cy="43"  r="5" fill="#00FFA2" stroke="none"/>
+    <circle cx="31" cy="107" r="5" fill="#00FFA2" stroke="none"/>
+  </g>
+
+  <g font-family="Inter, 'Segoe UI', 'Helvetica Neue', Arial, sans-serif"
+     font-weight="800" font-size="92" letter-spacing="-2"
+     transform="skewX(-8)">
+    <text x="118" y="106" fill="#ffffff">ARK</text>
+    <text x="300" y="106" fill="#ffffff" opacity=".55">-</text>
+    <text x="330" y="106" fill="url(#verde)" filter="url(#halo)">IA</text>
+  </g>
+
+  <text x="470" y="104" font-family="Inter, 'Segoe UI', 'Helvetica Neue', Arial, sans-serif"
+        font-weight="300" font-size="46" letter-spacing="4" fill="#8fa59d">CRM</text>
+</svg>
