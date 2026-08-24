@@ -1,12 +1,15 @@
 import { ImageResponse } from "next/og";
 
-// Replaces the default Next.js favicon with the brand mark — Hostinger
-// violet rounded square + white chat-square glyph — matching the
-// sidebar logo in `src/components/layout/sidebar.tsx`. Next.js renders
-// this at build time and auto-injects <link rel="icon"> into <head>.
+// Favicon de ARK-IA: circulo negro con el monograma "IA" en verde de marca.
 //
-// This route takes precedence over src/app/favicon.ico, which is the
-// Next.js default and can stay on disk harmlessly (or be removed).
+// Antes esto dibujaba un cuadrado violeta con un globo de chat. Next.js
+// inyecta esta ruta como <link rel="icon"> automaticamente y le gana a
+// cualquier PNG declarado en metadata, asi que cambiar solo el metadata no
+// alcanzaba: habia que cambiar el generador.
+//
+// Se dibuja en vez de servir el PNG porque a 32px un logotipo horizontal es
+// una mancha; el monograma se lee. La forma de las letras replica la del
+// logotipo: cursiva, condensada, con la barra de la A alta.
 
 export const runtime = "edge";
 export const size = { width: 32, height: 32 };
@@ -22,22 +25,23 @@ export default function Icon() {
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
-          background: "#7c3aed", // primary (Hostinger-aligned purple)
-          borderRadius: 6,
+          background: "#0A0E13",
+          borderRadius: "50%",
         }}
       >
-        <svg
-          width="20"
-          height="20"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="#ffffff"
-          strokeWidth="2.5"
-          strokeLinecap="round"
-          strokeLinejoin="round"
+        <div
+          style={{
+            display: "flex",
+            fontSize: 19,
+            fontWeight: 800,
+            fontStyle: "italic",
+            letterSpacing: -1,
+            color: "#00FFA2",
+            lineHeight: 1,
+          }}
         >
-          <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
-        </svg>
+          IA
+        </div>
       </div>
     ),
     { ...size },
