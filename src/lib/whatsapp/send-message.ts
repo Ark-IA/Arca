@@ -234,19 +234,34 @@ export async function sendMessageToConversation(
   }
 
   const contact = conversation.contact;
-  if (!contact?.phone) {
+
+  // A quien se le responde.
+  //
+  // Meta habilito nombres de usuario: un cliente puede escribir SIN tener
+  // telefono, y entonces su unica direccion es el wa_id. La API de Meta
+  // acepta ese wa_id en el campo `to` igual que aceptaria un numero.
+  //
+  // El telefono se prefiere cuando existe y es valido, porque es el dato
+  // que entiende todo lo demas. El wa_id es el respaldo, no el sustituto.
+  const telefonoLimpio = contact?.phone ? sanitizePhoneForMeta(contact.phone) : '';
+  const telefonoSirve = telefonoLimpio !== '' && isValidE164(telefonoLimpio);
+  const sanitizedPhone = telefonoSirve ? telefonoLimpio : (contact?.whatsapp_id ?? '');
+
+  if (!sanitizedPhone) {
     throw new SendMessageError(
       'bad_request',
-      'Contact phone number not found',
+      // El mensaje nombra las DOS cosas que faltan. El anterior decia solo
+      // "no hay telefono", y quien lo leia salia a buscar un numero que
+      // este cliente nunca tuvo.
+      'El contacto no tiene ni numero de telefono ni identificador de WhatsApp: no hay a donde responder.',
       400
     );
   }
 
-  const sanitizedPhone = sanitizePhoneForMeta(contact.phone);
-  if (!isValidE164(sanitizedPhone)) {
+  if (contact?.phone && !telefonoSirve && !contact?.whatsapp_id) {
     throw new SendMessageError(
       'bad_request',
-      'Invalid phone number format',
+      `El numero guardado ("${contact.phone}") no tiene formato valido.`,
       400
     );
   }

@@ -588,15 +588,29 @@ async function processMessage(
   // See parseMessageContent for what it turns off.
   mirrorMedia: boolean
 ) {
-  const senderPhone = normalizePhone(message.from)
-  const contactName = contact.profile.name
+  // Meta habilito nombres de usuario en WhatsApp: desde entonces `from`
+  // puede llegar vacio y el unico identificador fiable es `wa_id`, que a
+  // veces es un telefono en digitos y a veces algo como "CO.4509733672618188".
+  //
+  // Se guardan LOS DOS: `whatsapp_id` siempre (es la direccion de respuesta),
+  // y `phone` solo cuando de verdad parece un telefono. Derivar un telefono
+  // a la fuerza del wa_id daria numeros inventados que despues fallan al
+  // llamar o al exportar.
+  const waId = contact?.wa_id || message.from || ''
+  const soloDigitos = normalizePhone(message.from || contact?.wa_id || '')
+  // Un telefono real es E.164: 7 a 15 digitos. Un wa_id de nombre de usuario
+  // es mucho mas largo, asi que la longitud los separa sin ambiguedad.
+  const senderPhone =
+    soloDigitos.length >= 7 && soloDigitos.length <= 15 ? soloDigitos : ''
+  const contactName = contact?.profile?.name || waId
 
   // Find or create contact
   const contactOutcome = await findOrCreateContact(
     accountId,
     configOwnerUserId,
     senderPhone,
-    contactName
+    contactName,
+    waId
   )
   if (!contactOutcome) return
   const contactRecord = contactOutcome.contact
@@ -1116,27 +1130,59 @@ async function findOrCreateContact(
   accountId: string,
   configOwnerUserId: string,
   phone: string,
-  name: string
+  name: string,
+  whatsappId?: string
 ): Promise<ContactOutcome | null> {
+  // Se busca PRIMERO por wa_id y solo despues por telefono.
+  //
+  // El orden importa: el wa_id es el identificador que Meta garantiza en
+  // todo mensaje entrante, mientras que el telefono puede faltar (usuarios
+  // con nombre de usuario) o venir en formatos distintos. Buscando por
+  // telefono primero, un contacto sin numero nunca se reencontraria y cada
+  // mensaje suyo crearia un contacto nuevo.
+  let existingContact = null
+
+  if (whatsappId) {
+    const { data } = await supabaseAdmin()
+      .from('contacts')
+      .select('*')
+      .eq('account_id', accountId)
+      .eq('whatsapp_id', whatsappId)
+      .limit(1)
+      .maybeSingle()
+    if (data) existingContact = data
+  }
+
   // Find an existing contact for this account by phone. The shared
   // helper pre-filters in SQL by the last-8-digit suffix (so we don't
   // pull every contact on every inbound message) then applies the
   // strict `phonesMatch` in JS on the small candidate set. The same
   // helper backs the manual contact form and CSV import, so all three
   // paths agree on what "same number" means (issue #212).
-  const existingContact = await findExistingContact(
-    supabaseAdmin(),
-    accountId,
-    phone,
-  )
+  if (!existingContact && phone) {
+    existingContact = await findExistingContact(
+      supabaseAdmin(),
+      accountId,
+      phone,
+    )
+  }
 
   if (existingContact) {
-    // Update name if it changed
-    if (name && name !== existingContact.name) {
+    // Se completa lo que falte: un contacto cargado a mano no tiene wa_id
+    // hasta que escribe por primera vez, y uno creado por webhook puede
+    // ganar telefono despues.
+    const parche: Record<string, string> = {}
+    if (name && name !== existingContact.name) parche.name = name
+    if (whatsappId && !existingContact.whatsapp_id) parche.whatsapp_id = whatsappId
+    if (phone && !existingContact.phone) parche.phone = phone
+
+    if (Object.keys(parche).length > 0) {
+      parche.updated_at = new Date().toISOString()
       await supabaseAdmin()
         .from('contacts')
-        .update({ name, updated_at: new Date().toISOString() })
+        .update(parche)
         .eq('id', existingContact.id)
+      Object.assign(existingContact, parche)
     }
     return { contact: existingContact, wasCreated: false }
   }
@@ -1150,8 +1196,12 @@ async function findOrCreateContact(
     .insert({
       account_id: accountId,
       user_id: configOwnerUserId,
-      phone,
-      name: name || phone,
+      // NULL y no '': la cadena vacia se ve como "tiene telefono y esta en
+      // blanco". NULL dice lo que pasa de verdad, que este cliente no tiene
+      // numero porque usa nombre de usuario.
+      phone: phone || null,
+      whatsapp_id: whatsappId || null,
+      name: name || phone || whatsappId,
     })
     .select()
     .single()

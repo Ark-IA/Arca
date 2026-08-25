@@ -66,7 +66,7 @@ export async function POST(request: Request) {
 
     const { data: conversation, error: convError } = await supabase
       .from('conversations')
-      .select('id, account_id, contact:contacts(phone)')
+      .select('id, account_id, contact:contacts(phone, whatsapp_id)')
       .eq('id', targetMessage.conversation_id)
       .eq('account_id', accountId)
       .maybeSingle();
@@ -81,9 +81,18 @@ export async function POST(request: Request) {
     const contact = Array.isArray(conversation.contact)
       ? conversation.contact[0]
       : conversation.contact;
-    if (!contact?.phone) {
+    // Mismo criterio que al enviar un mensaje: el telefono se prefiere, el
+    // wa_id es el respaldo para clientes que usan nombre de usuario y no
+    // tienen numero. Ver src/lib/whatsapp/send-message.ts.
+    const destino = contact?.phone
+      ? sanitizePhoneForMeta(contact.phone)
+      : (contact?.whatsapp_id ?? '');
+    if (!destino) {
       return NextResponse.json(
-        { error: 'Contact phone number not found' },
+        {
+          error:
+            'El contacto no tiene ni numero de telefono ni identificador de WhatsApp: no hay a donde reaccionar.',
+        },
         { status: 400 },
       );
     }
@@ -103,7 +112,7 @@ export async function POST(request: Request) {
     }
 
     const accessToken = decrypt(config.access_token);
-    const sanitizedPhone = sanitizePhoneForMeta(contact.phone);
+    const sanitizedPhone = destino;
 
     try {
       await sendReactionMessage({
