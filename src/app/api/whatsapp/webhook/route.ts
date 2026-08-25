@@ -91,6 +91,13 @@ interface WhatsAppWebhookEntry {
         status: string
         timestamp: string
         recipient_id: string
+        /** Presente solo cuando status === 'failed'. Ver handleStatusUpdate. */
+        errors?: Array<{
+          code?: number
+          title?: string
+          message?: string
+          error_data?: { details?: string }
+        }>
       }>
     }
     field: string
@@ -369,15 +376,43 @@ async function handleStatusUpdate(status: {
   status: string
   timestamp: string
   recipient_id: string
+  /**
+   * Meta manda esto SOLO cuando el estado es 'failed', y es la unica
+   * explicacion de por que no se entrego. Antes se descartaba: la pantalla
+   * mostraba una equis roja muda y averiguar la causa obligaba a reproducir
+   * el envio a mano contra la API.
+   */
+  errors?: Array<{
+    code?: number
+    title?: string
+    message?: string
+    error_data?: { details?: string }
+  }>
 }) {
   // 1) Mirror onto messages (legacy behavior) — Meta's status values
   //    already match the CHECK constraint on messages.status. No
   //    `.select()`: message_id is NOT unique (migration 009 — Meta ids
   //    repeat across numbers), so this updates 0..N rows and must not
   //    assume a single row.
+  const fallo = status.errors?.[0]
+  const parche: Record<string, unknown> = { status: status.status }
+  if (fallo) {
+    parche.error_code = fallo.code ?? null
+    parche.error_title = fallo.title ?? null
+    // `error_data.details` es la version larga y util; `message` suele ser
+    // el mismo texto del titulo.
+    parche.error_detail = fallo.error_data?.details ?? fallo.message ?? null
+    console.error(
+      `[webhook] Meta rechazo el mensaje ${status.id} para ${status.recipient_id}: ` +
+        `codigo=${fallo.code} titulo="${fallo.title}" detalle="${
+          fallo.error_data?.details ?? fallo.message ?? ''
+        }"`,
+    )
+  }
+
   const { error: msgErr } = await supabaseAdmin()
     .from('messages')
-    .update({ status: status.status })
+    .update(parche)
     .eq('message_id', status.id)
 
   if (msgErr) {
