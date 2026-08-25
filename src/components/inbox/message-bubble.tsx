@@ -41,7 +41,14 @@ interface MessageBubbleProps {
   onOpenMedia?: (messageId: string) => void;
 }
 
-function StatusIcon({ status }: { status: Message["status"] }) {
+function StatusIcon({
+  status,
+  motivo,
+}: {
+  status: Message["status"];
+  /** Texto del tooltip cuando el envio fallo. Ver el uso mas abajo. */
+  motivo?: string;
+}) {
   switch (status) {
     case "sending":
       return <Clock className="h-3 w-3 text-muted-foreground" />;
@@ -52,7 +59,13 @@ function StatusIcon({ status }: { status: Message["status"] }) {
     case "read":
       return <CheckCheck className="h-3 w-3 text-blue-400" />;
     case "failed":
-      return <XCircle className="h-3 w-3 text-red-400" />;
+      // El span existe solo por el `title`: en un <svg> el atributo no
+      // dispara el tooltip nativo del navegador.
+      return (
+        <span title={motivo} className="inline-flex">
+          <XCircle className="h-3 w-3 text-red-400" />
+        </span>
+      );
     default:
       return null;
   }
@@ -297,24 +310,21 @@ export function MessageBubble({
           >
             {time}
           </span>
-          {isAgent && <StatusIcon status={message.status} />}
+          {isAgent && (
+            <StatusIcon
+              status={message.status}
+              // El motivo del rechazo va en el tooltip del icono, no en un
+              // bloque bajo el mensaje: ocupaba dos lineas en cada envio
+              // fallido y llenaba la conversacion de texto. Al pasar el
+              // mouse sigue estando, para cuando haga falta.
+              motivo={
+                message.status === "failed" && motivo
+                  ? [motivo.resumen, motivo.queHacer].filter(Boolean).join(" ")
+                  : undefined
+              }
+            />
+          )}
         </div>
-
-        {/* El motivo del rechazo, junto al mensaje que fallo.
-            Antes la equis roja no explicaba nada y habia que ir al registro
-            del servidor para saber si el problema era el numero, la ventana
-            de 24 horas o la cuenta. */}
-        {isAgent && message.status === "failed" && motivo && (
-          <div className="mt-1 flex max-w-md items-start gap-1.5 rounded-md border border-red-500/25 bg-red-500/10 px-2.5 py-1.5">
-            <XCircle className="mt-0.5 h-3.5 w-3.5 shrink-0 text-red-400" />
-            <div className="text-[11px] leading-snug text-red-300">
-              <p>{motivo.resumen}</p>
-              {motivo.queHacer && (
-                <p className="mt-0.5 text-red-300/70">{motivo.queHacer}</p>
-              )}
-            </div>
-          </div>
-        )}
       </div>
       {reactions && reactions.length > 0 && onToggleReaction && (
         <MessageReactions
