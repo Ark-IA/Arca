@@ -258,6 +258,15 @@ export interface Message {
    * badge in the inbox. Migration 033.
    */
   ai_generated?: boolean;
+  /**
+   * Por que Meta no pudo entregar el mensaje. Solo viene cuando
+   * `status === 'failed'`. Antes se descartaba y la equis roja no
+   * explicaba nada: para saber la causa habia que reproducir el envio
+   * a mano contra la API. Migracion 042.
+   */
+  error_code?: number | null;
+  error_title?: string | null;
+  error_detail?: string | null;
 }
 
 export type ReactionActor = 'customer' | 'agent';

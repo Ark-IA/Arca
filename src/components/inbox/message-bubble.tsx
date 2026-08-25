@@ -23,6 +23,7 @@ import {
   MediaVideoBubble,
 } from "./message-media";
 import { InteractivePreview } from "@/components/interactive/interactive-preview";
+import { explicarFallo } from "@/lib/whatsapp/motivos-de-fallo";
 import { useTranslations } from "next-intl";
 
 interface MessageBubbleProps {
@@ -227,6 +228,13 @@ export function MessageBubble({
 
   const isAgent = message.sender_type === "agent" || message.sender_type === "bot";
   const time = format(new Date(message.created_at), "HH:mm");
+  // Se calcula siempre, no solo cuando fallo: mantener el hook fuera de una
+  // condicion evita que React se queje si el estado del mensaje cambia.
+  const motivo = explicarFallo(
+    message.error_code,
+    message.error_title,
+    message.error_detail,
+  );
 
   // Row alignment + width cap are owned by <MessageActions> so its hover
   // group matches the bubble's content area, not the full row.
@@ -291,6 +299,22 @@ export function MessageBubble({
           </span>
           {isAgent && <StatusIcon status={message.status} />}
         </div>
+
+        {/* El motivo del rechazo, junto al mensaje que fallo.
+            Antes la equis roja no explicaba nada y habia que ir al registro
+            del servidor para saber si el problema era el numero, la ventana
+            de 24 horas o la cuenta. */}
+        {isAgent && message.status === "failed" && motivo && (
+          <div className="mt-1 flex max-w-md items-start gap-1.5 rounded-md border border-red-500/25 bg-red-500/10 px-2.5 py-1.5">
+            <XCircle className="mt-0.5 h-3.5 w-3.5 shrink-0 text-red-400" />
+            <div className="text-[11px] leading-snug text-red-300">
+              <p>{motivo.resumen}</p>
+              {motivo.queHacer && (
+                <p className="mt-0.5 text-red-300/70">{motivo.queHacer}</p>
+              )}
+            </div>
+          </div>
+        )}
       </div>
       {reactions && reactions.length > 0 && onToggleReaction && (
         <MessageReactions
