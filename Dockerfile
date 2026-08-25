@@ -2,8 +2,13 @@
 
 # ---------------------------------------------------------------
 # Stage 1 — install dependencies (cached until package*.json change)
+#
+# Node 24 porque es el que trae npm 11, la misma version que genero el
+# package-lock.json. Con node:20 (npm 10.8) `npm ci` aborta con
+# "Missing: @swc/helpers from lock file" aunque el paquete SI figura en el
+# lockfile: npm 10 y npm 11 resuelven las dependencias opcionales distinto.
 # ---------------------------------------------------------------
-FROM node:20-alpine AS deps
+FROM node:24-alpine AS deps
 WORKDIR /app
 COPY package.json package-lock.json ./
 RUN npm ci
@@ -17,7 +22,7 @@ RUN npm ci
 # key, ENCRYPTION_KEY, META_APP_SECRET, ...) are read at runtime and
 # must NOT be baked into the image.
 # ---------------------------------------------------------------
-FROM node:20-alpine AS builder
+FROM node:24-alpine AS builder
 WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
@@ -37,7 +42,7 @@ RUN npm run build
 # ---------------------------------------------------------------
 # Stage 3 — minimal runtime (standalone output)
 # ---------------------------------------------------------------
-FROM node:20-alpine AS runner
+FROM node:24-alpine AS runner
 WORKDIR /app
 ENV NODE_ENV=production \
     NEXT_TELEMETRY_DISABLED=1 \
