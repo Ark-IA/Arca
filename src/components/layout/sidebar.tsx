@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/hooks/use-auth";
 import { useTotalUnread } from "@/hooks/use-total-unread";
@@ -15,6 +15,8 @@ import {
   LayoutDashboard,
   LogOut,
   MessageSquare,
+  PanelLeftClose,
+  PanelLeftOpen,
   Radio,
   Settings,
   Shield,
@@ -113,9 +115,41 @@ interface SidebarProps {
 
 import { useTranslations } from "next-intl";
 
+/**
+ * Clave del ancho plegado en localStorage.
+ *
+ * El estado vive en el navegador, no en la base: es una preferencia de
+ * ESTE dispositivo. En una pantalla chica se quiere plegado y en un monitor
+ * grande desplegado, y guardarlo en el perfil obligaria a la misma eleccion
+ * en los dos. Mismo criterio que usa el tema (`wacrm.theme`).
+ */
+const CLAVE_PLEGADO = "wacrm.sidebar.collapsed";
+
 export function Sidebar({ open = false, onClose }: SidebarProps) {
   const t = useTranslations("Sidebar");
   const pathname = usePathname();
+  // Arranca desplegado y se corrige en el primer efecto. Leer localStorage
+  // durante el render romperia la hidratacion: el servidor no lo tiene y
+  // React se quejaria de que el HTML no coincide.
+  const [plegado, setPlegado] = useState(false);
+
+  useEffect(() => {
+    try {
+      setPlegado(localStorage.getItem(CLAVE_PLEGADO) === "1");
+    } catch {
+      // localStorage puede lanzar en navegacion privada; se queda desplegado.
+    }
+  }, []);
+
+  const alternarPlegado = () => {
+    setPlegado((v) => {
+      const siguiente = !v;
+      try {
+        localStorage.setItem(CLAVE_PLEGADO, siguiente ? "1" : "0");
+      } catch {}
+      return siguiente;
+    });
+  };
   const { profile, profileLoading, account, accountRole, signOut } = useAuth();
   const totalUnread = useTotalUnread();
   const unreadNotifications = useUnreadNotifications();
@@ -180,28 +214,46 @@ export function Sidebar({ open = false, onClose }: SidebarProps) {
           "transition-transform duration-200 ease-out will-change-transform",
           open ? "translate-x-0" : "-translate-x-full",
           // Desktop: static, always visible — reset all the mobile framing.
-          "lg:static lg:z-0 lg:w-60 lg:translate-x-0 lg:transition-none",
+          // El ancho se anima solo en lg+: en movil es un cajon que se
+          // desliza y animar tambien el ancho encimaria dos movimientos.
+          "lg:static lg:z-0 lg:translate-x-0 lg:transition-[width] lg:duration-200",
+          plegado ? "lg:w-16" : "lg:w-60",
         )}
         aria-label="Primary"
       >
         {/* Logo row. On mobile we put a close button here; on desktop the
             close button is hidden since the sidebar is always-visible. */}
-        <div className="flex h-14 shrink-0 items-center justify-between gap-2 border-b border-border px-4">
-          <Link href="/dashboard" className="flex items-center gap-2">
+        <div
+          className={cn(
+            "flex h-14 shrink-0 items-center justify-between gap-2 border-b border-border px-4",
+            plegado && "lg:justify-center lg:px-0",
+          )}
+        >
+          <Link
+            href="/dashboard"
+            className="flex items-center gap-2"
+            title={plegado ? t("title") : undefined}
+          >
             {/* El monograma circular de ARK-IA, el mismo del favicon. A este
-                tamano un logotipo horizontal seria ilegible; el monograma no.
-                eslint-disable-next-line @next/next/no-img-element */}
+                tamano un logotipo horizontal seria ilegible; el monograma no. */}
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
               src="/brand/favicon.png"
               alt=""
               aria-hidden="true"
-              className="h-8 w-8 rounded-full"
+              className="h-8 w-8 shrink-0 rounded-full"
             />
-            <span className="text-sm font-semibold text-foreground">
+            <span
+              className={cn(
+                "text-sm font-semibold text-foreground",
+                plegado && "lg:hidden",
+              )}
+            >
               {t("title")}
             </span>
           </Link>
+
+          {/* Cerrar el cajon: solo movil. */}
           <button
             type="button"
             onClick={onClose}
@@ -231,31 +283,47 @@ export function Sidebar({ open = false, onClose }: SidebarProps) {
                 item.href === "/notifications" && unreadNotifications > 0;
 
               return (
-                <li key={item.href}>
+                <li key={item.href} className="relative">
                   <Link
                     href={item.href}
+                    // Plegado, el nombre desaparece: el title lo devuelve al
+                    // pasar el mouse. Sin esto la barra queda como una fila de
+                    // iconos que hay que adivinar.
+                    title={plegado ? t(item.labelKey as string) : undefined}
                     className={cn(
                       // Taller on mobile so fingers can hit the row reliably (≥44px).
                       "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors lg:py-2",
+                      plegado && "lg:justify-center lg:gap-0 lg:px-0",
                       isActive
                         ? "bg-primary/10 text-primary"
                         : "text-muted-foreground hover:bg-muted hover:text-foreground",
                     )}
                   >
-                    <item.icon className="h-4 w-4" />
-                    <span className="flex-1">{t(item.labelKey as string)}</span>
+                    <item.icon className="h-4 w-4 shrink-0" />
+                    <span className={cn("flex-1", plegado && "lg:hidden")}>
+                      {t(item.labelKey as string)}
+                    </span>
                     {item.beta && (
                       <span
                         aria-label={t("beta")}
-                        className="rounded-full border border-amber-500/40 bg-amber-500/10 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wider text-amber-300"
+                        className={cn(
+                          "rounded-full border border-amber-500/40 bg-amber-500/10 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wider text-amber-300",
+                          plegado && "lg:hidden",
+                        )}
                       >
                         {t("beta")}
                       </span>
                     )}
+                    {/* Plegados, el punto y el contador se pegan al icono en
+                        vez de ocupar una columna propia: en 64px de ancho no
+                        entran al lado del texto que ya no existe. */}
                     {showUnreadDot && (
                       <span
                         aria-label={t("unreadConversations", { count: totalUnread })}
-                        className="relative flex h-2 w-2"
+                        className={cn(
+                          "relative flex h-2 w-2",
+                          plegado && "lg:absolute lg:right-3 lg:top-2",
+                        )}
                       >
                         <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-primary opacity-75" />
                         <span className="relative inline-flex h-2 w-2 rounded-full bg-primary" />
@@ -264,7 +332,10 @@ export function Sidebar({ open = false, onClose }: SidebarProps) {
                     {showNotificationBadge && (
                       <span
                         aria-label={t("unreadNotifications", { count: unreadNotifications })}
-                        className="flex h-5 min-w-5 items-center justify-center rounded-full bg-primary px-1 text-[10px] font-semibold text-primary-foreground"
+                        className={cn(
+                          "flex h-5 min-w-5 items-center justify-center rounded-full bg-primary px-1 text-[10px] font-semibold text-primary-foreground",
+                          plegado && "lg:absolute lg:right-1.5 lg:top-1 lg:h-4 lg:min-w-4 lg:text-[9px]",
+                        )}
                       >
                         {unreadNotifications > 9 ? "9+" : unreadNotifications}
                       </span>
@@ -284,19 +355,48 @@ export function Sidebar({ open = false, onClose }: SidebarProps) {
                 <li key={item.href}>
                   <Link
                     href={item.href}
+                    title={plegado ? t(item.labelKey as string) : undefined}
                     className={cn(
                       "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors lg:py-2",
+                      plegado && "lg:justify-center lg:gap-0 lg:px-0",
                       isActive
                         ? "bg-primary/10 text-primary"
                         : "text-muted-foreground hover:bg-muted hover:text-foreground",
                     )}
                   >
-                    <item.icon className="h-4 w-4" />
-                    {t(item.labelKey as string)}
+                    <item.icon className="h-4 w-4 shrink-0" />
+                    <span className={cn(plegado && "lg:hidden")}>
+                      {t(item.labelKey as string)}
+                    </span>
                   </Link>
                 </li>
               );
             })}
+
+            {/* Plegar / desplegar. Va al final de la navegacion y no en el
+                encabezado porque plegada la barra mide 64px: ahi no entran el
+                logotipo y un boton uno al lado del otro. Solo escritorio: en
+                movil la barra es un cajon que ya se cierra entero. */}
+            <li className="hidden lg:block">
+              <button
+                type="button"
+                onClick={alternarPlegado}
+                aria-expanded={!plegado}
+                aria-label={plegado ? t("expand") : t("collapse")}
+                title={plegado ? t("expand") : t("collapse")}
+                className={cn(
+                  "flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground",
+                  plegado && "justify-center gap-0 px-0",
+                )}
+              >
+                {plegado ? (
+                  <PanelLeftOpen className="h-4 w-4 shrink-0" />
+                ) : (
+                  <PanelLeftClose className="h-4 w-4 shrink-0" />
+                )}
+                <span className={cn(plegado && "hidden")}>{t("collapse")}</span>
+              </button>
+            </li>
           </ul>
         </nav>
 
@@ -308,7 +408,7 @@ export function Sidebar({ open = false, onClose }: SidebarProps) {
               match, so we hide it to avoid duplicating the user name
               below; for renamed or shared accounts it tells the user
               which account they're acting in. */}
-          {showAccountStrip && account?.name ? (
+          {showAccountStrip && account?.name && !plegado ? (
             <div className="mb-2 flex items-center gap-2 px-3 text-xs text-muted-foreground">
               <UsersRound className="size-3.5 shrink-0" />
               {/* `title=` exposes the full name on hover when it
@@ -338,7 +438,13 @@ export function Sidebar({ open = false, onClose }: SidebarProps) {
             </div>
           ) : null}
           <DropdownMenu>
-            <DropdownMenuTrigger className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-left transition-colors hover:bg-muted/60 focus:bg-muted/60 focus:outline-none data-popup-open:bg-muted/60">
+            <DropdownMenuTrigger
+              title={plegado ? (profile?.full_name ?? profile?.email ?? undefined) : undefined}
+              className={cn(
+                "flex w-full items-center gap-3 rounded-lg px-3 py-2 text-left transition-colors hover:bg-muted/60 focus:bg-muted/60 focus:outline-none data-popup-open:bg-muted/60",
+                plegado && "lg:justify-center lg:gap-0 lg:px-0",
+              )}
+            >
               <Avatar className="size-8 shrink-0">
                 {profile?.avatar_url ? (
                   <AvatarImage
@@ -352,7 +458,7 @@ export function Sidebar({ open = false, onClose }: SidebarProps) {
                     "U"}
                 </AvatarFallback>
               </Avatar>
-              <div className="min-w-0 flex-1">
+              <div className={cn("min-w-0 flex-1", plegado && "lg:hidden")}>
                 <p className="truncate text-sm font-medium text-foreground">
                   {profile?.full_name ?? t("defaultUser")}
                 </p>

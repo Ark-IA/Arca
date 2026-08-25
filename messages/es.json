@@ -65,7 +65,9 @@
     "defaultAvatar": "Avatar",
     "menuProfile": "Perfil",
     "menuSettings": "Configuración",
-    "menuSignOut": "Cerrar sesión"
+    "menuSignOut": "Cerrar sesión",
+    "collapse": "Contraer",
+    "expand": "Expandir"
   },
   "Dashboard": {
     "page": {
