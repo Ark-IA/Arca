@@ -82,8 +82,19 @@ interface WhatsAppWebhookEntry {
         phone_number_id: string
       }
       contacts?: Array<{
-        profile: { name: string }
+        /**
+         * Ausente cuando el contacto escribe con nombre de usuario: esas
+         * cuentas no exponen el nombre de perfil.
+         */
+        profile?: { name?: string }
+        /** Identidad numerica, sin prefijo. Ej: "1777593217005660". */
         wa_id: string
+        /**
+         * Nombre de usuario con prefijo de pais. Ej: "CO.1777593217005660".
+         * Solo viene cuando el contacto usa nombre de usuario, y es la
+         * direccion que Meta espera en `to` para responderle.
+         */
+        user_id?: string
       }>
       messages?: WhatsAppMessage[]
       statuses?: Array<{
@@ -91,6 +102,8 @@ interface WhatsAppWebhookEntry {
         status: string
         timestamp: string
         recipient_id: string
+        /** La contraparte con prefijo de `recipient_id`. */
+        recipient_user_id?: string
         /** Presente solo cuando status === 'failed'. Ver handleStatusUpdate. */
         errors?: Array<{
           code?: number
@@ -609,7 +622,9 @@ async function handleReaction(
 
 async function processMessage(
   message: WhatsAppMessage,
-  contact: { profile: { name: string }; wa_id: string },
+  // `profile` falta y `user_id` aparece cuando el contacto escribe con
+  // nombre de usuario: la forma exacta la define el tipo del webhook.
+  contact: { profile?: { name?: string }; wa_id: string; user_id?: string },
   // Tenancy. Resolved from the matched whatsapp_config row; every
   // contact / conversation / message row created downstream is
   // stamped with this so any member of the account can see it.
@@ -623,21 +638,30 @@ async function processMessage(
   // See parseMessageContent for what it turns off.
   mirrorMedia: boolean
 ) {
-  // Meta habilito nombres de usuario en WhatsApp: desde entonces `from`
-  // puede llegar vacio y el unico identificador fiable es `wa_id`, que a
-  // veces es un telefono en digitos y a veces algo como "CO.4509733672618188".
+  // Meta manda hasta TRES formas de identificar al remitente, y cada una
+  // sirve para algo distinto:
   //
-  // Se guardan LOS DOS: `whatsapp_id` siempre (es la direccion de respuesta),
-  // y `phone` solo cuando de verdad parece un telefono. Derivar un telefono
-  // a la fuerza del wa_id daria numeros inventados que despues fallan al
-  // llamar o al exportar.
-  const waId = contact?.wa_id || message.from || ''
-  const soloDigitos = normalizePhone(message.from || contact?.wa_id || '')
-  // Un telefono real es E.164: 7 a 15 digitos. Un wa_id de nombre de usuario
-  // es mucho mas largo, asi que la longitud los separa sin ambiguedad.
+  //   message.from        telefono, cuando el contacto tiene numero
+  //   contacts[].wa_id    identidad numerica, siempre presente
+  //   contacts[].user_id  nombre de usuario con prefijo (ej. CO.177759...)
+  //
+  // Se guardan las tres por separado en vez de quedarse con una: el
+  // telefono es lo que entiende el resto del mundo, el user_id es la
+  // direccion de respuesta de quien no tiene numero, y el wa_id es la
+  // llave con la que llegan los avisos de estado.
+  const waId = contact?.wa_id || ''
+  const waUserId = contact?.user_id || ''
+
+  const soloDigitos = normalizePhone(message.from || '')
+  // Un telefono real es E.164: 7 a 15 digitos. Las identidades de nombre de
+  // usuario son de 16, asi que la longitud las separa sin ambiguedad. No se
+  // deriva telefono del wa_id: seria inventar un numero que despues falla
+  // al llamar o al exportar.
   const senderPhone =
     soloDigitos.length >= 7 && soloDigitos.length <= 15 ? soloDigitos : ''
-  const contactName = contact?.profile?.name || waId
+
+  // Sin nombre de perfil, el identificador es mejor etiqueta que un vacio.
+  const contactName = contact?.profile?.name || senderPhone || waUserId || waId
 
   // Find or create contact
   const contactOutcome = await findOrCreateContact(
@@ -645,7 +669,8 @@ async function processMessage(
     configOwnerUserId,
     senderPhone,
     contactName,
-    waId
+    waId,
+    waUserId
   )
   if (!contactOutcome) return
   const contactRecord = contactOutcome.contact
@@ -1166,23 +1191,29 @@ async function findOrCreateContact(
   configOwnerUserId: string,
   phone: string,
   name: string,
-  whatsappId?: string
+  whatsappId?: string,
+  whatsappUserId?: string
 ): Promise<ContactOutcome | null> {
-  // Se busca PRIMERO por wa_id y solo despues por telefono.
+  // Se busca PRIMERO por identificador de WhatsApp y solo despues por
+  // telefono.
   //
-  // El orden importa: el wa_id es el identificador que Meta garantiza en
-  // todo mensaje entrante, mientras que el telefono puede faltar (usuarios
-  // con nombre de usuario) o venir en formatos distintos. Buscando por
-  // telefono primero, un contacto sin numero nunca se reencontraria y cada
-  // mensaje suyo crearia un contacto nuevo.
+  // El orden importa: los identificadores llegan en todo mensaje entrante,
+  // mientras que el telefono puede faltar (contactos con nombre de usuario)
+  // o venir en formatos distintos. Buscando por telefono primero, un
+  // contacto sin numero nunca se reencontraria y cada mensaje suyo crearia
+  // un contacto nuevo.
   let existingContact = null
 
-  if (whatsappId) {
+  for (const [columna, valor] of [
+    ['whatsapp_user_id', whatsappUserId],
+    ['whatsapp_id', whatsappId],
+  ] as const) {
+    if (existingContact || !valor) continue
     const { data } = await supabaseAdmin()
       .from('contacts')
       .select('*')
       .eq('account_id', accountId)
-      .eq('whatsapp_id', whatsappId)
+      .eq(columna, valor)
       .limit(1)
       .maybeSingle()
     if (data) existingContact = data
@@ -1209,6 +1240,8 @@ async function findOrCreateContact(
     const parche: Record<string, string> = {}
     if (name && name !== existingContact.name) parche.name = name
     if (whatsappId && !existingContact.whatsapp_id) parche.whatsapp_id = whatsappId
+    if (whatsappUserId && !existingContact.whatsapp_user_id)
+      parche.whatsapp_user_id = whatsappUserId
     if (phone && !existingContact.phone) parche.phone = phone
 
     if (Object.keys(parche).length > 0) {
@@ -1236,7 +1269,8 @@ async function findOrCreateContact(
       // numero porque usa nombre de usuario.
       phone: phone || null,
       whatsapp_id: whatsappId || null,
-      name: name || phone || whatsappId,
+      whatsapp_user_id: whatsappUserId || null,
+      name: name || phone || whatsappUserId || whatsappId,
     })
     .select()
     .single()

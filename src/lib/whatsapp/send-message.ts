@@ -235,36 +235,54 @@ export async function sendMessageToConversation(
 
   const contact = conversation.contact;
 
-  // A quien se le responde.
+  // ============================================================
+  // A donde se responde
+  // ============================================================
   //
-  // Meta habilito nombres de usuario: un cliente puede escribir SIN tener
-  // telefono, y entonces su unica direccion es el wa_id. La API de Meta
-  // acepta ese wa_id en el campo `to` igual que aceptaria un numero.
+  // Se responde POR LA MISMA VIA por la que el contacto escribio:
   //
-  // El telefono se prefiere cuando existe y es valido, porque es el dato
-  // que entiende todo lo demas. El wa_id es el respaldo, no el sustituto.
+  //   escribio desde un telefono  ->  se responde al telefono
+  //   escribio con nombre de usuario -> se responde al nombre de usuario
+  //
+  // Meta manda las dos formas en el webhook (`wa_id` y `user_id`) y espera
+  // en `to` la que corresponda. Mezclarlas es lo que producia el error
+  // 131026: mandarle al identificador numerico a alguien cuya direccion
+  // real es el nombre de usuario con prefijo.
+  //
+  // El orden es deliberado: el telefono primero cuando existe y es valido,
+  // porque es el dato que entiende el resto del mundo; despues el nombre de
+  // usuario, que es la direccion de quien no tiene numero; y por ultimo la
+  // identidad numerica, como red de seguridad para filas viejas.
   const telefonoLimpio = contact?.phone ? sanitizePhoneForMeta(contact.phone) : '';
   const telefonoSirve = telefonoLimpio !== '' && isValidE164(telefonoLimpio);
-  const sanitizedPhone = telefonoSirve ? telefonoLimpio : (contact?.whatsapp_id ?? '');
 
-  if (!sanitizedPhone) {
+  const destino = telefonoSirve
+    ? telefonoLimpio
+    : contact?.whatsapp_user_id || contact?.whatsapp_id || '';
+
+  if (!destino) {
     throw new SendMessageError(
       'bad_request',
-      // El mensaje nombra las DOS cosas que faltan. El anterior decia solo
+      // El mensaje nombra TODAS las vias que faltan. El anterior decia solo
       // "no hay telefono", y quien lo leia salia a buscar un numero que
-      // este cliente nunca tuvo.
-      'El contacto no tiene ni numero de telefono ni identificador de WhatsApp: no hay a donde responder.',
+      // este contacto nunca tuvo.
+      'El contacto no tiene numero de telefono ni identificador de WhatsApp: no hay a donde responder.',
       400
     );
   }
 
-  if (contact?.phone && !telefonoSirve && !contact?.whatsapp_id) {
+  if (contact?.phone && !telefonoSirve && !contact?.whatsapp_user_id && !contact?.whatsapp_id) {
     throw new SendMessageError(
       'bad_request',
       `El numero guardado ("${contact.phone}") no tiene formato valido.`,
       400
     );
   }
+
+  // El resto del archivo llama a esta variable `sanitizedPhone` desde antes
+  // de que existieran los nombres de usuario. Se conserva el nombre para no
+  // tocar una docena de sitios, pero ahora puede llevar un identificador.
+  const sanitizedPhone = destino;
 
   // WhatsApp config, account-scoped.
   const { data: config, error: configError } = await db

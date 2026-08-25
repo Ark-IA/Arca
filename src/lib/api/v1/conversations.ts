@@ -22,7 +22,9 @@ export interface ApiConversation {
   updated_at: string;
   contact: {
     id: string;
-    phone: string;
+    // Puede ser null desde que existen los contactos con nombre de usuario
+    // de WhatsApp, que no tienen numero (migracion 041).
+    phone: string | null;
     name: string | null;
     email: string | null;
     company: string | null;

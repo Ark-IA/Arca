@@ -127,7 +127,15 @@ export function ContactSidebar({ contact }: ContactSidebarProps) {
     );
   }
 
-  const displayName = contact.name || contact.phone;
+  // Con nombre de usuario no hay ni nombre de perfil ni telefono: el
+  // identificador es mejor etiqueta que una cadena vacia, que dejaria la
+  // inicial del avatar en blanco.
+  const displayName =
+    contact.name ||
+    contact.phone ||
+    contact.whatsapp_user_id ||
+    contact.whatsapp_id ||
+    "?";
   const initials = displayName.charAt(0).toUpperCase();
 
   return (

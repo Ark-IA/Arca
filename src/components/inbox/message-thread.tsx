@@ -879,7 +879,15 @@ export function MessageThread({
     );
   }
 
-  const displayName = contact.name || contact.phone;
+  // Con nombre de usuario no hay ni nombre de perfil ni telefono: el
+  // identificador es mejor etiqueta que una cadena vacia, que dejaria la
+  // inicial del avatar en blanco.
+  const displayName =
+    contact.name ||
+    contact.phone ||
+    contact.whatsapp_user_id ||
+    contact.whatsapp_id ||
+    "?";
   const messageGroups = groupMessagesByDate(messages);
   const currentStatus = STATUS_OPTIONS.find(
     (s) => s.value === conversation.status

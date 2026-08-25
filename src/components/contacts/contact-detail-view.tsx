@@ -192,7 +192,11 @@ export function ContactDetailView({
 
   async function copyPhone() {
     if (!contact) return;
-    await navigator.clipboard.writeText(contact.phone);
+    // Copiar el identificador cuando no hay numero es mas util que copiar
+    // una cadena vacia sin avisar.
+    await navigator.clipboard.writeText(
+      contact.phone ?? contact.whatsapp_user_id ?? contact.whatsapp_id ?? "",
+    );
     setCopiedPhone(true);
     setTimeout(() => setCopiedPhone(false), 2000);
   }
