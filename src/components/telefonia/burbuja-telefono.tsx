@@ -21,6 +21,7 @@ import {
 } from 'lucide-react';
 
 import { useSoftphone } from '@/hooks/use-softphone';
+import { sonarTecla } from '@/lib/telefonia/tono-teclado';
 import { cn } from '@/lib/utils';
 
 /**
@@ -87,6 +88,12 @@ export function BurbujaTelefono() {
   if (!hayTelefono) return null;
 
   const pulsar = (digito: string) => {
+    // El tono suena siempre, se esté marcando o dentro de una llamada. Es la
+    // confirmación de que la tecla se registró: sin él, en una pantalla táctil
+    // no hay forma de saber si el toque entró o se perdió, y la gente marca
+    // dos veces el mismo dígito.
+    sonarTecla(digito);
+
     if (tel.estado === 'en-llamada') {
       // Durante la llamada el teclado sirve para los menus de voz, no para
       // componer un numero nuevo.
