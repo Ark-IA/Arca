@@ -74,6 +74,9 @@ export interface AccountMember {
   email: string | null;
   avatar_url: string | null;
   role: AccountRole;
+  /** Extensión de Asterisk. `null` si no tiene teléfono, o si quien
+   *  pregunta no administra el equipo. */
+  sip_extension: string | null;
   joined_at: string;
 }
 

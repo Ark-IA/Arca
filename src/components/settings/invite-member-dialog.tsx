@@ -16,7 +16,9 @@
 
 import { useState } from 'react';
 import { toast } from 'sonner';
-import { Copy, Loader2, MessageCircle, Sparkles } from 'lucide-react';
+import { Copy, Loader2, MessageCircle, Phone, Sparkles } from 'lucide-react';
+
+import { esExtensionValida } from '@/lib/telefonia/sip';
 
 import { Button, buttonVariants } from '@/components/ui/button';
 import {
@@ -80,6 +82,7 @@ export function InviteMemberDialog({
   const [role, setRole] = useState<InviteRole>('agent');
   const [expiry, setExpiry] = useState<string>('7');
   const [label, setLabel] = useState('');
+  const [extension, setExtension] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [result, setResult] = useState<CreatedInvite | null>(null);
 
@@ -87,6 +90,7 @@ export function InviteMemberDialog({
     setRole('agent');
     setExpiry('7');
     setLabel('');
+    setExtension('');
     setResult(null);
     setSubmitting(false);
   }
@@ -103,6 +107,11 @@ export function InviteMemberDialog({
       toast.error(t('labelTooLong', { max: MAX_LABEL_LEN }));
       return;
     }
+    const ext = extension.trim();
+    if (ext !== '' && !esExtensionValida(ext)) {
+      toast.error('La extensión tiene que ser un número de 3 a 6 dígitos.');
+      return;
+    }
     setSubmitting(true);
     try {
       const res = await fetch('/api/account/invitations', {
@@ -112,6 +121,7 @@ export function InviteMemberDialog({
           role,
           expiresInDays: Number(expiry),
           label: trimmedLabel || undefined,
+          sipExtension: ext || undefined,
         }),
       });
 
@@ -320,6 +330,33 @@ export function InviteMemberDialog({
                 />
                 <p className="text-xs text-muted-foreground">
                   {t('labelHint')}
+                </p>
+              </div>
+
+              {/* Extension de Asterisk. Va aca y no en una pantalla aparte
+                  porque el momento de dar de alta a alguien es cuando se
+                  sabe si va a atender llamadas o no. */}
+              <div className="space-y-2">
+                <Label className="flex items-center gap-1.5 text-muted-foreground">
+                  <Phone className="size-3.5" />
+                  Extensión telefónica{' '}
+                  <span className="text-xs text-muted-foreground">(opcional)</span>
+                </Label>
+                <Input
+                  inputMode="numeric"
+                  placeholder="1002"
+                  value={extension}
+                  onChange={(e) =>
+                    // Solo digitos: el campo acepta pegar y el usuario no
+                    // tiene por que saber que un espacio de mas lo invalida.
+                    setExtension(e.target.value.replace(/\D/g, '').slice(0, 6))
+                  }
+                  className="w-32 bg-muted border-border text-foreground placeholder:text-muted-foreground font-mono"
+                />
+                <p className="text-xs text-muted-foreground">
+                  De 3 a 6 dígitos. Queda reservada hasta que la persona entre; ahí
+                  se le habilita el teléfono del CRM. Dejalo vacío si no atiende
+                  llamadas.
                 </p>
               </div>
             </div>

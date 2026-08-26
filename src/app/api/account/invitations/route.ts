@@ -27,6 +27,7 @@ import {
   inviteUrl,
 } from "@/lib/auth/invitations";
 import { isAccountRole } from "@/lib/auth/roles";
+import { esExtensionValida } from "@/lib/telefonia/sip";
 import {
   checkRateLimit,
   rateLimitResponse,
@@ -143,7 +144,7 @@ export async function GET() {
     const { data, error } = await ctx.supabase
       .from("account_invitations")
       .select(
-        "id, role, label, created_by_user_id, created_at, expires_at, accepted_at, accepted_by_user_id",
+        "id, role, label, sip_extension, created_by_user_id, created_at, expires_at, accepted_at, accepted_by_user_id",
       )
       .eq("account_id", ctx.accountId)
       .is("accepted_at", null)
@@ -179,7 +180,12 @@ export async function POST(request: Request) {
     if (!limit.success) return rateLimitResponse(limit);
 
     const body = (await request.json().catch(() => null)) as
-      | { role?: unknown; expiresInDays?: unknown; label?: unknown }
+      | {
+          role?: unknown;
+          expiresInDays?: unknown;
+          label?: unknown;
+          sipExtension?: unknown;
+        }
       | null;
 
     const role = body?.role;
@@ -214,6 +220,50 @@ export async function POST(request: Request) {
       label = trimmed === "" ? null : trimmed;
     }
 
+    // Extension de Asterisk reservada para quien acepte. Opcional: la mayoria
+    // de los miembros de un CRM no necesitan telefono.
+    let sipExtension: string | null = null;
+    if (typeof body?.sipExtension === "string" && body.sipExtension.trim() !== "") {
+      const ext = body.sipExtension.trim();
+      if (!esExtensionValida(ext)) {
+        return NextResponse.json(
+          { error: "La extensión tiene que ser un número de 3 a 6 dígitos." },
+          { status: 400 },
+        );
+      }
+      // Se comprueba contra el equipo actual Y contra las invitaciones que
+      // siguen abiertas: reservar dos veces la misma extension haria que la
+      // segunda persona entrara sin telefono y sin saber por que.
+      const [{ data: enUso }, { data: reservada }] = await Promise.all([
+        ctx.supabase
+          .from("profiles")
+          .select("user_id")
+          .eq("account_id", ctx.accountId)
+          .eq("sip_extension", ext)
+          .maybeSingle(),
+        ctx.supabase
+          .from("account_invitations")
+          .select("id")
+          .eq("account_id", ctx.accountId)
+          .eq("sip_extension", ext)
+          .is("accepted_at", null)
+          .gt("expires_at", new Date().toISOString())
+          .maybeSingle(),
+      ]);
+
+      if (enUso || reservada) {
+        return NextResponse.json(
+          {
+            error: enUso
+              ? `La extensión ${ext} ya está asignada a alguien del equipo.`
+              : `La extensión ${ext} ya está reservada en otra invitación pendiente.`,
+          },
+          { status: 409 },
+        );
+      }
+      sipExtension = ext;
+    }
+
     const { token, hash } = generateInviteToken();
 
     const { data, error } = await ctx.supabase
@@ -224,9 +274,10 @@ export async function POST(request: Request) {
         role,
         created_by_user_id: ctx.userId,
         label,
+        sip_extension: sipExtension,
         expires_at: expiresAt.toISOString(),
       })
-      .select("id, role, label, expires_at, created_at")
+      .select("id, role, label, sip_extension, expires_at, created_at")
       .single();
 
     if (error || !data) {

@@ -1,0 +1,113 @@
+/**
+ * Registro de llamadas.
+ *
+ *   POST  — abre el registro cuando empieza la llamada.
+ *   PATCH — lo cierra con el desenlace.
+ *
+ * Se escribe desde el navegador y no desde Asterisk a proposito: el navegador
+ * es quien sabe a que contacto del CRM corresponde el numero marcado. Asterisk
+ * solo ve digitos.
+ *
+ * Se abre el registro AL EMPEZAR y no al terminar. Si se guardara solo al
+ * final, cada llamada que termina con la pestaña cerrada o con el portatil sin
+ * bateria desapareceria -- y esas son justo las que interesa revisar.
+ */
+
+import { NextResponse } from 'next/server'
+import { requireRole, toErrorResponse } from '@/lib/auth/account'
+import { supabaseAdmin } from '@/lib/flows/admin-client'
+
+export const dynamic = 'force-dynamic'
+
+const ESTADOS = [
+  'ringing',
+  'answered',
+  'busy',
+  'failed',
+  'no_answer',
+  'completed',
+  'canceled',
+] as const
+type Estado = (typeof ESTADOS)[number]
+
+function esEstado(v: unknown): v is Estado {
+  return typeof v === 'string' && (ESTADOS as readonly string[]).includes(v)
+}
+
+export async function POST(request: Request) {
+  try {
+    const ctx = await requireRole('agent')
+    const cuerpo = (await request.json().catch(() => null)) as {
+      direction?: unknown
+      to_number?: unknown
+      from_number?: unknown
+      contact_id?: unknown
+      extension?: unknown
+    } | null
+
+    const direction = cuerpo?.direction === 'inbound' ? 'inbound' : 'outbound'
+
+    const { data, error } = await supabaseAdmin()
+      .from('call_logs')
+      .insert({
+        account_id: ctx.accountId,
+        user_id: ctx.userId,
+        contact_id: typeof cuerpo?.contact_id === 'string' ? cuerpo.contact_id : null,
+        direction,
+        to_number: typeof cuerpo?.to_number === 'string' ? cuerpo.to_number : null,
+        from_number: typeof cuerpo?.from_number === 'string' ? cuerpo.from_number : null,
+        extension: typeof cuerpo?.extension === 'string' ? cuerpo.extension : null,
+        status: 'ringing',
+      })
+      .select('id')
+      .single()
+
+    if (error || !data) {
+      console.error('[telefonia] no se pudo abrir el registro:', error?.message)
+      return NextResponse.json({ error: 'No se pudo registrar la llamada' }, { status: 500 })
+    }
+
+    return NextResponse.json({ id: data.id })
+  } catch (err) {
+    return toErrorResponse(err)
+  }
+}
+
+export async function PATCH(request: Request) {
+  try {
+    const ctx = await requireRole('agent')
+    const cuerpo = (await request.json().catch(() => null)) as {
+      id?: unknown
+      status?: unknown
+      answered?: unknown
+    } | null
+
+    if (typeof cuerpo?.id !== 'string' || !esEstado(cuerpo.status)) {
+      return NextResponse.json({ error: 'Datos incompletos' }, { status: 400 })
+    }
+
+    const cambios: Record<string, unknown> = { status: cuerpo.status }
+    if (cuerpo.answered === true) cambios.answered_at = new Date().toISOString()
+    // Todo estado que no sea 'contestada' o 'sonando' es un final.
+    if (cuerpo.status !== 'ringing' && cuerpo.status !== 'answered') {
+      cambios.ended_at = new Date().toISOString()
+    }
+
+    // El filtro por cuenta no es decorativo: sin el, conocer el id de una
+    // llamada ajena bastaria para reescribir su desenlace.
+    const { error } = await supabaseAdmin()
+      .from('call_logs')
+      .update(cambios)
+      .eq('id', cuerpo.id)
+      .eq('account_id', ctx.accountId)
+
+    if (error) {
+      console.error('[telefonia] no se pudo cerrar el registro:', error.message)
+      return NextResponse.json({ error: 'No se pudo actualizar' }, { status: 500 })
+    }
+
+    return NextResponse.json({ ok: true })
+  } catch (err) {
+    return toErrorResponse(err)
+  }
+}

@@ -21,7 +21,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { BroadcastError, type BroadcastPlan } from '@/lib/whatsapp/broadcast-core';
 import { decrypt } from '@/lib/whatsapp/encryption';
 import { resolveTemplateRow } from '@/lib/whatsapp/template-body';
-import { sanitizePhoneForMeta, isValidE164 } from '@/lib/whatsapp/phone-utils';
+import { resolverDestino, SIN_DESTINO } from '@/lib/whatsapp/destino';
 
 /** Which recipients a resume pass picks up. */
 export type ResumeScope = 'pending' | 'failed' | 'all';
@@ -115,16 +115,22 @@ export interface ResumePlan {
   unsendable: number;
 }
 
+/** Los tres identificadores con los que se le puede escribir a alguien. */
+type ContactoEmbebido = {
+  phone?: string | null;
+  whatsapp_user_id?: string | null;
+  whatsapp_id?: string | null;
+};
+
 interface RecipientRow {
   id: string;
   template_params: unknown;
-  contact: { phone?: string | null } | { phone?: string | null }[] | null;
+  contact: ContactoEmbebido | ContactoEmbebido[] | null;
 }
 
 /** Supabase renders an embedded to-one join as an object or a 1-array. */
-function contactPhone(row: RecipientRow): string | null {
-  const c = Array.isArray(row.contact) ? row.contact[0] : row.contact;
-  return c?.phone ?? null;
+function contactoDe(row: RecipientRow): ContactoEmbebido | null {
+  return (Array.isArray(row.contact) ? row.contact[0] : row.contact) ?? null;
 }
 
 /**
@@ -158,7 +164,7 @@ export async function planBroadcastResume(
   const statuses = scopeStatuses(scope);
   const { data: rawRows, error: recError } = await db
     .from('broadcast_recipients')
-    .select('id, template_params, contact:contacts(phone)')
+    .select('id, template_params, contact:contacts(phone, whatsapp_user_id, whatsapp_id)')
     .eq('broadcast_id', broadcastId)
     .in('status', statuses)
     // Oldest first, so repeated capped passes chew through the backlog
@@ -172,14 +178,18 @@ export async function planBroadcastResume(
 
   const rows = (rawRows ?? []) as RecipientRow[];
 
-  // A recipient whose contact has no usable phone can never send. Stamp
-  // it failed now: leaving it 'pending' would keep the broadcast in
-  // 'sending' forever, which is the very symptom being fixed.
-  const sendable: RecipientRow[] = [];
+  // Un destinatario sin telefono NI nombre de usuario no se puede enviar
+  // nunca. Se marca fallido ahora: dejarlo 'pendiente' mantendria el masivo
+  // en 'enviando' para siempre, que es justo el sintoma que se corrige aca.
+  //
+  // Ojo: hasta la 045 esto miraba solo el telefono, asi que los contactos
+  // que llegaron por nombre de usuario caian en 'unsendable' teniendo un
+  // destino perfectamente valido.
+  const sendable: { row: RecipientRow; destino: string }[] = [];
   const unsendable: string[] = [];
   for (const row of rows) {
-    const sanitized = sanitizePhoneForMeta(contactPhone(row) ?? '');
-    if (isValidE164(sanitized)) sendable.push(row);
+    const destino = resolverDestino(contactoDe(row));
+    if (destino) sendable.push({ row, destino: destino.valor });
     else unsendable.push(row.id);
   }
   if (unsendable.length > 0) {
@@ -187,7 +197,7 @@ export async function planBroadcastResume(
       .from('broadcast_recipients')
       .update({
         status: 'failed',
-        error_message: 'No valid phone number on contact',
+        error_message: SIN_DESTINO,
       })
       .in('id', unsendable);
   }
@@ -239,9 +249,12 @@ export async function planBroadcastResume(
     phoneNumberId: config.phone_number_id,
     accessToken: decrypt(config.access_token),
     templateRow: resolvedTemplate.row,
-    planned: slice.map((row) => ({
+    planned: slice.map(({ row, destino }) => ({
       recipientRowId: row.id,
-      phone: sanitizePhoneForMeta(contactPhone(row) ?? ''),
+      // El campo se llama `phone` por historia: hoy lleva un telefono o un
+      // identificador de usuario, y quien envia decide con cual campo de la
+      // API de Meta mandarlo.
+      phone: destino,
       params: Array.isArray(row.template_params)
         ? row.template_params.filter((p): p is string => typeof p === 'string')
         : [],

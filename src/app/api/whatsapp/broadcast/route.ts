@@ -5,11 +5,10 @@ import { decrypt } from '@/lib/whatsapp/encryption'
 import type { SendTimeParams } from '@/lib/whatsapp/template-send-builder'
 import { resolveTemplateRow } from '@/lib/whatsapp/template-body'
 import {
-  sanitizePhoneForMeta,
-  isValidE164,
   phoneVariants,
   isRecipientNotAllowedError,
 } from '@/lib/whatsapp/phone-utils'
+import { validarDestinoEntrante } from '@/lib/whatsapp/destino'
 import {
   checkRateLimit,
   rateLimitResponse,
@@ -165,21 +164,27 @@ export async function POST(request: Request) {
     let failedCount = 0
 
     for (const recipient of recipients) {
-      const sanitized = sanitizePhoneForMeta(recipient.phone)
+      // `phone` es historico: hoy el campo lleva un telefono O un
+      // identificador de usuario de WhatsApp. Se conserva el nombre porque
+      // es la clave con la que el cliente cruza los resultados.
+      const destino = validarDestinoEntrante(recipient.phone)
 
-      if (!isValidE164(sanitized)) {
+      if (!destino) {
         results.push({
           phone: recipient.phone,
           status: 'failed',
-          error: 'Invalid phone number format',
+          error: 'Destinatario inválido: no es ni un teléfono E.164 ni un identificador de usuario.',
         })
         failedCount++
         continue
       }
 
-      // Retry with phone variants on "not in allowed list" so numbers
-      // that differ only in a trunk-prefix 0 still reach recipients.
-      const variants = phoneVariants(sanitized)
+      // Las variantes solo tienen sentido con telefonos: existen para
+      // recuperar numeros que difieren en un 0 de prefijo. Un identificador
+      // de usuario es literal, y "probar variantes" seria escribirle a
+      // alguien distinto.
+      const variants =
+        destino.tipo === 'telefono' ? phoneVariants(destino.valor) : [destino.valor]
       let sentMessageId: string | null = null
       let lastError: string | null = null
 

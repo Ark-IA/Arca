@@ -95,7 +95,12 @@ export async function resolveAuditUserId(
 }
 
 export interface ContactInput {
-  phone: string;
+  phone?: string;
+  /**
+   * Identificador de usuario de WhatsApp, para los contactos que usan nombre
+   * de usuario en vez de exponer su numero. Uno de los dos tiene que venir.
+   */
+  whatsappUserId?: string;
   name?: string | null;
   email?: string | null;
   company?: string | null;
@@ -113,7 +118,49 @@ export async function findOrCreateContact(
   auditUserId: string,
   input: ContactInput
 ): Promise<{ id: string; created: boolean }> {
-  const sanitized = sanitizePhoneForMeta(input.phone);
+  // Contacto por nombre de usuario: no hay telefono que normalizar ni contra
+  // el que deduplicar, asi que el identificador ES la clave.
+  const usuario = input.whatsappUserId?.trim();
+  if (usuario) {
+    const { data: yaEsta } = await db
+      .from('contacts')
+      .select('id')
+      .eq('account_id', accountId)
+      .or(`whatsapp_user_id.eq.${usuario},whatsapp_id.eq.${usuario}`)
+      .maybeSingle();
+    if (yaEsta) return { id: yaEsta.id, created: false };
+
+    const { data: nuevo, error: errUsuario } = await db
+      .from('contacts')
+      .insert({
+        account_id: accountId,
+        user_id: auditUserId,
+        phone: null,
+        whatsapp_user_id: usuario,
+        name: input.name ?? usuario,
+        email: input.email ?? null,
+        company: input.company ?? null,
+      })
+      .select('id')
+      .single();
+
+    if (errUsuario || !nuevo) {
+      if (isUniqueViolation(errUsuario)) {
+        const { data: gano } = await db
+          .from('contacts')
+          .select('id')
+          .eq('account_id', accountId)
+          .eq('whatsapp_user_id', usuario)
+          .maybeSingle();
+        if (gano) return { id: gano.id, created: false };
+      }
+      console.error('[api/v1/contacts] create by user id error:', errUsuario);
+      throw new ContactError('Failed to create contact', 500);
+    }
+    return { id: nuevo.id, created: true };
+  }
+
+  const sanitized = sanitizePhoneForMeta(input.phone ?? '');
   if (!isValidE164(sanitized)) {
     throw new ContactError(
       "'phone' must be a valid phone number in E.164 format (e.g. +14155550123)",

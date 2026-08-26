@@ -8,6 +8,7 @@ import {
   batchRetryDelayMs,
 } from '@/lib/broadcast-retry';
 import { Contact, MessageTemplate } from '@/types';
+import { resolverDestino, SIN_DESTINO } from '@/lib/whatsapp/destino';
 
 export type CustomFieldOperator = 'is' | 'is_not' | 'contains';
 
@@ -478,15 +479,44 @@ export function useBroadcastSending(): UseBroadcastSendingReturn {
       for (let i = 0; i < recipients.length; i += SEND_BATCH_SIZE) {
         const batch = recipients.slice(i, i + SEND_BATCH_SIZE);
 
-        const apiRecipients = batch
-          .filter((r) => r.contact?.phone)
-          .map((r) => ({
-            phone: r.contact!.phone as string,
+        // Un contacto que llego por nombre de usuario no tiene telefono, y
+        // filtrar por telefono lo sacaba de la lista antes de llegar a la
+        // API. Peor: como no se enviaba nada, su fila quedaba en "pendiente"
+        // -- ni enviado ni fallido -- y el reintento posterior decia que no
+        // habia nada que reintentar.
+        const destinoDe = new Map<string, string>();
+        const apiRecipients: {
+          phone: string;
+          params: string[];
+          messageParams?: typeof messageParams;
+        }[] = [];
+        const sinDestino: typeof batch = [];
+
+        for (const r of batch) {
+          const destino = resolverDestino(r.contact);
+          if (!destino) {
+            sinDestino.push(r);
+            continue;
+          }
+          destinoDe.set(r.id, destino.valor);
+          apiRecipients.push({
+            phone: destino.valor,
             // Read back off the row rather than re-resolved, so this
             // pass and any later resume send identical params.
             params: Array.isArray(r.template_params) ? r.template_params : [],
             ...(messageParams ? { messageParams } : {}),
-          }));
+          });
+        }
+
+        // Se marcan como fallidos ANTES de salir del lote. Dejarlos
+        // pendientes es lo que los volvia invisibles.
+        for (const r of sinDestino) {
+          failedCount++;
+          await supabase
+            .from('broadcast_recipients')
+            .update({ status: 'failed', error_message: SIN_DESTINO })
+            .eq('id', r.id);
+        }
 
         if (apiRecipients.length === 0) continue;
 
@@ -525,8 +555,10 @@ export function useBroadcastSending(): UseBroadcastSendingReturn {
           }
 
           for (const recipient of batch) {
-            const phone = recipient.contact?.phone;
-            const result = phone ? resultsByPhone.get(phone) : undefined;
+            // Los que no tenian a donde ya se marcaron arriba.
+            const destino = destinoDe.get(recipient.id);
+            if (!destino) continue;
+            const result = resultsByPhone.get(destino);
 
             if (!result) {
               failedCount++;
@@ -534,7 +566,7 @@ export function useBroadcastSending(): UseBroadcastSendingReturn {
                 .from('broadcast_recipients')
                 .update({
                   status: 'failed',
-                  error_message: 'No phone number on contact',
+                  error_message: 'El servidor no devolvió resultado para este destinatario.',
                 })
                 .eq('id', recipient.id);
               continue;

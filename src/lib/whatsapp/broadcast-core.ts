@@ -20,9 +20,9 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 
 import { sendTemplateMessage } from '@/lib/whatsapp/meta-api';
 import { decrypt } from '@/lib/whatsapp/encryption';
+import { validarDestinoEntrante } from '@/lib/whatsapp/destino';
+import { esBsuid } from '@/lib/whatsapp/bsuid';
 import {
-  sanitizePhoneForMeta,
-  isValidE164,
   phoneVariants,
   isRecipientNotAllowedError,
 } from '@/lib/whatsapp/phone-utils';
@@ -146,17 +146,24 @@ export async function createBroadcast(
   const resolved: { contactId: string; phone: string; params: string[] }[] = [];
   let rejected = 0;
   for (const r of recipients) {
-    const sanitized = sanitizePhoneForMeta(typeof r.to === 'string' ? r.to : '');
-    if (!isValidE164(sanitized)) {
+    // El destinatario puede venir como telefono o como identificador de
+    // usuario de WhatsApp; los dos son destinos legitimos.
+    const destino = validarDestinoEntrante(typeof r.to === 'string' ? r.to : '');
+    if (!destino) {
       rejected++;
       continue;
     }
-    const { id } = await findOrCreateContact(db, accountId, auditUserId, {
-      phone: sanitized,
-    });
+    const { id } = await findOrCreateContact(
+      db,
+      accountId,
+      auditUserId,
+      destino.tipo === 'telefono'
+        ? { phone: destino.valor }
+        : { whatsappUserId: destino.valor },
+    );
     resolved.push({
       contactId: id,
-      phone: sanitized,
+      phone: destino.valor,
       params: Array.isArray(r.params)
         ? r.params.filter((p): p is string => typeof p === 'string')
         : [],
@@ -260,7 +267,12 @@ export async function deliverBroadcast(
   plan: BroadcastPlan
 ): Promise<void> {
   for (const recipient of plan.planned) {
-    const variants = phoneVariants(recipient.phone);
+    // Probar variantes de un identificador de usuario no tiene sentido: no
+    // hay prefijo de troncal que quitar, y "variar" un identificador seria
+    // escribirle a otra persona.
+    const variants = esBsuid(recipient.phone)
+      ? [recipient.phone]
+      : phoneVariants(recipient.phone);
     let sentMessageId: string | null = null;
     let lastError: string | null = null;
 

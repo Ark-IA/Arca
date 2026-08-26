@@ -31,6 +31,12 @@ interface WhatsAppStatus {
   connected: boolean;
 }
 
+/** Facebook e Instagram: una fila por canal en `channel_connections`, o nada. */
+interface EstadoCanal {
+  conectado: boolean;
+  nombre: string | null;
+}
+
 export function SettingsOverview({
   onSelect,
 }: {
@@ -51,6 +57,12 @@ export function SettingsOverview({
   // from blanking the rest of the landing.
   const [whatsapp, setWhatsapp] = useState<WhatsAppStatus | null>(null);
   const [whatsappLoading, setWhatsappLoading] = useState(true);
+  // Facebook e Instagram salen de la misma tabla y en una sola consulta: son
+  // dos filas de `channel_connections`, no dos servicios distintos que
+  // justifiquen dos viajes a la base.
+  const [canalesMeta, setCanalesMeta] = useState<Record<'facebook' | 'instagram', EstadoCanal> | null>(
+    null,
+  );
 
   useEffect(() => {
     if (!user || !accountId) return;
@@ -136,6 +148,39 @@ export function SettingsOverview({
       setWhatsappLoading(false);
     })();
 
+    // Facebook e Instagram. A diferencia de WhatsApp no se le pregunta a Meta
+    // en cada carga: la validacion ya se hizo al conectar la cuenta, y repetir
+    // esa llamada aca cobraria una ida a Meta cada vez que alguien abre
+    // Configuracion.
+    (async () => {
+      const { data } = await supabase
+        .from('channel_connections')
+        .select('channel, name, status')
+        .eq('account_id', acctId)
+        .in('channel', ['facebook', 'instagram']);
+      if (cancelled) return;
+      const vacio: EstadoCanal = { conectado: false, nombre: null };
+      const mapa: Record<'facebook' | 'instagram', EstadoCanal> = {
+        facebook: { ...vacio },
+        instagram: { ...vacio },
+      };
+      // El cliente de Supabase devuelve `any`, asi que la comprobacion de
+      // arriba no estrecha nada por si sola: hay que nombrar el tipo.
+      const filas = (data ?? []) as {
+        channel: string;
+        name: string | null;
+        status: string;
+      }[];
+      for (const fila of filas) {
+        if (fila.channel !== 'facebook' && fila.channel !== 'instagram') continue;
+        mapa[fila.channel] = {
+          conectado: fila.status === 'connected',
+          nombre: fila.name ?? null,
+        };
+      }
+      setCanalesMeta(mapa);
+    })();
+
     return () => {
       cancelled = true;
     };
@@ -173,6 +218,22 @@ export function SettingsOverview({
         </>
       ),
     },
+    // Los dos canales de Meta van pegados a WhatsApp: quien viene a conectar
+    // un canal los busca juntos, no repartidos por la grilla.
+    ...(['facebook', 'instagram'] as const).map((canal) => {
+      const estado = canalesMeta?.[canal];
+      return {
+        section: canal satisfies SettingsSection as SettingsSection,
+        loading: canalesMeta === null,
+        subtitle: estado?.conectado ? (
+          <>
+            <StatusDot tone="ok" /> {estado.nombre ?? t('connected')}
+          </>
+        ) : (
+          t('notSetup')
+        ),
+      };
+    }),
     {
       section: 'members',
       loading: countsLoading,

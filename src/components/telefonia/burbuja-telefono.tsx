@@ -1,0 +1,262 @@
+'use client';
+
+/**
+ * Burbuja de telefono, abajo a la izquierda.
+ *
+ * Se muestra unicamente a quien tiene una extension asignada. Para el resto
+ * no aparece nada: un boton de telefono que siempre falla es peor que no
+ * tener boton.
+ */
+
+import { useEffect, useState } from 'react';
+import {
+  Delete,
+  Mic,
+  MicOff,
+  Phone,
+  PhoneCall,
+  PhoneIncoming,
+  PhoneOff,
+  X,
+} from 'lucide-react';
+
+import { useSoftphone } from '@/hooks/use-softphone';
+import { cn } from '@/lib/utils';
+
+/**
+ * Las letras bajo cada numero no son decoracion: son la referencia con la que
+ * mucha gente lee un numero en voz alta ("el dos, el de ABC").
+ */
+const TECLAS: { digito: string; letras?: string }[] = [
+  { digito: '1' },
+  { digito: '2', letras: 'ABC' },
+  { digito: '3', letras: 'DEF' },
+  { digito: '4', letras: 'GHI' },
+  { digito: '5', letras: 'JKL' },
+  { digito: '6', letras: 'MNO' },
+  { digito: '7', letras: 'PQRS' },
+  { digito: '8', letras: 'TUV' },
+  { digito: '9', letras: 'WXYZ' },
+  { digito: '*' },
+  { digito: '0', letras: '+' },
+  { digito: '#' },
+];
+
+function reloj(segundos: number): string {
+  const m = Math.floor(segundos / 60);
+  const s = segundos % 60;
+  return `${m}:${String(s).padStart(2, '0')}`;
+}
+
+export function BurbujaTelefono() {
+  const tel = useSoftphone();
+  const [abierto, setAbierto] = useState(false);
+  const [marcado, setMarcado] = useState('');
+
+  const enLlamada =
+    tel.estado === 'llamando' || tel.estado === 'entrante' || tel.estado === 'en-llamada';
+
+  // Una llamada entrante abre el panel sola. Si no, el unico aviso seria un
+  // punto de color en una burbuja cerrada.
+  useEffect(() => {
+    if (tel.estado === 'entrante') setAbierto(true);
+  }, [tel.estado]);
+
+  // Al terminar la llamada se limpia lo marcado: dejarlo invita a volver a
+  // pulsar "llamar" y repetir la llamada que se acaba de colgar.
+  useEffect(() => {
+    if (tel.estado === 'libre') setMarcado('');
+  }, [tel.estado]);
+
+  if (tel.estado === 'cargando' || tel.estado === 'sin-extension') return null;
+
+  const pulsar = (digito: string) => {
+    if (tel.estado === 'en-llamada') {
+      // Durante la llamada el teclado sirve para los menus de voz, no para
+      // componer un numero nuevo.
+      tel.enviarTono(digito);
+      return;
+    }
+    setMarcado((previo) => (previo.length >= 20 ? previo : previo + digito));
+  };
+
+  const llamar = () => {
+    if (marcado.trim() === '') return;
+    tel.llamar(marcado);
+  };
+
+  return (
+    <div className="fixed bottom-5 left-5 z-50 flex flex-col items-start gap-3">
+      {abierto && (
+        <div className="w-[270px] overflow-hidden rounded-2xl border border-border bg-card shadow-2xl">
+          {/* Cabecera */}
+          <div className="flex items-center gap-2 border-b border-border px-4 py-3">
+            <span
+              className={cn(
+                'size-2 shrink-0 rounded-full',
+                tel.estado === 'sin-conexion' ? 'bg-amber-400' : 'bg-primary',
+              )}
+            />
+            <div className="min-w-0 flex-1">
+              <p className="truncate text-sm font-semibold text-foreground">
+                {enLlamada ? tel.interlocutor : `Extensión ${tel.extension}`}
+              </p>
+              <p className="truncate text-xs text-muted-foreground">
+                {tel.estado === 'sin-conexion'
+                  ? (tel.motivo ?? 'Sin conexión')
+                  : tel.estado === 'llamando'
+                    ? 'Llamando…'
+                    : tel.estado === 'entrante'
+                      ? 'Llamada entrante'
+                      : tel.estado === 'en-llamada'
+                        ? reloj(tel.segundos)
+                        : 'Listo para llamar'}
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={() => setAbierto(false)}
+              aria-label="Cerrar el teléfono"
+              className="rounded-md p-1 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+            >
+              <X className="size-4" />
+            </button>
+          </div>
+
+          {/* Numero marcado */}
+          {tel.estado !== 'entrante' && (
+            <div className="flex items-center gap-2 px-4 pt-4">
+              <div className="min-h-8 flex-1 truncate text-right font-mono text-2xl tabular-nums text-foreground">
+                {marcado || <span className="text-muted-foreground/40">···</span>}
+              </div>
+              {marcado !== '' && tel.estado !== 'en-llamada' && (
+                <button
+                  type="button"
+                  onClick={() => setMarcado((p) => p.slice(0, -1))}
+                  aria-label="Borrar el último dígito"
+                  className="rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                >
+                  <Delete className="size-4" />
+                </button>
+              )}
+            </div>
+          )}
+
+          {/* Teclado */}
+          {tel.estado !== 'entrante' && (
+            <div className="grid grid-cols-3 gap-2 p-4">
+              {TECLAS.map(({ digito, letras }) => (
+                <button
+                  key={digito}
+                  type="button"
+                  onClick={() => pulsar(digito)}
+                  className={cn(
+                    'flex h-12 flex-col items-center justify-center rounded-full',
+                    'bg-muted text-foreground transition-colors',
+                    'hover:bg-primary/15 active:bg-primary/25',
+                    'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary',
+                  )}
+                >
+                  <span className="text-lg font-medium leading-none">{digito}</span>
+                  {letras && (
+                    <span className="mt-0.5 text-[9px] leading-none tracking-widest text-muted-foreground">
+                      {letras}
+                    </span>
+                  )}
+                </button>
+              ))}
+            </div>
+          )}
+
+          {/* Acciones */}
+          <div className="flex items-center justify-center gap-3 border-t border-border px-4 py-3">
+            {tel.estado === 'entrante' ? (
+              <>
+                <button
+                  type="button"
+                  onClick={tel.contestar}
+                  className="flex h-12 flex-1 items-center justify-center gap-2 rounded-full bg-primary text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90"
+                >
+                  <PhoneCall className="size-4" />
+                  Contestar
+                </button>
+                <button
+                  type="button"
+                  onClick={tel.colgar}
+                  aria-label="Rechazar"
+                  className="flex size-12 items-center justify-center rounded-full bg-red-600 text-white transition-colors hover:bg-red-700"
+                >
+                  <PhoneOff className="size-5" />
+                </button>
+              </>
+            ) : enLlamada ? (
+              <>
+                <button
+                  type="button"
+                  onClick={tel.alternarSilencio}
+                  aria-label={tel.silenciado ? 'Activar el micrófono' : 'Silenciar el micrófono'}
+                  className={cn(
+                    'flex size-12 items-center justify-center rounded-full transition-colors',
+                    tel.silenciado
+                      ? 'bg-amber-500 text-white hover:bg-amber-600'
+                      : 'bg-muted text-foreground hover:bg-muted/70',
+                  )}
+                >
+                  {tel.silenciado ? <MicOff className="size-5" /> : <Mic className="size-5" />}
+                </button>
+                <button
+                  type="button"
+                  onClick={tel.colgar}
+                  className="flex h-12 flex-1 items-center justify-center gap-2 rounded-full bg-red-600 text-sm font-medium text-white transition-colors hover:bg-red-700"
+                >
+                  <PhoneOff className="size-4" />
+                  Colgar
+                </button>
+              </>
+            ) : (
+              <button
+                type="button"
+                onClick={llamar}
+                disabled={marcado.trim() === '' || tel.estado === 'sin-conexion'}
+                className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-primary text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-40"
+              >
+                <Phone className="size-4" />
+                Llamar
+              </button>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* La burbuja */}
+      <button
+        type="button"
+        onClick={() => setAbierto((p) => !p)}
+        aria-label={abierto ? 'Ocultar el teléfono' : 'Abrir el teléfono'}
+        className={cn(
+          'relative flex size-14 items-center justify-center rounded-full shadow-xl transition-all',
+          'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2',
+          enLlamada
+            ? 'bg-red-600 text-white hover:bg-red-700'
+            : 'bg-primary text-primary-foreground hover:bg-primary/90',
+        )}
+      >
+        {tel.estado === 'entrante' ? (
+          <PhoneIncoming className="size-6" />
+        ) : enLlamada ? (
+          <PhoneCall className="size-6" />
+        ) : (
+          <Phone className="size-6" />
+        )}
+        {/* La llamada entrante pulsa. Es lo unico que se ve si el panel esta
+            cerrado y la persona esta mirando otra pestaña del CRM. */}
+        {tel.estado === 'entrante' && (
+          <span className="absolute inset-0 animate-ping rounded-full bg-red-500/60" />
+        )}
+        {tel.estado === 'sin-conexion' && (
+          <span className="absolute -right-0.5 -top-0.5 size-3.5 rounded-full border-2 border-card bg-amber-400" />
+        )}
+      </button>
+    </div>
+  );
+}

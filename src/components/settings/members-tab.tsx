@@ -28,10 +28,15 @@ import {
   Loader2,
   Mail,
   MailX,
+  Phone,
   Plus,
   Trash2,
   UsersRound,
 } from 'lucide-react';
+
+import { Input } from '@/components/ui/input';
+import { cn } from '@/lib/utils';
+import { esExtensionValida } from '@/lib/telefonia/sip';
 
 import {
   Avatar,
@@ -82,6 +87,7 @@ interface Member {
   email: string | null;
   avatar_url: string | null;
   role: AccountRole;
+  sip_extension: string | null;
   joined_at: string;
 }
 
@@ -135,6 +141,9 @@ export function MembersTab() {
   const [loading, setLoading] = useState(true);
 
   const [inviteOpen, setInviteOpen] = useState(false);
+  // Extensión que se está editando: user_id del miembro, o null.
+  const [editandoExt, setEditandoExt] = useState<string | null>(null);
+  const [borradorExt, setBorradorExt] = useState('');
   const [removingMember, setRemovingMember] = useState<Member | null>(null);
   const [pendingMemberAction, setPendingMemberAction] = useState<string | null>(
     null,
@@ -223,6 +232,54 @@ export function MembersTab() {
       );
       console.error('[MembersTab] role change error:', err);
       toast.error('Could not reach the server');
+    } finally {
+      setPendingMemberAction(null);
+    }
+  }
+
+  async function guardarExtension(member: Member) {
+    const ext = borradorExt.trim();
+    // Vaciar el campo es la forma de quitarle el teléfono a alguien: no hace
+    // falta un botón aparte para algo que ya se lee solo.
+    const quitando = ext === '';
+
+    if (!quitando && !esExtensionValida(ext)) {
+      toast.error('La extensión tiene que ser un número de 3 a 6 dígitos.');
+      return;
+    }
+    if ((member.sip_extension ?? '') === ext) {
+      setEditandoExt(null);
+      return;
+    }
+
+    setPendingMemberAction(member.user_id);
+    try {
+      const res = await fetch(`/api/account/members/${member.user_id}/sip`, {
+        method: quitando ? 'DELETE' : 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        ...(quitando ? {} : { body: JSON.stringify({ extension: ext }) }),
+      });
+      const payload = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        toast.error(payload.error || 'No se pudo guardar la extensión');
+        return;
+      }
+      setMembers((prev) =>
+        prev.map((m) =>
+          m.user_id === member.user_id
+            ? { ...m, sip_extension: quitando ? null : ext }
+            : m,
+        ),
+      );
+      toast.success(
+        quitando
+          ? `${member.full_name || t('unnamed')} se quedó sin extensión.`
+          : `Extensión ${ext} asignada. El teléfono aparece en menos de un minuto.`,
+      );
+      setEditandoExt(null);
+    } catch (err) {
+      console.error('[MembersTab] error al guardar la extensión:', err);
+      toast.error('No se pudo contactar al servidor');
     } finally {
       setPendingMemberAction(null);
     }
@@ -398,6 +455,53 @@ export function MembersTab() {
                       )}
                     </div>
                   </div>
+
+                  {/* Extensión de Asterisk. Un clic la vuelve editable en el
+                      sitio: pasar por un diálogo para cambiar tres dígitos
+                      sería más ceremonia que trabajo. */}
+                  {canManageMembers && (
+                    <div className="flex items-center gap-1.5">
+                      {editandoExt === member.user_id ? (
+                        <>
+                          <Phone className="size-3.5 shrink-0 text-muted-foreground" />
+                          <Input
+                            autoFocus
+                            inputMode="numeric"
+                            value={borradorExt}
+                            disabled={isBusy}
+                            placeholder="vacío = sin teléfono"
+                            onChange={(e) =>
+                              setBorradorExt(e.target.value.replace(/\D/g, '').slice(0, 6))
+                            }
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter') void guardarExtension(member);
+                              if (e.key === 'Escape') setEditandoExt(null);
+                            }}
+                            onBlur={() => void guardarExtension(member)}
+                            className="h-8 w-36 bg-muted border-border font-mono text-sm text-foreground"
+                          />
+                        </>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setEditandoExt(member.user_id);
+                            setBorradorExt(member.sip_extension ?? '');
+                          }}
+                          title="Asignar o cambiar la extensión telefónica"
+                          className={cn(
+                            'inline-flex items-center gap-1.5 rounded-md border px-2 py-1 text-xs transition-colors',
+                            member.sip_extension
+                              ? 'border-primary/25 bg-primary/5 font-mono text-primary hover:bg-primary/10'
+                              : 'border-dashed border-border text-muted-foreground hover:bg-muted',
+                          )}
+                        >
+                          <Phone className="size-3.5" />
+                          {member.sip_extension ?? 'Sin extensión'}
+                        </button>
+                      )}
+                    </div>
+                  )}
 
                   {/* Joined date stays desktop-only. The mobile row's
                       vertical density makes the joined date noise. */}
