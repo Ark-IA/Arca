@@ -5,6 +5,7 @@ import { createClient } from '@/lib/supabase/client';
 import { toast } from 'sonner';
 import type { Contact, Tag, ContactTag } from '@/types';
 import { BarraDeVistas } from '@/components/views/barra-de-vistas';
+import { useIdDeBusqueda } from '@/hooks/use-id-de-busqueda';
 import type { SavedView } from '@/hooks/use-saved-views';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -246,6 +247,15 @@ export default function ContactsPage() {
     setDetailContactId(contactId);
     setDetailOpen(true);
   }
+
+  // Contacto al que se llega desde la búsqueda global: se abre su ficha
+  // directamente. Antes el enlace llevaba al listado y había que volver a
+  // buscarlo ahí, con lo cual la búsqueda global no ahorraba nada.
+  const idBuscado = useIdDeBusqueda();
+  useEffect(() => {
+    if (idBuscado) openDetail(idBuscado);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [idBuscado]);
 
   function confirmDelete(contact: Contact) {
     setDeleteTarget(contact);

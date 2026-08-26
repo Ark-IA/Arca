@@ -8,8 +8,13 @@
  * a un clic.
  */
 
-import { useMemo, useState } from 'react';
-import { CheckSquare, Loader2 } from 'lucide-react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { CheckSquare, Loader2, Search } from 'lucide-react';
+
+import { Input } from '@/components/ui/input';
+import { BarraDeVistas } from '@/components/views/barra-de-vistas';
+import { useIdDeBusqueda } from '@/hooks/use-id-de-busqueda';
+import type { SavedView } from '@/hooks/use-saved-views';
 
 import { ListaTareas } from '@/components/tasks/lista-tareas';
 import { useTasks } from '@/hooks/use-tasks';
@@ -26,21 +31,70 @@ export default function PaginaTareas() {
   const puedeEditar = accountRole ? canSendMessages(accountRole) : false;
 
   const [alcance, setAlcance] = useState<Alcance>('mias');
+  const [busqueda, setBusqueda] = useState('');
+  const [vistaActiva, setVistaActiva] = useState<string | null>(null);
+
+  /**
+   * Una tarea que llega desde la búsqueda global.
+   *
+   * Puede no estar en el alcance elegido -- buscás una tarea de un compañero
+   * mientras mirás "Mías" -- así que al llegar con `?id=` se pasa a "Todas".
+   * Si no, el resultado del buscador llevaría a una lista donde esa tarea no
+   * aparece, que es la peor forma de contestar una búsqueda.
+   */
+  const idBuscado = useIdDeBusqueda();
+  useEffect(() => {
+    if (idBuscado) setAlcance('todas');
+  }, [idBuscado]);
 
   const visibles = useMemo(() => {
-    if (alcance === 'todas') return tareas;
-    if (alcance === 'mias') return tareas.filter((t) => t.assignee_id === user?.id);
-    // Vencidas: solo las que siguen abiertas. Una tarea cerrada que venció en
-    // su momento ya no le importa a nadie.
-    const ahora = Date.now();
-    return tareas.filter(
-      (t) =>
-        t.due_at != null &&
-        new Date(t.due_at).getTime() < ahora &&
-        t.status !== 'done' &&
-        t.status !== 'canceled',
+    let lista = tareas;
+
+    if (alcance === 'mias') {
+      lista = lista.filter((t) => t.assignee_id === user?.id);
+    } else if (alcance === 'vencidas') {
+      // Vencidas: solo las que siguen abiertas. Una tarea cerrada que venció
+      // en su momento ya no le importa a nadie.
+      const ahora = Date.now();
+      lista = lista.filter(
+        (t) =>
+          t.due_at != null &&
+          new Date(t.due_at).getTime() < ahora &&
+          t.status !== 'done' &&
+          t.status !== 'canceled',
+      );
+    }
+
+    const q = busqueda.trim().toLowerCase();
+    if (q !== '') {
+      lista = lista.filter(
+        (t) =>
+          t.title.toLowerCase().includes(q) ||
+          (t.body ?? '').toLowerCase().includes(q),
+      );
+    }
+
+    return lista;
+  }, [tareas, alcance, user?.id, busqueda]);
+
+  const filtrosDeVista = useMemo(
+    () => ({ alcance, busqueda: busqueda.trim() }),
+    [alcance, busqueda],
+  );
+
+  const aplicarVista = useCallback((v: SavedView | null) => {
+    setVistaActiva(v?.id ?? null);
+    if (!v) {
+      setAlcance('mias');
+      setBusqueda('');
+      return;
+    }
+    const f = v.filters as { alcance?: unknown; busqueda?: unknown };
+    setAlcance(
+      f.alcance === 'todas' || f.alcance === 'vencidas' ? f.alcance : 'mias',
     );
-  }, [tareas, alcance, user?.id]);
+    setBusqueda(typeof f.busqueda === 'string' ? f.busqueda : '');
+  }, []);
 
   const cuentaVencidas = useMemo(() => {
     const ahora = Date.now();
@@ -110,14 +164,34 @@ export default function PaginaTareas() {
         </div>
       </div>
 
-      <div className="flex flex-wrap gap-2">
-        {pestana('mias', 'Mías', cuentaMias)}
-        {pestana('todas', 'Todas')}
-        {pestana('vencidas', 'Vencidas', cuentaVencidas, true)}
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+        <div className="relative flex-1">
+          <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+          <Input
+            value={busqueda}
+            onChange={(e) => setBusqueda(e.target.value)}
+            placeholder="Buscar por título o descripción…"
+            className="pl-9"
+          />
+        </div>
+        <div className="flex flex-wrap gap-2">
+          {pestana('mias', 'Mías', cuentaMias)}
+          {pestana('todas', 'Todas')}
+          {pestana('vencidas', 'Vencidas', cuentaVencidas, true)}
+        </div>
       </div>
+
+      <BarraDeVistas
+        modulo="tasks"
+        filtrosActuales={filtrosDeVista}
+        vistaActivaId={vistaActiva}
+        onElegir={aplicarVista}
+        hayFiltros={busqueda.trim() !== '' || alcance !== 'mias'}
+      />
 
       <ListaTareas
         tareas={visibles}
+        destacarId={idBuscado}
         cargando={false}
         puedeEditar={puedeEditar}
         onCrear={(d) => crear(d)}

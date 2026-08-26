@@ -12,12 +12,12 @@ import {
   type TemplateSendValues,
 } from '@/components/inbox/template-picker';
 import {
-  Sheet,
-  SheetContent,
-  SheetHeader,
-  SheetTitle,
-  SheetDescription,
-} from '@/components/ui/sheet';
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from '@/components/ui/dialog';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -48,6 +48,27 @@ import { PanelTareasDeContacto } from '@/components/registros/panel-tareas-de-co
 import { PanelProximaGestion } from '@/components/registros/panel-proxima-gestion';
 import { AvisoProximaGestion } from '@/components/registros/aviso-proxima-gestion';
 import { canSendMessages } from '@/lib/auth/roles';
+import { cn } from '@/lib/utils';
+
+/**
+ * Estilo compartido de los campos de la ficha.
+ *
+ * El borde se aclara al pasar por encima y el foco lo tiñe del color de marca.
+ * Sin eso, en un fondo oscuro un campo de texto y una etiqueta se ven igual y
+ * no hay forma de saber dónde se puede escribir hasta hacer clic.
+ */
+const CAMPO =
+  'bg-muted border-border text-foreground h-8 text-sm transition-colors ' +
+  'hover:border-primary/40 focus:border-primary/60';
+
+/**
+ * Estilo de las pestañas. La activa se distingue por color; las inactivas se
+ * iluminan al pasar por encima para que se lea que son pulsables.
+ */
+const PESTANA =
+  'text-muted-foreground transition-colors rounded-md ' +
+  'hover:bg-muted/70 hover:text-foreground ' +
+  'data-active:bg-muted data-active:text-primary';
 
 interface ContactDetailViewProps {
   open: boolean;
@@ -408,66 +429,86 @@ export function ContactDetailView({
 
   return (
     <>
-    <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent
-        side="right"
-        className="bg-popover border-border text-popover-foreground sm:max-w-lg w-full p-0"
-      >
+    // Modal centrado y ancho, no un panel lateral.
+    //
+    // Como panel lateral la ficha medía 512 px, y ahí adentro había que meter
+    // nueve pestañas, un formulario y los paneles de gestiones, tareas y
+    // actividad: todo quedaba estrangulado y las pestañas se salían de la
+    // vista. Centrado y a 5xl hay sitio para leer, y el fondo oscurecido deja
+    // claro que estás mirando UNA ficha.
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="bg-popover border-border text-popover-foreground w-full max-w-[calc(100%-2rem)] sm:max-w-5xl h-[85vh] p-0 gap-0 overflow-hidden">
         {loading || !contact ? (
           <div className="flex items-center justify-center h-full">
             <Loader2 className="size-6 animate-spin text-primary" />
           </div>
         ) : (
-          <div className="flex flex-col h-full">
+          <div className="flex flex-col h-full min-h-0">
             {/* Header */}
-            <SheetHeader className="p-4 border-b border-border/50">
-              <div className="flex items-center gap-3">
-                <Avatar className="size-12 bg-muted border border-border">
-                  <AvatarFallback className="bg-primary/10 text-primary text-sm font-medium">
+            {/* Franja del color de marca detrás del encabezado: separa la
+                identidad del contacto del contenido sin necesidad de una
+                línea más, y le da al modal un punto de anclaje visual. */}
+            <DialogHeader className="shrink-0 space-y-0 border-b border-border/50 bg-gradient-to-r from-primary/10 via-primary/5 to-transparent p-5">
+              <div className="flex flex-wrap items-center gap-4">
+                <Avatar className="size-14 border border-primary/20 bg-muted ring-2 ring-primary/10">
+                  <AvatarFallback className="bg-primary/10 text-base font-semibold text-primary">
                     {getInitials(contact.name)}
                   </AvatarFallback>
                 </Avatar>
-                <div className="flex-1 min-w-0">
-                  <SheetTitle className="text-popover-foreground truncate">
+
+                <div className="min-w-0 flex-1">
+                  <DialogTitle className="truncate text-lg text-popover-foreground">
                     {contact.name || t('unnamed')}
-                  </SheetTitle>
-                  <SheetDescription className="text-muted-foreground text-xs mt-0.5">
+                  </DialogTitle>
+                  <DialogDescription className="sr-only">
                     {t('contactDetailsDesc')}
-                  </SheetDescription>
-                  <div className="flex flex-wrap items-center gap-3 mt-1.5 text-xs text-muted-foreground">
+                  </DialogDescription>
+
+                  {/* Los datos de contacto son PULSABLES: el teléfono se copia,
+                      el correo abre el cliente de correo, la empresa lleva a su
+                      ficha. Como texto plano obligaban a seleccionar a mano. */}
+                  <div className="mt-1.5 flex flex-wrap items-center gap-2 text-xs">
                     <button
                       onClick={copyPhone}
-                      className="flex items-center gap-1 hover:text-primary transition-colors cursor-pointer"
+                      title="Copiar el teléfono"
+                      className="inline-flex items-center gap-1.5 rounded-md border border-border bg-card/60 px-2 py-1 text-muted-foreground transition-colors hover:border-primary/40 hover:bg-card hover:text-primary"
                     >
                       <Phone className="size-3" />
                       {contact.phone}
                       {copiedPhone ? (
                         <Check className="size-3 text-primary" />
                       ) : (
-                        <Copy className="size-3" />
+                        <Copy className="size-3 opacity-60" />
                       )}
                     </button>
+
                     {contact.email && (
-                      <span className="flex items-center gap-1">
+                      <a
+                        href={`mailto:${contact.email}`}
+                        title="Escribir un correo"
+                        className="inline-flex items-center gap-1.5 rounded-md border border-border bg-card/60 px-2 py-1 text-muted-foreground transition-colors hover:border-primary/40 hover:bg-card hover:text-primary"
+                      >
                         <Mail className="size-3" />
                         {contact.email}
-                      </span>
+                      </a>
                     )}
+
                     {contact.company && (
-                      <span className="flex items-center gap-1">
+                      <span className="inline-flex items-center gap-1.5 rounded-md border border-border bg-card/60 px-2 py-1 text-muted-foreground">
                         <Building2 className="size-3" />
                         {contact.company}
                       </span>
                     )}
                   </div>
                 </div>
-              </div>
-              <div className="mt-3">
+
+                {/* Enviar plantilla: la acción principal de la ficha, arriba a
+                    la derecha, no debajo del nombre. */}
                 <Button
                   size="sm"
                   onClick={() => setTemplatePickerOpen(true)}
                   disabled={sendingTemplate}
-                  className="bg-primary text-primary-foreground hover:bg-primary/90"
+                  className="shrink-0 bg-primary text-primary-foreground transition-all hover:bg-primary/90 hover:shadow-lg hover:shadow-primary/20"
                 >
                   {sendingTemplate ? (
                     <Loader2 className="size-4 animate-spin" />
@@ -477,7 +518,7 @@ export function ContactDetailView({
                   {t('sendTemplateBtn')}
                 </Button>
               </div>
-            </SheetHeader>
+            </DialogHeader>
 
             {/* Tabs */}
             {/* Controlada, no con `defaultValue`: el aviso de arriba de
@@ -488,10 +529,10 @@ export function ContactDetailView({
               onValueChange={(v) => v && setPestana(v as string)}
               className="flex-1 flex flex-col min-h-0"
             >
-              <TabsList className="bg-muted/50 border-b border-border mx-4 mt-3 overflow-x-auto">
+              <TabsList className="mx-5 mt-3 shrink-0 gap-0.5 overflow-x-auto bg-muted/50 border-b border-border">
                 <TabsTrigger
                   value="details"
-                  className="data-active:bg-muted data-active:text-primary text-muted-foreground"
+                  className={PESTANA}
                 >
                   {t('tabs.details')}
                 </TabsTrigger>
@@ -501,56 +542,56 @@ export function ContactDetailView({
                     fuera de la vista y nadie la encontraba. */}
                 <TabsTrigger
                   value="next"
-                  className="data-active:bg-muted data-active:text-primary text-muted-foreground whitespace-nowrap"
+                  className={cn(PESTANA, "whitespace-nowrap")}
                 >
                   Próxima gestión
                 </TabsTrigger>
                 <TabsTrigger
                   value="tags"
-                  className="data-active:bg-muted data-active:text-primary text-muted-foreground"
+                  className={PESTANA}
                 >
                   {t('tabs.tags')}
                 </TabsTrigger>
                 <TabsTrigger
                   value="notes"
-                  className="data-active:bg-muted data-active:text-primary text-muted-foreground"
+                  className={PESTANA}
                 >
                   {t('tabs.notes')}
                 </TabsTrigger>
                 <TabsTrigger
                   value="custom"
-                  className="data-active:bg-muted data-active:text-primary text-muted-foreground"
+                  className={PESTANA}
                 >
                   {t('tabs.custom')}
                 </TabsTrigger>
                 <TabsTrigger
                   value="tasks"
-                  className="data-active:bg-muted data-active:text-primary text-muted-foreground"
+                  className={PESTANA}
                 >
                   Tareas
                 </TabsTrigger>
                 <TabsTrigger
                   value="files"
-                  className="data-active:bg-muted data-active:text-primary text-muted-foreground"
+                  className={PESTANA}
                 >
                   Archivos
                 </TabsTrigger>
                 <TabsTrigger
                   value="activity"
-                  className="data-active:bg-muted data-active:text-primary text-muted-foreground"
+                  className={PESTANA}
                 >
                   Actividad
                 </TabsTrigger>
                 <TabsTrigger
                   value="deals"
-                  className="data-active:bg-muted data-active:text-primary text-muted-foreground"
+                  className={PESTANA}
                 >
                   {t('tabs.deals')}
                 </TabsTrigger>
               </TabsList>
 
               {/* Details Tab */}
-              <TabsContent value="details" className="flex-1 overflow-y-auto px-4 py-3">
+              <TabsContent value="details" className="flex-1 min-h-0 overflow-y-auto px-5 py-4">
                 {/* Lo primero que hay que saber de un contacto no es su correo
                     sino qué sigue con él. Va arriba de todo y es el único sitio
                     donde una gestión vencida se ve sin buscarla. */}
@@ -564,45 +605,50 @@ export function ContactDetailView({
                     onIr={() => setPestana('next')}
                   />
                 )}
-                <div className="space-y-3">
-                  <div className="space-y-1.5">
-                    <Label className="text-muted-foreground text-xs">{t('name')}</Label>
-                    <Input
-                      value={editName}
-                      onChange={(e) => setEditName(e.target.value)}
-                      className="bg-muted border-border text-foreground h-8 text-sm"
-                    />
-                  </div>
-                  <div className="space-y-1.5">
-                    <Label className="text-muted-foreground text-xs">
-                      {t('phone')} <span className="text-red-400">*</span>
-                    </Label>
-                    <Input
-                      value={editPhone}
-                      onChange={(e) => setEditPhone(e.target.value)}
-                      className="bg-muted border-border text-foreground h-8 text-sm"
-                    />
-                  </div>
-                  <div className="space-y-1.5">
-                    <Label className="text-muted-foreground text-xs">{t('email')}</Label>
-                    <Input
-                      value={editEmail}
-                      onChange={(e) => setEditEmail(e.target.value)}
-                      className="bg-muted border-border text-foreground h-8 text-sm"
-                    />
-                  </div>
-                  <div className="space-y-1.5">
-                    <Label className="text-muted-foreground text-xs">{t('company')}</Label>
-                    <Input
-                      value={editCompany}
-                      onChange={(e) => setEditCompany(e.target.value)}
-                      className="bg-muted border-border text-foreground h-8 text-sm"
-                    />
+                {/* Dos columnas desde sm. En un modal ancho, una sola columna
+                    de campos deja media pantalla vacía y obliga a desplazarse
+                    para algo que entra de sobra. */}
+                <div className="space-y-4">
+                  <div className="grid gap-x-4 gap-y-3 sm:grid-cols-2">
+                    <div className="space-y-1.5">
+                      <Label className="text-muted-foreground text-xs">{t('name')}</Label>
+                      <Input
+                        value={editName}
+                        onChange={(e) => setEditName(e.target.value)}
+                        className={CAMPO}
+                      />
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label className="text-muted-foreground text-xs">
+                        {t('phone')} <span className="text-red-400">*</span>
+                      </Label>
+                      <Input
+                        value={editPhone}
+                        onChange={(e) => setEditPhone(e.target.value)}
+                        className={CAMPO}
+                      />
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label className="text-muted-foreground text-xs">{t('email')}</Label>
+                      <Input
+                        value={editEmail}
+                        onChange={(e) => setEditEmail(e.target.value)}
+                        className={CAMPO}
+                      />
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label className="text-muted-foreground text-xs">{t('company')}</Label>
+                      <Input
+                        value={editCompany}
+                        onChange={(e) => setEditCompany(e.target.value)}
+                        className={CAMPO}
+                      />
+                    </div>
                   </div>
                   <Button
                     onClick={saveDetails}
                     disabled={savingDetails}
-                    className="bg-primary hover:bg-primary/90 text-primary-foreground w-full"
+                    className="bg-primary hover:bg-primary/90 text-primary-foreground w-full sm:w-auto"
                     size="sm"
                   >
                     {savingDetails ? (
@@ -616,7 +662,7 @@ export function ContactDetailView({
               </TabsContent>
 
               {/* Tags Tab */}
-              <TabsContent value="tags" className="flex-1 overflow-y-auto px-4 py-3">
+              <TabsContent value="tags" className="flex-1 min-h-0 overflow-y-auto px-5 py-4">
                 <div className="space-y-3">
                   <p className="text-xs text-muted-foreground">
                     {t('tagsTab.clickTagDesc')}
@@ -658,7 +704,7 @@ export function ContactDetailView({
               {/* Notas. Usa el panel compartido, el mismo que la ficha de una
                   empresa: hasta la migración 049 había DOS sistemas de notas
                   conviviendo y nadie sabía en cuál había escrito. */}
-              <TabsContent value="notes" className="flex-1 overflow-y-auto px-4 py-3">
+              <TabsContent value="notes" className="flex-1 min-h-0 overflow-y-auto px-5 py-4">
                 {contactId && (
                   <PanelNotas
                     tipo="contact"
@@ -671,7 +717,7 @@ export function ContactDetailView({
               {/* Próxima gestión: qué sigue con este cliente y cuándo. Lo que
                   se agenda acá es un evento de calendario de verdad, así que
                   aparece en la agenda del equipo y no solo en esta ficha. */}
-              <TabsContent value="next" className="flex-1 overflow-y-auto px-4 py-3">
+              <TabsContent value="next" className="flex-1 min-h-0 overflow-y-auto px-5 py-4">
                 {contactId && (
                   <PanelProximaGestion
                     contactId={contactId}
@@ -682,7 +728,7 @@ export function ContactDetailView({
                 )}
               </TabsContent>
 
-              <TabsContent value="tasks" className="flex-1 overflow-y-auto px-4 py-3">
+              <TabsContent value="tasks" className="flex-1 min-h-0 overflow-y-auto px-5 py-4">
                 {contactId && (
                   <PanelTareasDeContacto
                     contactId={contactId}
@@ -691,7 +737,7 @@ export function ContactDetailView({
                 )}
               </TabsContent>
 
-              <TabsContent value="files" className="flex-1 overflow-y-auto px-4 py-3">
+              <TabsContent value="files" className="flex-1 min-h-0 overflow-y-auto px-5 py-4">
                 {contactId && (
                   <PanelAdjuntos
                     tipo="contact"
@@ -701,12 +747,12 @@ export function ContactDetailView({
                 )}
               </TabsContent>
 
-              <TabsContent value="activity" className="flex-1 overflow-y-auto px-4 py-3">
+              <TabsContent value="activity" className="flex-1 min-h-0 overflow-y-auto px-5 py-4">
                 {contactId && <PanelLineaDeTiempo tipo="contact" registroId={contactId} />}
               </TabsContent>
 
               {/* Custom Fields Tab */}
-              <TabsContent value="custom" className="flex-1 overflow-y-auto px-4 py-3">
+              <TabsContent value="custom" className="flex-1 min-h-0 overflow-y-auto px-5 py-4">
                 {loadingCustom ? (
                   <div className="flex items-center justify-center py-8">
                     <Loader2 className="size-5 animate-spin text-muted-foreground" />
@@ -753,7 +799,7 @@ export function ContactDetailView({
               </TabsContent>
 
               {/* Deals Tab */}
-              <TabsContent value="deals" className="flex-1 overflow-y-auto px-4 py-3">
+              <TabsContent value="deals" className="flex-1 min-h-0 overflow-y-auto px-5 py-4">
                 {loadingDeals ? (
                   <div className="flex items-center justify-center py-8">
                     <Loader2 className="size-5 animate-spin text-primary" />
@@ -811,8 +857,8 @@ export function ContactDetailView({
             </Tabs>
           </div>
         )}
-      </SheetContent>
-    </Sheet>
+      </DialogContent>
+    </Dialog>
     <TemplatePicker
       open={templatePickerOpen}
       onOpenChange={setTemplatePickerOpen}

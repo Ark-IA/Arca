@@ -9,7 +9,7 @@
  * es la entidad de verdad.
  */
 
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { toast } from 'sonner';
 import {
   Building2,
@@ -37,6 +37,7 @@ import {
 import { Input } from '@/components/ui/input';
 import { CompanyForm } from '@/components/companies/company-form';
 import { BarraDeVistas } from '@/components/views/barra-de-vistas';
+import { useIdDeBusqueda } from '@/hooks/use-id-de-busqueda';
 import type { SavedView } from '@/hooks/use-saved-views';
 import { useCompanies, type BorradorEmpresa } from '@/hooks/use-companies';
 import { useAuth } from '@/hooks/use-auth';
@@ -104,6 +105,21 @@ export default function PaginaEmpresas() {
   }, [empresas, busqueda, soloIdeales]);
 
   const totalIdeales = empresas.filter((e) => e.is_ideal_customer).length;
+
+  // Empresa a la que se llega desde la búsqueda global: se resalta y se
+  // desplaza hasta ella. Cualquier filtro activo se limpia primero, o el
+  // resultado buscado podría quedar fuera de la lista visible.
+  const idBuscado = useIdDeBusqueda();
+  const refDestacada = useRef<HTMLDivElement | null>(null);
+  useEffect(() => {
+    if (!idBuscado) return;
+    setBusqueda('');
+    setSoloIdeales(false);
+    const t = setTimeout(() => {
+      refDestacada.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }, 120);
+    return () => clearTimeout(t);
+  }, [idBuscado, empresas]);
 
   const abrirNueva = () => {
     setEditando(null);
@@ -217,7 +233,18 @@ export default function PaginaEmpresas() {
       ) : (
         <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
           {filtradas.map((e) => (
-            <Card key={e.id} className="group relative overflow-hidden">
+            <Card
+              key={e.id}
+              ref={e.id === idBuscado ? refDestacada : undefined}
+              className={cn(
+                'group relative overflow-hidden transition-all',
+                // Hover: se levanta y el borde toma el color de marca. Sin
+                // esto las tarjetas se leen como un mural estático y no como
+                // algo con lo que se puede interactuar.
+                'hover:-translate-y-0.5 hover:border-primary/30 hover:shadow-lg hover:shadow-primary/5',
+                e.id === idBuscado && 'border-primary/50 ring-2 ring-primary/30',
+              )}
+            >
               <CardContent className="p-4">
                 <div className="flex items-start gap-3">
                   <span className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-primary-soft text-primary">

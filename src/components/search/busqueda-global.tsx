@@ -36,14 +36,24 @@ interface Resultado {
   parecido: number;
 }
 
+/**
+ * A dónde lleva cada resultado.
+ *
+ * Todos van con `?id=`, no a la lista pelada. Un resultado de búsqueda que
+ * deja en el listado general obliga a buscar OTRA VEZ dentro de la página, y
+ * entonces la búsqueda global no ahorró nada. Cada pantalla lee ese parámetro
+ * y abre o resalta el registro.
+ */
 const META: Record<
   TipoResultado,
   { icono: typeof User; etiqueta: string; ruta: (id: string) => string }
 > = {
   contact: { icono: User, etiqueta: 'Contacto', ruta: (id) => `/contacts?id=${id}` },
-  company: { icono: Building2, etiqueta: 'Empresa', ruta: () => '/companies' },
+  company: { icono: Building2, etiqueta: 'Empresa', ruta: (id) => `/companies?id=${id}` },
   deal: { icono: HandCoins, etiqueta: 'Negocio', ruta: () => '/pipelines' },
-  task: { icono: CheckSquare, etiqueta: 'Tarea', ruta: () => '/tasks' },
+  task: { icono: CheckSquare, etiqueta: 'Tarea', ruta: (id) => `/tasks?id=${id}` },
+  // Una nota no tiene pantalla propia: vive colgada de un contacto, una
+  // empresa o un negocio. Llevar a "Notas" sería llevar a ningún sitio.
   note: { icono: StickyNote, etiqueta: 'Nota', ruta: () => '/contacts' },
 };
 

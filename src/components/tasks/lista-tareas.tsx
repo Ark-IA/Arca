@@ -9,7 +9,7 @@
  * mostrando las tareas de toda la cuenta por un descuido.
  */
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { toast } from 'sonner';
 import {
   AlertTriangle,
@@ -85,6 +85,7 @@ export function ListaTareas({
   /** Texto del vacío, distinto en la pantalla general y en un panel. */
   vacio = 'No hay tareas.',
   compacto = false,
+  destacarId = null,
 }: {
   tareas: Task[];
   cargando: boolean;
@@ -95,12 +96,27 @@ export function ListaTareas({
   onAlternar: (tarea: Task) => Promise<void>;
   vacio?: string;
   compacto?: boolean;
+  /** Tarea a la que se llegó desde la búsqueda global: se resalta y se
+   *  desplaza hasta ella. */
+  destacarId?: string | null;
 }) {
   const [titulo, setTitulo] = useState('');
   const [vencimiento, setVencimiento] = useState('');
   const [prioridad, setPrioridad] = useState<PrioridadTarea>('normal');
   const [creando, setCreando] = useState(false);
   const [verHechas, setVerHechas] = useState(false);
+
+  // Desplaza hasta la tarea que se buscó. Sin esto, llegar desde el buscador a
+  // una tarea que está en la posición veinte deja la pantalla arriba del todo
+  // y parece que la búsqueda no encontró nada.
+  const refDestacada = useRef<HTMLLIElement | null>(null);
+  useEffect(() => {
+    if (!destacarId) return;
+    const t = setTimeout(() => {
+      refDestacada.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }, 80);
+    return () => clearTimeout(t);
+  }, [destacarId, tareas]);
 
   const { pendientes, cerradas } = useMemo(() => {
     const p: Task[] = [];
@@ -136,11 +152,20 @@ export function ListaTareas({
   const fila = (t: Task) => {
     const vence = cuandoVence(t.due_at);
     const cerrada = t.status === 'done' || t.status === 'canceled';
+    const destacada = t.id === destacarId;
 
     return (
       <li
         key={t.id}
-        className="group flex items-start gap-3 border-b border-border px-4 py-3 last:border-0"
+        ref={destacada ? refDestacada : undefined}
+        className={cn(
+          'group flex items-start gap-3 border-b border-border px-4 py-3 last:border-0',
+          'transition-colors hover:bg-muted/40',
+          // La que se buscó queda marcada con el color de marca hasta que se
+          // navegue a otra cosa: en una lista de treinta, un desplazamiento
+          // sin resaltado deja igual la duda de cuál era.
+          destacada && 'bg-primary/10 hover:bg-primary/15',
+        )}
       >
         <button
           type="button"
