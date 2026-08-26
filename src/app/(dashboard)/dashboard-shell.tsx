@@ -8,6 +8,7 @@ import { Header } from "@/components/layout/header";
 import { AccountAccessAlert } from "@/components/layout/account-access-alert";
 import { PresenceHeartbeat } from "@/components/presence/presence-heartbeat";
 import { BurbujaTelefono } from "@/components/telefonia/burbuja-telefono";
+import { ProveedorTelefono } from "@/components/telefonia/contexto-telefono";
 import { AvisadorMensajes } from "@/components/inbox/avisador-mensajes";
 
 // Auth-gated dashboard shell. Extracted from the layout so the layout
@@ -43,6 +44,10 @@ function DashboardShellInner({ children }: { children: React.ReactNode }) {
   if (!user) return null;
 
   return (
+    // El teléfono envuelve TODO el panel, no solo la burbuja: así la ficha de
+    // un contacto puede marcar directamente sin abrir un segundo registro SIP
+    // contra Asterisk, que la central pisaría contra el primero.
+    <ProveedorTelefono>
     <div className="flex h-screen overflow-hidden bg-background">
       {/* Reports this tab's online/away presence once we know a user is
           signed in. Headless — renders nothing. */}
@@ -68,6 +73,7 @@ function DashboardShellInner({ children }: { children: React.ReactNode }) {
         </main>
       </div>
     </div>
+    </ProveedorTelefono>
   );
 }
 

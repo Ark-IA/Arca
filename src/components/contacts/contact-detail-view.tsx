@@ -28,6 +28,7 @@ import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import {
   Phone,
+  PhoneCall,
   Mail,
   Building2,
   Copy,
@@ -49,6 +50,7 @@ import { PanelProximaGestion } from '@/components/registros/panel-proxima-gestio
 import { AvisoProximaGestion } from '@/components/registros/aviso-proxima-gestion';
 import { canSendMessages } from '@/lib/auth/roles';
 import { cn } from '@/lib/utils';
+import { useTelefono } from '@/components/telefonia/contexto-telefono';
 
 /**
  * Estilo compartido de los campos de la ficha.
@@ -104,6 +106,20 @@ export function ContactDetailView({
   const companyIdDelContacto = contact?.company_id ?? null;
   const [loading, setLoading] = useState(false);
   const [copiedPhone, setCopiedPhone] = useState(false);
+
+  // Teléfono del CRM. `null` fuera del panel; sin extensión, `disponible` es
+  // false y el número vuelve a ser "copiar".
+  const telefono = useTelefono();
+  const puedeLlamar = !!telefono?.disponible && !!contact?.phone;
+
+  function llamarAlContacto() {
+    if (!telefono || !contact?.phone) return;
+    // Se limpia el número antes de marcarlo: Asterisk no entiende espacios ni
+    // paréntesis, y un contacto guardado como "+57 (300) 123-4567" fallaría.
+    // El '+' se conserva porque forma parte del formato internacional.
+    telefono.llamar(contact.phone.replace(/[^\d*#+]/g, ''));
+    toast.success(`Llamando a ${contact.name || contact.phone}…`);
+  }
 
   // Send template — lets the business initiate (or re-open) a conversation
   // with this contact by sending an approved template. The send route
@@ -429,13 +445,6 @@ export function ContactDetailView({
 
   return (
     <>
-    // Modal centrado y ancho, no un panel lateral.
-    //
-    // Como panel lateral la ficha medía 512 px, y ahí adentro había que meter
-    // nueve pestañas, un formulario y los paneles de gestiones, tareas y
-    // actividad: todo quedaba estrangulado y las pestañas se salían de la
-    // vista. Centrado y a 5xl hay sitio para leer, y el fondo oscurecido deja
-    // claro que estás mirando UNA ficha.
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="bg-popover border-border text-popover-foreground w-full max-w-[calc(100%-2rem)] sm:max-w-5xl h-[85vh] p-0 gap-0 overflow-hidden">
         {loading || !contact ? (
@@ -468,19 +477,37 @@ export function ContactDetailView({
                       el correo abre el cliente de correo, la empresa lleva a su
                       ficha. Como texto plano obligaban a seleccionar a mano. */}
                   <div className="mt-1.5 flex flex-wrap items-center gap-2 text-xs">
-                    <button
-                      onClick={copyPhone}
-                      title="Copiar el teléfono"
-                      className="inline-flex items-center gap-1.5 rounded-md border border-border bg-card/60 px-2 py-1 text-muted-foreground transition-colors hover:border-primary/40 hover:bg-card hover:text-primary"
-                    >
-                      <Phone className="size-3" />
-                      {contact.phone}
-                      {copiedPhone ? (
-                        <Check className="size-3 text-primary" />
-                      ) : (
-                        <Copy className="size-3 opacity-60" />
-                      )}
-                    </button>
+                    {/* El teléfono LLAMA, no copia.
+                        Copiar el número era un paso intermedio inútil: nadie
+                        lo quiere en el portapapeles, lo quiere marcado. Un
+                        clic acá inicia la llamada en el softphone y abre la
+                        burbuja sola, sin un segundo clic.
+                        Quien no tiene extensión sigue viendo "copiar", que es
+                        lo único que puede hacer con ese número. */}
+                    {puedeLlamar ? (
+                      <button
+                        onClick={llamarAlContacto}
+                        title={`Llamar a ${contact.phone}`}
+                        className="inline-flex items-center gap-1.5 rounded-md border border-primary/30 bg-primary/10 px-2 py-1 font-medium text-primary transition-all hover:border-primary/50 hover:bg-primary/20 hover:shadow-md hover:shadow-primary/10"
+                      >
+                        <PhoneCall className="size-3" />
+                        {contact.phone}
+                      </button>
+                    ) : (
+                      <button
+                        onClick={copyPhone}
+                        title="Copiar el teléfono"
+                        className="inline-flex items-center gap-1.5 rounded-md border border-border bg-card/60 px-2 py-1 text-muted-foreground transition-colors hover:border-primary/40 hover:bg-card hover:text-primary"
+                      >
+                        <Phone className="size-3" />
+                        {contact.phone}
+                        {copiedPhone ? (
+                          <Check className="size-3 text-primary" />
+                        ) : (
+                          <Copy className="size-3 opacity-60" />
+                        )}
+                      </button>
+                    )}
 
                     {contact.email && (
                       <a

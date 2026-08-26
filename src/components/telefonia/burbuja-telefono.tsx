@@ -20,7 +20,7 @@ import {
   X,
 } from 'lucide-react';
 
-import { useSoftphone } from '@/hooks/use-softphone';
+import { useTelefono } from '@/components/telefonia/contexto-telefono';
 import { sonarTecla } from '@/lib/telefonia/tono-teclado';
 import { cn } from '@/lib/utils';
 
@@ -50,24 +50,29 @@ function reloj(segundos: number): string {
 }
 
 export function BurbujaTelefono() {
-  const tel = useSoftphone();
+  const tel = useTelefono();
   const [abierto, setAbierto] = useState(false);
   const [marcado, setMarcado] = useState('');
 
+  const estado = tel?.estado ?? 'cargando';
   const enLlamada =
-    tel.estado === 'llamando' || tel.estado === 'entrante' || tel.estado === 'en-llamada';
+    estado === 'llamando' || estado === 'entrante' || estado === 'en-llamada';
 
-  // Una llamada entrante abre el panel sola. Si no, el unico aviso seria un
-  // punto de color en una burbuja cerrada.
+  // El panel se abre solo cuando hay llamada, entrante o saliente.
+  //
+  // La saliente importa desde que se puede marcar desde la ficha de un
+  // contacto: quien pulsa "Llamar" ahí no tocó la burbuja, y sin esto la
+  // llamada arrancaría con el panel cerrado -- sin cronómetro, sin silenciar
+  // y sin forma de colgar que no sea abrirlo a mano.
   useEffect(() => {
-    if (tel.estado === 'entrante') setAbierto(true);
-  }, [tel.estado]);
+    if (estado === 'entrante' || estado === 'llamando') setAbierto(true);
+  }, [estado]);
 
   // Al terminar la llamada se limpia lo marcado: dejarlo invita a volver a
   // pulsar "llamar" y repetir la llamada que se acaba de colgar.
   useEffect(() => {
-    if (tel.estado === 'libre') setMarcado('');
-  }, [tel.estado]);
+    if (estado === 'libre') setMarcado('');
+  }, [estado]);
 
   /**
    * Marca el documento mientras el teléfono está montado.
@@ -76,7 +81,7 @@ export function BurbujaTelefono() {
    * `main`. Se pone desde aquí y no siempre para que quien no tiene extensión
    * no vea una franja vacía al final de cada página.
    */
-  const hayTelefono = tel.estado !== 'cargando' && tel.estado !== 'sin-extension';
+  const hayTelefono = !!tel && estado !== 'cargando' && estado !== 'sin-extension';
   useEffect(() => {
     if (!hayTelefono) return;
     document.documentElement.dataset.telefono = '1';
@@ -85,7 +90,9 @@ export function BurbujaTelefono() {
     };
   }, [hayTelefono]);
 
-  if (!hayTelefono) return null;
+  // !tel va explicito aunque hayTelefono ya lo cubra: es lo que le dice a
+  // TypeScript que de aca para abajo el telefono existe.
+  if (!tel || !hayTelefono) return null;
 
   const pulsar = (digito: string) => {
     // El tono suena siempre, se esté marcando o dentro de una llamada. Es la
@@ -109,11 +116,22 @@ export function BurbujaTelefono() {
   };
 
   return (
-    // Abajo a la DERECHA. z-40 y no 50: los diálogos y el menú lateral móvil
-    // usan 50, y un teléfono que se dibuja encima de un diálogo modal tapa el
-    // botón de confirmar.
-    // Los avisos de sonner viven arriba a la derecha, así que no se cruzan.
-    <div className="fixed bottom-4 right-4 z-40 flex flex-col items-end gap-3">
+    // Abajo a la DERECHA. Los avisos de sonner viven arriba a la derecha, así
+    // que no se cruzan.
+    //
+    // En reposo va en z-40, por debajo de los diálogos (z-50): un teléfono
+    // dibujado encima de un modal taparía su botón de confirmar.
+    //
+    // Durante una llamada sube a z-[60] y se pone POR ENCIMA. Desde que se
+    // puede marcar desde la ficha de un contacto, la llamada empieza con ese
+    // modal abierto, y en z-40 el teléfono quedaba detrás del velo: se veía
+    // "Llamando…" en ningún lado y no había forma de colgar.
+    <div
+      className={cn(
+        'fixed bottom-4 right-4 flex flex-col items-end gap-3',
+        enLlamada ? 'z-[60]' : 'z-40',
+      )}
+    >
       {abierto && (
         <div className="w-[270px] overflow-hidden rounded-2xl border border-border bg-card shadow-2xl">
           {/* Cabecera */}
