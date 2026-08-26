@@ -69,17 +69,52 @@ export async function middleware(request: NextRequest) {
     return withRefreshedCookies(NextResponse.redirect(url))
   }
 
-  // Protected pages - redirect to login if not authenticated
-  const protectedPaths = ['/dashboard', '/inbox', '/contacts', '/pipelines', '/broadcasts', '/automations', '/settings']
-  if (!user && protectedPaths.some(path => request.nextUrl.pathname.startsWith(path))) {
+  // Páginas protegidas.
+  //
+  // Se listan las PÚBLICAS y se protege todo lo demás, al revés de como estaba.
+  // La lista de protegidas se desincronizaba sola: nombraba siete rutas y para
+  // cuando se revisó ya faltaban /flows, /agents, /notifications y las tres
+  // nuevas (/companies, /tasks, /calendar). Nadie se dio cuenta porque los
+  // datos igual estaban a salvo -- RLS no devuelve nada sin sesión -- pero la
+  // página se pintaba vacía un instante antes de que el cliente redirigiera.
+  //
+  // Invertida, la lista falla CERRADA: una página nueva nace protegida, y
+  // abrirla al público exige escribirlo a propósito.
+  const rutasPublicas = [
+    '/login',
+    '/signup',
+    '/forgot-password',
+    '/reset-password',
+    '/join', // aceptar una invitación: por definición se llega sin sesión
+    '/api/whatsapp/webhook',
+    '/api/meta/webhook',
+  ]
+  const ruta = request.nextUrl.pathname
+  const esPublica =
+    ruta === '/' || rutasPublicas.some((p) => ruta === p || ruta.startsWith(`${p}/`))
+
+  // Las rutas de API no se redirigen a /login: quien las llama es código, y un
+  // 302 hacia una página HTML se le manifiesta como una respuesta ilegible.
+  // Contestan 401 más abajo.
+  if (!user && !esPublica && !ruta.startsWith('/api/')) {
     const url = request.nextUrl.clone()
     url.pathname = '/login'
     return withRefreshedCookies(NextResponse.redirect(url))
   }
 
-  // API routes that need auth (not webhooks)
-  if (!user && request.nextUrl.pathname.startsWith('/api/whatsapp/') &&
-      !request.nextUrl.pathname.includes('/webhook')) {
+  // Rutas de API que necesitan sesión.
+  //
+  // Igual que arriba: se nombran las que NO la necesitan y se protege el
+  // resto. Antes solo cubría `/api/whatsapp/`, así que las de telefonía, Meta
+  // y las de la cuenta quedaban fuera del control del middleware -- se
+  // salvaban únicamente porque cada una comprueba el rol por su cuenta, y
+  // bastaba una ruta nueva que se olvidara de hacerlo.
+  //
+  // Las rutas públicas de API son los webhooks (los llama Meta, sin sesión) y
+  // la API pública v1, que se autentica con su propia clave y no con cookies.
+  const apiPublica =
+    ruta.includes('/webhook') || ruta.startsWith('/api/v1/')
+  if (!user && ruta.startsWith('/api/') && !apiPublica) {
     return withRefreshedCookies(
       NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     )
