@@ -9,7 +9,11 @@
  * instead of a runtime rejection from Meta.
  */
 
-const META_API_VERSION = 'v21.0'
+import { campoDestinatario } from './bsuid'
+
+// v23.0 y no v21.0: el campo `recipient` (BSUID, contactos con nombre de
+// usuario) es reciente. Probado contra la API real -- v22 y v23 lo aceptan.
+const META_API_VERSION = 'v23.0'
 const META_API_BASE = `https://graph.facebook.com/${META_API_VERSION}`
 
 export interface MetaSendResult {
@@ -237,7 +241,7 @@ export async function sendTextMessage(
   const body: Record<string, unknown> = {
     messaging_product: 'whatsapp',
     recipient_type: 'individual',
-    to,
+    ...campoDestinatario(to),
     type: 'text',
     text: { body: text },
   }
@@ -304,7 +308,7 @@ export async function sendMediaMessage(
   const body: Record<string, unknown> = {
     messaging_product: 'whatsapp',
     recipient_type: 'individual',
-    to,
+    ...campoDestinatario(to),
     type: kind,
     [kind]: media,
   }
@@ -420,7 +424,7 @@ export async function sendTemplateMessage(
   const body: Record<string, unknown> = {
     messaging_product: 'whatsapp',
     recipient_type: 'individual',
-    to,
+    ...campoDestinatario(to),
     type: 'template',
     template: templatePayload,
   }
@@ -691,7 +695,7 @@ export async function sendReactionMessage(
     body: JSON.stringify({
       messaging_product: 'whatsapp',
       recipient_type: 'individual',
-      to,
+      ...campoDestinatario(to),
       type: 'reaction',
       reaction: { message_id: targetMessageId, emoji },
     }),
@@ -811,7 +815,7 @@ export async function sendInteractiveButtons(
   const body: Record<string, unknown> = {
     messaging_product: 'whatsapp',
     recipient_type: 'individual',
-    to,
+    ...campoDestinatario(to),
     type: 'interactive',
     interactive,
   }
@@ -943,7 +947,7 @@ export async function sendInteractiveList(
   const body: Record<string, unknown> = {
     messaging_product: 'whatsapp',
     recipient_type: 'individual',
-    to,
+    ...campoDestinatario(to),
     type: 'interactive',
     interactive,
   }
