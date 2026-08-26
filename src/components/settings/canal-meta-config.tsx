@@ -47,11 +47,13 @@ const TEXTOS: Record<Canal, {
       "Está en tu página → Configuración → Información de la página, al final. Son solo números.",
     ejemploId: "102938475610293",
     pasos: [
-      "Entrá a developers.facebook.com y abrí tu app.",
-      "Agregá el producto Messenger.",
-      "En Configuración de Messenger, generá un token de acceso para tu página. Ese token no vence.",
-      "Suscribí la página a los eventos messages y messaging_postbacks.",
-      "Pegá abajo el ID de la página y el token, y guardá.",
+      "Entrá a developers.facebook.com/apps y abrí tu app (o creá una de tipo Empresa).",
+      "En el menú de la izquierda, agregá el producto «Messenger».",
+      "Bajá a «Tokens de acceso», pulsá «Agregar o quitar páginas» y elegí tu página.",
+      "Al lado de la página aparece «Generar token». Copialo: empieza por EAA y es largo. Ese es el token de acceso que va abajo.",
+      "En «Webhooks», pulsá «Editar suscripción» y pegá la URL y el token de verificación de la tarjeta de arriba.",
+      "Suscribí la página a los campos messages y messaging_postbacks.",
+      "Volvé acá, pegá el ID de la página y el token, y guardá.",
     ],
   },
   instagram: {
@@ -63,14 +65,69 @@ const TEXTOS: Record<Canal, {
       "Es el ID de tu cuenta de Instagram vinculada a la página de Facebook, no tu nombre de usuario.",
     ejemploId: "17841400000000000",
     pasos: [
-      "Tu cuenta de Instagram debe ser Profesional y estar vinculada a una página de Facebook.",
-      "En developers.facebook.com, agregá el producto Instagram a tu app.",
-      "Activá el acceso a los mensajes en la configuración de Instagram de tu cuenta.",
-      "Generá el token de acceso con los permisos de mensajería.",
-      "Pegá abajo el ID de la cuenta y el token, y guardá.",
+      "Tu cuenta de Instagram tiene que ser Profesional y estar vinculada a una página de Facebook.",
+      "En la app de Instagram, activá «Permitir acceso a mensajes» en Configuración → Privacidad → Mensajes.",
+      "En developers.facebook.com, agregá el producto «Instagram» a tu app.",
+      "En «Tokens de acceso», generá uno para la página vinculada. Empieza por EAA.",
+      "En «Webhooks», pegá la URL y el token de verificación de la tarjeta de arriba, y suscribí el campo messages.",
+      "Volvé acá, pegá el ID de la cuenta profesional y el token, y guardá.",
     ],
   },
 };
+
+/**
+ * Un valor de solo lectura con su botón de copiar.
+ *
+ * El texto va en un `<code>` seleccionable además del botón: en algunos
+ * navegadores el portapapeles está bloqueado si la página no es segura, y sin
+ * poder seleccionar a mano la persona se queda sin forma de obtener el dato.
+ */
+function CampoCopiable({
+  etiqueta,
+  valor,
+  ayuda,
+}: {
+  etiqueta: string;
+  valor: string;
+  ayuda: string;
+}) {
+  return (
+    <div className="space-y-1.5">
+      <Label>{etiqueta}</Label>
+      <div className="flex items-center gap-2">
+        <code
+          onClick={(e) => {
+            // Un clic selecciona todo: es lo que espera quien va a copiar.
+            const r = document.createRange();
+            r.selectNodeContents(e.currentTarget);
+            const s = window.getSelection();
+            s?.removeAllRanges();
+            s?.addRange(r);
+          }}
+          className="flex-1 cursor-text truncate rounded-md border border-border bg-muted px-3 py-2 text-xs transition-colors hover:border-primary/40"
+        >
+          {valor || "—"}
+        </code>
+        <Button
+          variant="outline"
+          size="sm"
+          disabled={!valor}
+          onClick={async () => {
+            try {
+              await navigator.clipboard.writeText(valor);
+              toast.success(`${etiqueta} copiado.`);
+            } catch {
+              toast.error("El navegador bloqueó el portapapeles. Seleccionalo y copialo a mano.");
+            }
+          }}
+        >
+          <Copy className="h-3.5 w-3.5" />
+        </Button>
+      </div>
+      <p className="text-xs text-muted-foreground">{ayuda}</p>
+    </div>
+  );
+}
 
 export function CanalMetaConfig({ canal }: { canal: Canal }) {
   const txt = TEXTOS[canal];
@@ -82,8 +139,18 @@ export function CanalMetaConfig({ canal }: { canal: Canal }) {
   const [nombre, setNombre] = useState("");
   const [token, setToken] = useState("");
 
-  const urlWebhook =
-    typeof window !== "undefined" ? `${window.location.origin}/api/meta/webhook` : "";
+  /**
+   * Los dos datos que Meta pide en su formulario de webhooks.
+   *
+   * Llegan del servidor: el token de verificación vive en una variable de
+   * entorno y el navegador no puede leerlo solo. Antes esta pantalla mostraba
+   * la URL y callaba el token, que es justo lo que dejaba el registro a medias.
+   */
+  const [webhook, setWebhook] = useState<{
+    webhookUrl: string;
+    verifyToken: string;
+    appSecretConfigurado: boolean;
+  } | null>(null);
 
   const cargar = useCallback(async () => {
     const supabase = createClient();
@@ -103,6 +170,18 @@ export function CanalMetaConfig({ canal }: { canal: Canal }) {
   useEffect(() => {
     void cargar();
   }, [cargar]);
+
+  useEffect(() => {
+    void (async () => {
+      try {
+        const r = await fetch("/api/meta/conexiones", { cache: "no-store" });
+        if (r.ok) setWebhook(await r.json());
+      } catch {
+        // Si falla, la tarjeta del webhook muestra un aviso en vez de campos
+        // vacíos que parecerían un dato en blanco.
+      }
+    })();
+  }, []);
 
   const guardar = async () => {
     if (!externalId.trim() || !token.trim()) {
@@ -265,28 +344,53 @@ export function CanalMetaConfig({ canal }: { canal: Canal }) {
         <CardHeader>
           <CardTitle className="text-base">Webhook</CardTitle>
           <CardDescription>
-            Pegá esta dirección en la configuración de webhooks de tu app en Meta.
+            Meta pide DOS datos en el mismo formulario. Copiá los dos de acá.
           </CardDescription>
         </CardHeader>
-        <CardContent>
-          <div className="flex items-center gap-2">
-            <code className="flex-1 truncate rounded-md border border-border bg-muted px-3 py-2 text-xs">
-              {urlWebhook}
-            </code>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => {
-                void navigator.clipboard.writeText(urlWebhook);
-                toast.success("Dirección copiada.");
-              }}
-            >
-              <Copy className="h-3.5 w-3.5" />
-            </Button>
-          </div>
-          <p className="mt-2 text-xs text-muted-foreground">
-            Es la misma para Facebook e Instagram: el propio aviso de Meta dice de qué canal viene.
-          </p>
+        <CardContent className="space-y-4">
+          {!webhook ? (
+            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+              <Loader2 className="h-4 w-4 animate-spin" />
+              Cargando…
+            </div>
+          ) : (
+            <>
+              <CampoCopiable
+                etiqueta="URL de devolución de llamada"
+                valor={webhook.webhookUrl}
+                ayuda="Es la misma para Facebook e Instagram: el propio aviso de Meta dice de qué canal viene."
+              />
+
+              {/* El que faltaba. Sin él, Meta rechaza el registro con un error
+                  que no explica nada, y quien lo configura acaba probando
+                  valores al azar. */}
+              <CampoCopiable
+                etiqueta="Token de verificación"
+                valor={webhook.verifyToken}
+                ayuda="Meta lo devuelve para comprobar que el webhook es tuyo. Tiene que coincidir exactamente."
+              />
+
+              {!webhook.appSecretConfigurado && (
+                <p className="rounded-md border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-xs text-amber-400">
+                  Falta el secreto de la app en el servidor. Sin él no se puede
+                  comprobar la firma de los avisos y cualquiera podría enviar
+                  mensajes falsos al CRM.
+                </p>
+              )}
+
+              <div className="rounded-md border border-border bg-muted/40 px-3 py-2">
+                <p className="text-xs font-medium text-foreground">
+                  Campos a suscribir
+                </p>
+                <p className="mt-0.5 text-xs text-muted-foreground">
+                  {canal === "facebook"
+                    ? "messages y messaging_postbacks"
+                    : "messages"}
+                  {" — sin suscribirlos, el webhook queda registrado pero no llega ningún mensaje."}
+                </p>
+              </div>
+            </>
+          )}
         </CardContent>
       </Card>
 

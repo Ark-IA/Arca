@@ -15,6 +15,49 @@ import { perfilDeUsuario } from '@/lib/meta/mensajeria'
 
 export const dynamic = 'force-dynamic'
 
+/**
+ * GET — los datos que hay que pegar en el formulario de webhooks de Meta.
+ *
+ * El token de verificacion vive en una variable de entorno del servidor, asi
+ * que el navegador no puede leerlo por su cuenta. Sin exponerlo aca, la
+ * pantalla mostraba la URL del webhook y dejaba a la persona buscando el token
+ * en un archivo del servidor -- o inventandoselo, que es peor: Meta rechaza el
+ * registro y el error no dice por que.
+ *
+ * No es una credencial de acceso: solo sirve para que Meta y el CRM se
+ * reconozcan al dar de alta el webhook. Aun asi se pide rol de administrador,
+ * que es quien conecta canales.
+ */
+export async function GET(request: Request) {
+  try {
+    await requireRole('admin')
+  } catch (e) {
+    return toErrorResponse(e)
+  }
+
+  // El origen se toma de la direccion configurada y, si no la hay, de las
+  // cabeceras del proxy: dentro del contenedor `request.url` dice http y
+  // Meta rechaza un webhook que no sea https.
+  const origen =
+    process.env.NEXT_PUBLIC_SITE_URL?.trim().replace(/\/+$/, '') ||
+    (() => {
+      const url = new URL(request.url)
+      const host = request.headers.get('x-forwarded-host')?.split(',')[0]?.trim() || url.host
+      const proto =
+        request.headers.get('x-forwarded-proto')?.split(',')[0]?.trim() || 'https'
+      return `${proto}://${host}`
+    })()
+
+  return NextResponse.json({
+    webhookUrl: `${origen}/api/meta/webhook`,
+    verifyToken: process.env.META_WEBHOOK_VERIFY_TOKEN ?? '',
+    // Sin secreto de app, la verificacion de firma del webhook queda
+    // desactivada y cualquiera podria enviarnos mensajes falsos. Se avisa
+    // aca para que no pase inadvertido.
+    appSecretConfigurado: !!process.env.META_APP_SECRET,
+  })
+}
+
 export async function POST(request: Request) {
   let accountId: string
   let userId: string
