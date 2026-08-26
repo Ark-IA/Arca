@@ -1,12 +1,91 @@
 import { describe, it, expect } from "vitest";
 import {
   matchReplyId,
+  matchReplyText,
   matchesKeywordTrigger,
   isAutoAdvancing,
   isSuspending,
   isTerminal,
   evaluateConditionPredicate,
 } from "./engine";
+
+// El menú real de ARK-IA, con tilde y todo: es donde apareció el fallo.
+const MENU = {
+  node_type: "send_buttons",
+  config: {
+    text: "¿Con qué te ayudo?",
+    buttons: [
+      {
+        reply_id: "opt_soluciones",
+        title: "Ver soluciones",
+        next_node_key: "soluciones",
+      },
+      {
+        reply_id: "opt_soporte",
+        title: "Soy cliente",
+        next_node_key: "tag_soporte",
+      },
+      {
+        reply_id: "opt_info",
+        title: "Más información",
+        next_node_key: "info",
+      },
+    ],
+  },
+};
+
+describe("matchReplyText — el cliente escribe en vez de tocar", () => {
+  it("empareja la etiqueta escrita tal cual", () => {
+    expect(matchReplyText(MENU, "Ver soluciones")).toBe("soluciones");
+  });
+
+  it("no distingue mayúsculas, espacios sobrantes ni tildes", () => {
+    // Las tres formas en que la gente escribe de verdad.
+    expect(matchReplyText(MENU, "ver soluciones")).toBe("soluciones");
+    expect(matchReplyText(MENU, "  Ver   soluciones  ")).toBe("soluciones");
+    expect(matchReplyText(MENU, "mas informacion")).toBe("info");
+    expect(matchReplyText(MENU, "MÁS INFORMACIÓN")).toBe("info");
+  });
+
+  it("exige la etiqueta completa, no una parte", () => {
+    // Si «contiene» bastara, esta consulta de soporte abriría el catálogo
+    // comercial en vez de llegar al agente de IA.
+    expect(
+      matchReplyText(MENU, "hola, quiero ver soluciones para mi empresa"),
+    ).toBeNull();
+    expect(matchReplyText(MENU, "soluciones")).toBeNull();
+  });
+
+  it("ignora el texto vacío o en blanco", () => {
+    expect(matchReplyText(MENU, "")).toBeNull();
+    expect(matchReplyText(MENU, "   ")).toBeNull();
+  });
+
+  it("recorre todas las secciones de una lista", () => {
+    const lista = {
+      node_type: "send_list",
+      config: {
+        sections: [
+          { title: "A", rows: [{ reply_id: "r1", title: "Voz", next_node_key: "voz" }] },
+          {
+            title: "B",
+            rows: [{ reply_id: "r2", title: "Telefonía", next_node_key: "tel" }],
+          },
+        ],
+      },
+    };
+    expect(matchReplyText(lista, "telefonia")).toBe("tel");
+    expect(matchReplyText(lista, "voz")).toBe("voz");
+    expect(matchReplyText(lista, "otra cosa")).toBeNull();
+  });
+
+  it("devuelve null en nodos que no ofrecen opciones", () => {
+    expect(matchReplyText({ node_type: "end", config: {} }, "hola")).toBeNull();
+    expect(
+      matchReplyText({ node_type: "collect_input", config: {} }, "hola"),
+    ).toBeNull();
+  });
+});
 
 describe("matchReplyId", () => {
   it("returns null for nodes without options", () => {

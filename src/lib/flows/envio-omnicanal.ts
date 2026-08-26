@@ -20,6 +20,7 @@
 
 import { supabaseAdmin } from '@/lib/flows/admin-client'
 import { enviarMensaje, tipoMediaMeta } from '@/lib/meta/mensajeria'
+import type { InteractiveMessagePayload } from '@/lib/whatsapp/interactive'
 import { decrypt } from '@/lib/whatsapp/encryption'
 
 export interface OpcionOmnicanal {
@@ -36,6 +37,17 @@ export interface EnvioOmnicanal {
   opciones?: OpcionOmnicanal[]
   media?: { url: string; contentType: string; filename?: string | null }
   aiGenerated?: boolean
+  /**
+   * La forma original del menú, tal como la guarda el camino de WhatsApp.
+   *
+   * Sin esto la bandeja pinta el mensaje del bot como texto pelado y el agente
+   * que entra a la conversación no ve qué opciones se le ofrecieron al
+   * cliente — justo lo que necesita para entender por qué contestó lo que
+   * contestó. Se guarda la forma de WhatsApp aunque se haya enviado como
+   * opciones rápidas: es la misma información y así el historial se lee igual
+   * en los tres canales.
+   */
+  payloadInteractivo?: InteractiveMessagePayload
 }
 
 /**
@@ -111,6 +123,7 @@ export async function enviarSiEsCanalMeta(
         : 'text',
     content_text: args.texto,
     media_url: args.media?.url ?? null,
+    interactive_payload: args.payloadInteractivo ?? null,
     message_id: resultado.messageId,
     status: 'sent',
     ai_generated: args.aiGenerated ?? false,

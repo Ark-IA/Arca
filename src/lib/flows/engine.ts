@@ -90,6 +90,63 @@ export function matchReplyId(
 }
 
 /**
+ * Normaliza un texto para compararlo con la etiqueta de una opción.
+ *
+ * Quita acentos, espacios de sobra y mayúsculas. Quien escribe a mano no
+ * reproduce la tilde de «Ver más información» ni respeta el espaciado, y
+ * exigírselo sería castigarlo por no haber tocado el botón.
+ */
+function normalizarEtiqueta(texto: string): string {
+  return texto
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/\s+/g, " ")
+    .trim()
+    .toLowerCase();
+}
+
+/**
+ * Igual que `matchReplyId`, pero contra lo que el cliente ESCRIBIÓ.
+ *
+ * En WhatsApp todo el mundo toca el botón y esto nunca hace falta. En
+ * Messenger e Instagram no: las opciones rápidas desaparecen en cuanto la
+ * persona escribe cualquier otra cosa, y algunos clientes no las muestran.
+ * Sin esto, un cliente que escribe «Ver soluciones» —la etiqueta exacta que
+ * le ofrecimos— cuenta como respuesta no entendida, gasta los reintentos y
+ * deja la conversación muerta.
+ *
+ * Coincidencia EXACTA sobre el texto normalizado, no parcial: con «contiene»,
+ * un mensaje largo que mencione de pasada una etiqueta elegiría esa rama, y
+ * el cliente acabaría en un sitio que no pidió.
+ */
+export function matchReplyText(
+  node: { node_type: string; config: Record<string, unknown> },
+  text: string,
+): string | null {
+  const escrito = normalizarEtiqueta(text);
+  if (escrito === "") return null;
+
+  if (node.node_type === "send_buttons") {
+    const cfg = node.config as unknown as SendButtonsNodeConfig;
+    const hit = cfg.buttons?.find(
+      (b) => normalizarEtiqueta(b.title ?? "") === escrito,
+    );
+    return hit?.next_node_key ?? null;
+  }
+  if (node.node_type === "send_list") {
+    const cfg = node.config as unknown as SendListNodeConfig;
+    for (const section of cfg.sections ?? []) {
+      const hit = section.rows?.find(
+        (r) => normalizarEtiqueta(r.title ?? "") === escrito,
+      );
+      if (hit) return hit.next_node_key;
+    }
+    return null;
+  }
+  return null;
+}
+
+/**
  * Case-insensitive contains/exact match against a list of keywords.
  * Used by the trigger evaluator. Stable enough that the v3 builder
  * UI can preview matches by passing canned strings.
@@ -988,18 +1045,27 @@ async function handleReplyForActiveRun(
     return { consumed: true, flow_run_id: run.id, outcome: "no_match" };
   }
 
-  // Two ways a reply can advance:
+  // Three ways a reply can advance:
   //   1. Interactive button/list tap on a send_buttons/send_list node.
-  //   2. Text reply on a collect_input node — capture into vars.
+  //   2. The TEXT of an option, escrita a mano, on those same nodes.
+  //   3. Text reply on a collect_input node — capture into vars.
   //
   // Everything else falls through to the fallback policy below.
+  const esNodoDeOpciones =
+    currentNode.node_type === "send_buttons" ||
+    currentNode.node_type === "send_list";
+
   let matched: string | null = null;
-  if (
-    message.kind === "interactive_reply" &&
-    (currentNode.node_type === "send_buttons" ||
-      currentNode.node_type === "send_list")
-  ) {
+  if (message.kind === "interactive_reply" && esNodoDeOpciones) {
     matched = matchReplyId(currentNode, message.reply_id);
+    // Un toque cuyo id no reconocemos todavía puede identificarse por su
+    // etiqueta: si el menú se reeditó entre el envío y el toque, el id viejo
+    // ya no existe pero el título sigue siendo el mismo.
+    if (!matched && message.reply_title) {
+      matched = matchReplyText(currentNode, message.reply_title);
+    }
+  } else if (message.kind === "text" && esNodoDeOpciones) {
+    matched = matchReplyText(currentNode, message.text);
   } else if (
     message.kind === "text" &&
     currentNode.node_type === "collect_input"

@@ -109,20 +109,44 @@ export async function enviarMensaje(args: EnvioMeta): Promise<ResultadoEnvio> {
     }))
   }
 
+  const cuerpo = {
+    recipient: { id: destinatario },
+    message: mensaje,
+    messaging_type: 'RESPONSE',
+  }
+
   const respuesta = await fetch(`${BASE}/${cuentaId}/messages`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
       Authorization: `Bearer ${accessToken}`,
     },
-    body: JSON.stringify({
-      recipient: { id: destinatario },
-      message: mensaje,
-      messaging_type: 'RESPONSE',
-    }),
+    body: JSON.stringify(cuerpo),
   })
 
   const datos = await respuesta.json().catch(() => ({}))
+
+  // Rastro de los menus, solo de los menus.
+  //
+  // Un mensaje de texto que sale bien no necesita explicacion; un menu que
+  // Meta acepta con 200 pero no pinta, si. Sin ver el cuerpo exacto y la
+  // respuesta cruda no hay forma de distinguir "lo mandamos mal" de "Meta lo
+  // ignoro", y las dos se ven igual desde la base de datos. No lleva el token
+  // ni el texto del cliente: solo el sobre.
+  if (opciones?.length) {
+    console.log(
+      '[meta menu]',
+      JSON.stringify({
+        estado: respuesta.status,
+        cuenta: cuentaId,
+        opciones: opciones.length,
+        // Exactamente lo que viajo, para poder compararlo con la documentacion.
+        enviado: mensaje.quick_replies ?? null,
+        respuesta: datos,
+      }),
+    )
+  }
+
   if (!respuesta.ok) {
     const msg = datos?.error?.message ?? `Meta respondio ${respuesta.status}`
     const codigo = datos?.error?.code

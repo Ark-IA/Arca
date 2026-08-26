@@ -349,6 +349,27 @@ async function sendInteractiveViaMeta(
           s.rows.map((r) => ({ id: r.id, titulo: r.title })),
         )
 
+  // La forma estructurada del menú se arma ANTES del desvío, no dentro de la
+  // rama de WhatsApp: los dos caminos la guardan, y así la bandeja pinta el
+  // mismo mensaje sin importar por dónde salió.
+  const interactivePayload: InteractiveMessagePayload =
+    input.kind === 'buttons'
+      ? {
+          kind: 'buttons',
+          body: input.bodyText,
+          header: input.headerText,
+          footer: input.footerText,
+          buttons: input.buttons,
+        }
+      : {
+          kind: 'list',
+          body: input.bodyText,
+          header: input.headerText,
+          footer: input.footerText,
+          button_label: input.buttonLabel,
+          sections: input.sections,
+        }
+
   const porMeta = await enviarSiEsCanalMeta({
     accountId: input.accountId,
     conversationId: input.conversationId,
@@ -360,6 +381,7 @@ async function sendInteractiveViaMeta(
       .filter(Boolean)
       .join('\n\n'),
     opciones,
+    payloadInteractivo: interactivePayload,
   })
   if (porMeta) return { whatsapp_message_id: porMeta.messageId }
 
@@ -453,27 +475,10 @@ async function sendInteractiveViaMeta(
   //
   // We do NOT set interactive_reply_id here — that column is reserved
   // for the customer's tap on this message, populated by the webhook
-  // when their reply arrives. We DO persist the structured payload so
-  // the inbox thread re-renders the buttons/rows the bot sent (round-
-  // trip), matching the composer + automation send paths.
-  const interactivePayload: InteractiveMessagePayload =
-    input.kind === 'buttons'
-      ? {
-          kind: 'buttons',
-          body: input.bodyText,
-          header: input.headerText,
-          footer: input.footerText,
-          buttons: input.buttons,
-        }
-      : {
-          kind: 'list',
-          body: input.bodyText,
-          header: input.headerText,
-          footer: input.footerText,
-          button_label: input.buttonLabel,
-          sections: input.sections,
-        }
-
+  // when their reply arrives. We DO persist the structured payload
+  // (built above, shared with the Meta path) so the inbox thread
+  // re-renders the buttons/rows the bot sent (round-trip), matching the
+  // composer + automation send paths.
   const { error: msgErr } = await db.from('messages').insert({
     conversation_id: input.conversationId,
     sender_type: 'bot',
