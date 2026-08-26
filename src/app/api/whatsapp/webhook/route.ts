@@ -11,6 +11,7 @@ import { runAutomationsForTrigger } from '@/lib/automations/engine'
 import { dispatchInboundToFlows } from '@/lib/flows/engine'
 import { dispatchInboundToAiReply } from '@/lib/ai/auto-reply'
 import { dispatchWebhookEvent } from '@/lib/webhooks/deliver'
+import { anotarEnLinea, resumir } from '@/lib/registros/linea-de-tiempo'
 import {
   handleTemplateWebhookChange,
   isTemplateWebhookField,
@@ -812,6 +813,20 @@ async function processMessage(
     )
     return
   }
+
+  // Linea de tiempo del contacto. Va DESPUES del control de duplicados a
+  // proposito: si fuera antes, cada reintento de Meta anotaria otra vez el
+  // mismo mensaje y la ficha se llenaria de repeticiones.
+  void anotarEnLinea(supabaseAdmin(), {
+    accountId,
+    userId: null,
+    tipo: 'contact',
+    registroId: conversation.contact_id,
+    eventType: 'message_received',
+    title: 'Mensaje recibido',
+    description: resumir(contentText),
+    metadata: { content_type: contentType, whatsapp_message_id: message.id },
+  })
 
   // Update conversation. The unread bump is done DB-side (migration 037's
   // bump_conversation_on_inbound) rather than as a read-modify-write of the

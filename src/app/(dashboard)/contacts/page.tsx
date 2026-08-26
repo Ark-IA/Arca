@@ -4,6 +4,8 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import { toast } from 'sonner';
 import type { Contact, Tag, ContactTag } from '@/types';
+import { BarraDeVistas } from '@/components/views/barra-de-vistas';
+import type { SavedView } from '@/hooks/use-saved-views';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import {
@@ -77,6 +79,7 @@ export default function ContactsPage() {
   const [totalCount, setTotalCount] = useState(0);
   // Tag filter — contacts shown must have ANY of these tags (OR).
   const [selectedTagIds, setSelectedTagIds] = useState<string[]>([]);
+  const [vistaActiva, setVistaActiva] = useState<string | null>(null);
 
   // Modals
   const [formOpen, setFormOpen] = useState(false);
@@ -339,6 +342,29 @@ export default function ContactsPage() {
     setPage(0);
   }
 
+  // ---- Vistas guardadas -------------------------------------------------
+  // Lo que una vista recuerda de esta pantalla: el texto buscado y las
+  // etiquetas. La página NO se guarda a propósito: abrir una vista guardada
+  // en la página 7 sería desconcertante.
+  const filtrosDeVista = { search: search.trim(), tagIds: selectedTagIds };
+
+  function aplicarVista(v: SavedView | null) {
+    setVistaActiva(v?.id ?? null);
+    setPage(0);
+    if (!v) {
+      setSearch('');
+      setSelectedTagIds([]);
+      return;
+    }
+    const f = v.filters as { search?: unknown; tagIds?: unknown };
+    setSearch(typeof f.search === 'string' ? f.search : '');
+    // Se filtra por tipo elemento a elemento: un JSON guardado por otra
+    // versión podría traer cualquier cosa dentro del arreglo.
+    setSelectedTagIds(
+      Array.isArray(f.tagIds) ? f.tagIds.filter((x): x is string => typeof x === 'string') : [],
+    );
+  }
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -461,6 +487,14 @@ export default function ContactsPage() {
             </PopoverContent>
           </Popover>
         </div>
+
+        <BarraDeVistas
+          modulo="contacts"
+          filtrosActuales={filtrosDeVista}
+          vistaActivaId={vistaActiva}
+          onElegir={aplicarVista}
+          hayFiltros={hasActiveFilters}
+        />
 
         {/* Active tag-filter chips */}
         {selectedTagIds.length > 0 && (

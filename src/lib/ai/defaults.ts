@@ -13,6 +13,10 @@ import type { AiProvider } from './types'
 export const AI_PROVIDER_DEFAULT_MODEL: Record<AiProvider, string> = {
   openai: 'gpt-5.4-mini',
   anthropic: 'claude-haiku-4-5-20251001',
+  // En OpenRouter el identificador lleva el proveedor delante. Se arranca con
+  // un modelo barato y rápido, que es lo que pide contestar mensajes cortos;
+  // el campo es texto libre, así que cambiarlo por otro es un momento.
+  openrouter: 'anthropic/claude-haiku-4.5',
 }
 
 /**

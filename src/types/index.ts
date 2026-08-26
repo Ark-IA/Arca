@@ -124,10 +124,22 @@ export interface Contact {
   whatsapp_user_id?: string | null;
   name?: string;
   email?: string;
+  /**
+   * Nombre de empresa como texto libre, anterior a la tabla `companies`
+   * (migracion 047). Se conserva para no perder lo que ya estaba escrito;
+   * el vinculo real es `company_id`.
+   */
   company?: string;
+  /** Empresa a la que pertenece. Migracion 047. */
+  company_id?: string | null;
+  /** Cargo de la persona en esa empresa. Es de la relacion, no de ninguno
+   *  de los dos, y por eso vive en el contacto. */
+  job_title?: string | null;
   avatar_url?: string;
   created_at: string;
   updated_at: string;
+  /** Presente solo cuando la consulta embebe `company:companies(*)`. */
+  company_ref?: { id: string; name: string } | null;
   /** Hydrated by queries that embed `contact_tags(tags(*))` (e.g. the
    *  Inbox conversation list, for tag filtering). Absent otherwise. */
   tags?: Tag[];
@@ -717,4 +729,148 @@ export interface QuickReply {
   interactive_payload?: InteractiveMessagePayload | null;
   created_at: string;
   updated_at: string;
+}
+
+// ============================================================
+// Módulos traídos de Twenty CRM (migración 047)
+// ============================================================
+
+/** A qué se puede colgar una nota, una tarea, un adjunto o un evento. */
+export type TipoDeRegistro = 'contact' | 'company' | 'deal';
+
+/**
+ * El destino de un vínculo, tal como está en la base: una columna por tipo,
+ * exactamente una con valor. Se modela así y no como `{tipo, id}` porque es lo
+ * que la base puede verificar — ver el comentario de la migración 047.
+ */
+export interface DestinoDeVinculo {
+  contact_id?: string | null;
+  company_id?: string | null;
+  deal_id?: string | null;
+}
+
+export interface Company {
+  id: string;
+  account_id: string;
+  user_id: string | null;
+  name: string;
+  domain: string | null;
+  phone: string | null;
+  address: string | null;
+  city: string | null;
+  country: string | null;
+  industry: string | null;
+  employees: number | null;
+  annual_revenue: number | null;
+  linkedin_url: string | null;
+  notes: string | null;
+  /** Marcada como cliente ideal: el filtro de priorización. */
+  is_ideal_customer: boolean;
+  created_at: string;
+  updated_at: string;
+  /** Presente solo cuando la consulta lo pide explícitamente. */
+  contact_count?: number;
+}
+
+export interface Note {
+  id: string;
+  account_id: string;
+  user_id: string | null;
+  title: string | null;
+  body: string;
+  created_at: string;
+  updated_at: string;
+  targets?: NoteTarget[];
+}
+
+export interface NoteTarget extends DestinoDeVinculo {
+  id: string;
+  note_id: string;
+  created_at: string;
+}
+
+export const ESTADOS_TAREA = ['todo', 'in_progress', 'done', 'canceled'] as const;
+export type EstadoTarea = (typeof ESTADOS_TAREA)[number];
+
+export const PRIORIDADES_TAREA = ['low', 'normal', 'high'] as const;
+export type PrioridadTarea = (typeof PRIORIDADES_TAREA)[number];
+
+export interface Task {
+  id: string;
+  account_id: string;
+  user_id: string | null;
+  /** Quién la tiene que hacer. `null` = cola común, es un estado válido. */
+  assignee_id: string | null;
+  title: string;
+  body: string | null;
+  status: EstadoTarea;
+  priority: PrioridadTarea;
+  due_at: string | null;
+  /** La pone y la quita un disparador de la base al cambiar de estado. */
+  completed_at: string | null;
+  created_at: string;
+  updated_at: string;
+  targets?: TaskTarget[];
+}
+
+export interface TaskTarget extends DestinoDeVinculo {
+  id: string;
+  task_id: string;
+  created_at: string;
+}
+
+export interface Attachment extends DestinoDeVinculo {
+  id: string;
+  account_id: string;
+  user_id: string | null;
+  name: string;
+  url: string;
+  mime_type: string | null;
+  size_bytes: number | null;
+  created_at: string;
+}
+
+export interface TimelineEvent extends DestinoDeVinculo {
+  id: string;
+  account_id: string;
+  /** `null` cuando lo provocó el sistema (un webhook, una automatización). */
+  user_id: string | null;
+  event_type: string;
+  title: string;
+  description: string | null;
+  metadata: Record<string, unknown>;
+  occurred_at: string;
+  created_at: string;
+}
+
+export const ESTADOS_EVENTO = ['confirmed', 'tentative', 'canceled'] as const;
+export type EstadoEvento = (typeof ESTADOS_EVENTO)[number];
+
+export interface CalendarEvent extends DestinoDeVinculo {
+  id: string;
+  account_id: string;
+  user_id: string | null;
+  title: string;
+  description: string | null;
+  location: string | null;
+  meeting_url: string | null;
+  starts_at: string;
+  ends_at: string;
+  is_all_day: boolean;
+  status: EstadoEvento;
+  created_at: string;
+  updated_at: string;
+}
+
+export const TIPOS_BLOQUEO = ['phone', 'whatsapp_user', 'email', 'domain'] as const;
+export type TipoBloqueo = (typeof TIPOS_BLOQUEO)[number];
+
+export interface BlocklistEntry {
+  id: string;
+  account_id: string;
+  user_id: string | null;
+  kind: TipoBloqueo;
+  value: string;
+  reason: string | null;
+  created_at: string;
 }

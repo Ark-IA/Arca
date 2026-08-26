@@ -6,7 +6,17 @@
 // whether the account is on OpenAI or Anthropic.
 // ============================================================
 
-export type AiProvider = 'openai' | 'anthropic'
+/**
+ * Los proveedores soportados, en un solo sitio.
+ *
+ * Se declara como lista y no solo como tipo porque el servidor tiene que
+ * comprobar en tiempo de ejecución lo que llega por HTTP, y una unión de
+ * TypeScript no existe una vez compilada. Tenerlos en dos sitios garantizaba
+ * que sumar un proveedor funcionara en la interfaz y lo rechazara la API.
+ */
+export const PROVEEDORES = ['openai', 'anthropic', 'openrouter'] as const
+
+export type AiProvider = (typeof PROVEEDORES)[number]
 
 /**
  * Account AI setup, decrypted and ready to use. Produced by

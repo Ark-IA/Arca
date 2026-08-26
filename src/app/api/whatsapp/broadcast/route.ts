@@ -9,6 +9,7 @@ import {
   isRecipientNotAllowedError,
 } from '@/lib/whatsapp/phone-utils'
 import { validarDestinoEntrante } from '@/lib/whatsapp/destino'
+import { bloqueadosEntre, MENSAJE_BLOQUEADO } from '@/lib/whatsapp/bloqueo'
 import {
   checkRateLimit,
   rateLimitResponse,
@@ -163,7 +164,28 @@ export async function POST(request: Request) {
     let sentCount = 0
     let failedCount = 0
 
+    // Lista de bloqueo, resuelta de una sola vez para todo el lote. Una
+    // consulta por destinatario serían mil idas a la base para descartar a
+    // tres, y este bucle ya es la parte lenta del masivo.
+    const bloqueados = await bloqueadosEntre(
+      supabase,
+      accountId,
+      recipients.map((r) => r.phone).filter((p): p is string => typeof p === 'string'),
+    )
+
     for (const recipient of recipients) {
+      if (bloqueados.has(recipient.phone)) {
+        // Se cuenta como fallido y no se omite en silencio: si desapareciera
+        // del informe, el total no cuadraría y nadie sabría por qué.
+        results.push({
+          phone: recipient.phone,
+          status: 'failed',
+          error: MENSAJE_BLOQUEADO,
+        })
+        failedCount++
+        continue
+      }
+
       // `phone` es historico: hoy el campo lleva un telefono O un
       // identificador de usuario de WhatsApp. Se conserva el nombre porque
       // es la clave con la que el cliente cruza los resultados.

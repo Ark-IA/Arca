@@ -26,6 +26,7 @@ import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Loader2, AlertTriangle } from 'lucide-react';
 import { useTranslations } from 'next-intl';
+import { SelectorDeEmpresa } from '@/components/companies/selector-de-empresa';
 
 interface ContactFormProps {
   open: boolean;
@@ -55,6 +56,11 @@ export function ContactForm({
   const [phone, setPhone] = useState('');
   const [email, setEmail] = useState('');
   const [company, setCompany] = useState('');
+  // El texto libre `company` se conserva -- es lo que la persona escribió
+  // antes de que existiera la tabla de empresas -- y se le suma el vínculo
+  // real. Migración 047.
+  const [companyId, setCompanyId] = useState<string | null>(null);
+  const [jobTitle, setJobTitle] = useState('');
   const [saving, setSaving] = useState(false);
 
   // Duplicate-phone detection for NEW contacts. `exact` (same digits)
@@ -76,6 +82,8 @@ export function ContactForm({
       setPhone(contact?.phone ?? '');
       setEmail(contact?.email ?? '');
       setCompany(contact?.company ?? '');
+      setCompanyId(contact?.company_id ?? null);
+      setJobTitle(contact?.job_title ?? '');
       setSelectedTagIds(contactTags.map((ct) => ct.tag_id));
       setDupMatch(null);
       fetchTags();
@@ -157,6 +165,8 @@ export function ContactForm({
             phone: phone.trim(),
             email: email.trim() || null,
             company: company.trim() || null,
+            company_id: companyId,
+            job_title: jobTitle.trim() || null,
             updated_at: new Date().toISOString(),
           })
           .eq('id', contactId);
@@ -171,6 +181,8 @@ export function ContactForm({
             phone: phone.trim(),
             email: email.trim() || null,
             company: company.trim() || null,
+            company_id: companyId,
+            job_title: jobTitle.trim() || null,
           })
           .select('id')
           .single();
@@ -311,14 +323,27 @@ export function ContactForm({
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="cf-company" className="text-muted-foreground">
-              {t('companyLabel')}
+            <Label className="text-muted-foreground">{t('companyLabel')}</Label>
+            <SelectorDeEmpresa
+              valor={companyId}
+              onCambiar={(id, nombre) => {
+                setCompanyId(id);
+                // El texto libre sigue al vínculo. Dejarlos desincronizados
+                // haría que la ficha dijera una empresa y el listado otra.
+                setCompany(nombre ?? '');
+              }}
+            />
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="cf-job" className="text-muted-foreground">
+              Cargo
             </Label>
             <Input
-              id="cf-company"
-              value={company}
-              onChange={(e) => setCompany(e.target.value)}
-              placeholder={t('companyPlaceholder')}
+              id="cf-job"
+              value={jobTitle}
+              onChange={(e) => setJobTitle(e.target.value)}
+              placeholder="Gerente comercial"
               className="bg-muted border-border text-foreground placeholder:text-muted-foreground"
             />
           </div>

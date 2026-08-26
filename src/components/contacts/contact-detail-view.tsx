@@ -41,6 +41,11 @@ import {
   LayoutTemplate,
 } from 'lucide-react';
 import { useTranslations } from 'next-intl';
+import { PanelNotas } from '@/components/registros/panel-notas';
+import { PanelAdjuntos } from '@/components/registros/panel-adjuntos';
+import { PanelLineaDeTiempo } from '@/components/registros/panel-linea-de-tiempo';
+import { PanelTareasDeContacto } from '@/components/registros/panel-tareas-de-contacto';
+import { canSendMessages } from '@/lib/auth/roles';
 
 interface ContactDetailViewProps {
   open: boolean;
@@ -57,7 +62,10 @@ export function ContactDetailView({
 }: ContactDetailViewProps) {
   const t = useTranslations('Contacts.detailView');
   const supabase = createClient();
-  const { accountId, defaultCurrency } = useAuth();
+  const { accountId, defaultCurrency, accountRole } = useAuth();
+  // Los paneles nuevos comparten la misma regla que el resto del CRM: de
+  // 'agent' para arriba se escribe, un 'viewer' solo mira.
+  const puedeEditarRegistros = accountRole ? canSendMessages(accountRole) : false;
 
   const [contact, setContact] = useState<Contact | null>(null);
   const [loading, setLoading] = useState(false);
@@ -455,7 +463,7 @@ export function ContactDetailView({
 
             {/* Tabs */}
             <Tabs defaultValue="details" className="flex-1 flex flex-col min-h-0">
-              <TabsList className="bg-muted/50 border-b border-border mx-4 mt-3">
+              <TabsList className="bg-muted/50 border-b border-border mx-4 mt-3 overflow-x-auto">
                 <TabsTrigger
                   value="details"
                   className="data-active:bg-muted data-active:text-primary text-muted-foreground"
@@ -581,68 +589,40 @@ export function ContactDetailView({
               </TabsContent>
 
               {/* Notes Tab */}
-              <TabsContent value="notes" className="flex-1 flex flex-col min-h-0 px-4 py-3">
-                <div className="space-y-2 mb-3">
-                  <Textarea
-                    value={newNote}
-                    onChange={(e) => setNewNote(e.target.value)}
-                    placeholder={t('notesTab.placeholder')}
-                    className="bg-muted border-border text-foreground placeholder:text-muted-foreground min-h-[60px] text-sm resize-none"
+              {/* Notas. Usa el panel compartido, el mismo que la ficha de una
+                  empresa: hasta la migración 049 había DOS sistemas de notas
+                  conviviendo y nadie sabía en cuál había escrito. */}
+              <TabsContent value="notes" className="flex-1 overflow-y-auto px-4 py-3">
+                {contactId && (
+                  <PanelNotas
+                    tipo="contact"
+                    registroId={contactId}
+                    puedeEditar={puedeEditarRegistros}
                   />
-                  <Button
-                    onClick={addNote}
-                    disabled={!newNote.trim() || savingNote}
-                    className="bg-primary hover:bg-primary/90 text-primary-foreground"
-                    size="sm"
-                  >
-                    {savingNote ? (
-                      <Loader2 className="size-3.5 animate-spin" />
-                    ) : (
-                      <Plus className="size-3.5" />
-                    )}
-                    {t('notesTab.save')}
-                  </Button>
-                </div>
+                )}
+              </TabsContent>
 
-                <div className="flex-1 overflow-y-auto space-y-2">
-                  {loadingNotes ? (
-                    <div className="flex items-center justify-center py-8">
-                      <Loader2 className="size-5 animate-spin text-muted-foreground" />
-                    </div>
-                  ) : notes.length === 0 ? (
-                    <p className="text-sm text-muted-foreground text-center py-8">
-                      {t('notesTab.noNotes')}
-                    </p>
-                  ) : (
-                    notes.map((note) => (
-                      <div
-                        key={note.id}
-                        className="rounded-lg bg-muted/50 border border-border/50 p-3 group"
-                      >
-                        <div className="flex items-start justify-between gap-2">
-                          <p className="text-sm text-muted-foreground whitespace-pre-wrap flex-1">
-                            {note.note_text}
-                          </p>
-                          <button
-                            onClick={() => deleteNote(note.id)}
-                            className="opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-red-400 transition-all cursor-pointer shrink-0"
-                          >
-                            <Trash2 className="size-3.5" />
-                          </button>
-                        </div>
-                        <p className="text-xs text-muted-foreground mt-1.5">
-                          {new Date(note.created_at).toLocaleDateString('en-US', {
-                            month: 'short',
-                            day: 'numeric',
-                            year: 'numeric',
-                            hour: '2-digit',
-                            minute: '2-digit',
-                          })}
-                        </p>
-                      </div>
-                    ))
-                  )}
-                </div>
+              <TabsContent value="tasks" className="flex-1 overflow-y-auto px-4 py-3">
+                {contactId && (
+                  <PanelTareasDeContacto
+                    contactId={contactId}
+                    puedeEditar={puedeEditarRegistros}
+                  />
+                )}
+              </TabsContent>
+
+              <TabsContent value="files" className="flex-1 overflow-y-auto px-4 py-3">
+                {contactId && (
+                  <PanelAdjuntos
+                    tipo="contact"
+                    registroId={contactId}
+                    puedeEditar={puedeEditarRegistros}
+                  />
+                )}
+              </TabsContent>
+
+              <TabsContent value="activity" className="flex-1 overflow-y-auto px-4 py-3">
+                {contactId && <PanelLineaDeTiempo tipo="contact" registroId={contactId} />}
               </TabsContent>
 
               {/* Custom Fields Tab */}

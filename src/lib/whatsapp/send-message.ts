@@ -42,6 +42,8 @@ import {
   phoneVariants,
   isRecipientNotAllowedError,
 } from '@/lib/whatsapp/phone-utils';
+import { estaBloqueado, MENSAJE_BLOQUEADO } from '@/lib/whatsapp/bloqueo';
+import { anotarEnLinea, resumir } from '@/lib/registros/linea-de-tiempo';
 import type { MessageTemplate } from '@/types';
 import {
   resolveTemplateRow,
@@ -277,6 +279,14 @@ export async function sendMessageToConversation(
       `El numero guardado ("${contact.phone}") no tiene formato valido.`,
       400
     );
+  }
+
+  // Lista de bloqueo. Se comprueba ACA y no en la pantalla que arma el envio
+  // porque este es el unico punto por el que pasan todos los caminos: la
+  // bandeja, la API publica, las automatizaciones y los flujos. Un control en
+  // la interfaz lo esquiva cualquiera de los otros tres.
+  if (await estaBloqueado(db, accountId, destino)) {
+    throw new SendMessageError('blocked_recipient', MENSAJE_BLOQUEADO, 409);
   }
 
   // El resto del archivo llama a esta variable `sanitizedPhone` desde antes
@@ -564,6 +574,23 @@ export async function sendMessageToConversation(
       err instanceof Error ? err.message : err
     );
   }
+
+  // Queda anotado en la ficha del contacto. Con la clave de servicio porque
+  // `timeline_events` no tiene politica de escritura: se escribe desde el
+  // servidor o no se escribe. Best-effort, como todo lo de arriba.
+  void anotarEnLinea(supabaseAdmin(), {
+    accountId,
+    // `null` = lo hizo el sistema. Esta función no recibe quién llama: la usan
+    // la bandeja, la API pública, las automatizaciones y los flujos, y solo la
+    // primera tiene una persona detrás. Atribuirlo a alguien sería inventarlo.
+    userId: null,
+    tipo: 'contact',
+    registroId: contact.id,
+    eventType: 'message_sent',
+    title: 'Mensaje enviado',
+    description: resumir(lastMessageText),
+    metadata: { message_type: messageType, whatsapp_message_id: waMessageId },
+  });
 
   return { messageId: messageRecord.id, whatsappMessageId: waMessageId };
 }

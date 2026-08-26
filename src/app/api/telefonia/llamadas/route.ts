@@ -16,6 +16,7 @@
 import { NextResponse } from 'next/server'
 import { requireRole, toErrorResponse } from '@/lib/auth/account'
 import { supabaseAdmin } from '@/lib/flows/admin-client'
+import { anotarEnLinea } from '@/lib/registros/linea-de-tiempo'
 
 export const dynamic = 'force-dynamic'
 
@@ -86,6 +87,18 @@ export async function PATCH(request: Request) {
       return NextResponse.json({ error: 'Datos incompletos' }, { status: 400 })
     }
 
+    const db = supabaseAdmin()
+
+    // Se lee la fila ANTES de tocarla: hace falta el contacto y la dirección
+    // para poder anotarla en la línea de tiempo, y después del update ya no
+    // se sabría cuál era el estado anterior.
+    const { data: previa } = await db
+      .from('call_logs')
+      .select('contact_id, direction, to_number, from_number, status')
+      .eq('id', cuerpo.id)
+      .eq('account_id', ctx.accountId)
+      .maybeSingle()
+
     const cambios: Record<string, unknown> = { status: cuerpo.status }
     if (cuerpo.answered === true) cambios.answered_at = new Date().toISOString()
     // Todo estado que no sea 'contestada' o 'sonando' es un final.
@@ -95,7 +108,7 @@ export async function PATCH(request: Request) {
 
     // El filtro por cuenta no es decorativo: sin el, conocer el id de una
     // llamada ajena bastaria para reescribir su desenlace.
-    const { error } = await supabaseAdmin()
+    const { error } = await db
       .from('call_logs')
       .update(cambios)
       .eq('id', cuerpo.id)
@@ -104,6 +117,34 @@ export async function PATCH(request: Request) {
     if (error) {
       console.error('[telefonia] no se pudo cerrar el registro:', error.message)
       return NextResponse.json({ error: 'No se pudo actualizar' }, { status: 500 })
+    }
+
+    // Solo se anota el DESENLACE, no cada cambio de estado: una llamada pasa
+    // por 'ringing' y 'answered' antes de terminar, y anotar los tres dejaria
+    // tres lineas en la ficha para una sola llamada.
+    if (
+      previa?.contact_id &&
+      cuerpo.status !== 'ringing' &&
+      cuerpo.status !== 'answered'
+    ) {
+      const entrante = previa.direction === 'inbound'
+      const contestada = cuerpo.status === 'completed'
+      void anotarEnLinea(db, {
+        accountId: ctx.accountId,
+        userId: ctx.userId,
+        tipo: 'contact',
+        registroId: previa.contact_id as string,
+        eventType: 'call',
+        title: entrante
+          ? contestada
+            ? 'Llamada recibida'
+            : 'Llamada perdida'
+          : contestada
+            ? 'Llamada realizada'
+            : 'Llamada sin respuesta',
+        description: (entrante ? previa.from_number : previa.to_number) as string | null,
+        metadata: { direction: previa.direction, status: cuerpo.status },
+      })
     }
 
     return NextResponse.json({ ok: true })

@@ -41,11 +41,21 @@ const HANDOFF_QUEUE = '__queue__';
 const PROVIDER_LABEL: Record<AiProvider, string> = {
   openai: 'OpenAI',
   anthropic: 'Anthropic (Claude)',
+  openrouter: 'OpenRouter (todos los modelos)',
 };
 
 const KEY_PLACEHOLDER: Record<AiProvider, string> = {
   openai: 'sk-...',
   anthropic: 'sk-ant-...',
+  openrouter: 'sk-or-v1-...',
+};
+
+/** Pista bajo el selector: qué es cada proveedor y de dónde sale la clave. */
+const PROVIDER_AYUDA: Record<AiProvider, string> = {
+  openai: 'Tu clave de platform.openai.com. Se factura directamente a OpenAI.',
+  anthropic: 'Tu clave de console.anthropic.com. Se factura directamente a Anthropic.',
+  openrouter:
+    'Una sola clave para los modelos de OpenAI, Anthropic, Google, Meta y más. Sacala en openrouter.ai/keys y cambiá de modelo escribiendo su nombre, sin abrir otra cuenta.',
 };
 
 export function AiConfig() {
@@ -128,9 +138,10 @@ export function AiConfig() {
   // typed a custom model.
   const handleProviderChange = (next: AiProvider) => {
     setProvider(next);
+    // Solo se pisa el modelo si era el de fábrica de ALGÚN proveedor: si la
+    // persona escribió uno propio, cambiar de proveedor no puede borrárselo.
     const isDefaultModel =
-      model === AI_PROVIDER_DEFAULT_MODEL.openai ||
-      model === AI_PROVIDER_DEFAULT_MODEL.anthropic ||
+      Object.values(AI_PROVIDER_DEFAULT_MODEL).includes(model) ||
       model.trim() === '';
     if (isDefaultModel) setModel(AI_PROVIDER_DEFAULT_MODEL[next]);
   };
@@ -281,8 +292,14 @@ export function AiConfig() {
                     <SelectItem value="anthropic">
                       {PROVIDER_LABEL.anthropic}
                     </SelectItem>
+                    <SelectItem value="openrouter">
+                      {PROVIDER_LABEL.openrouter}
+                    </SelectItem>
                   </SelectContent>
                 </Select>
+                <p className="text-xs text-muted-foreground">
+                  {PROVIDER_AYUDA[provider]}
+                </p>
               </div>
 
               <div className="space-y-2">
@@ -377,6 +394,17 @@ export function AiConfig() {
                   sameKeyText: provider === 'openai' ? t('sameKeyText') : '',
                 })}
               </p>
+              {provider === 'openrouter' && (
+                // OpenRouter no expone endpoint de embeddings. Sin decirlo, la
+                // persona pegaría acá su clave `sk-or-...` y la búsqueda
+                // semántica fallaría en silencio cada vez que alguien
+                // preguntara algo.
+                <p className="text-xs text-amber-400">
+                  OpenRouter no genera embeddings. Para búsqueda semántica hace
+                  falta una clave de OpenAI acá; sin ella la base de conocimiento
+                  busca por texto y sigue funcionando.
+                </p>
+              )}
             </div>
           </CardContent>
         </Card>

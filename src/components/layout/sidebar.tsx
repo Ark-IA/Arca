@@ -10,6 +10,9 @@ import { useUnreadNotifications } from "@/hooks/use-unread-notifications";
 import {
   Bell,
   Bot,
+  Building2,
+  CalendarDays,
+  CheckSquare,
   Crown,
   GitBranch,
   LayoutDashboard,
@@ -96,7 +99,12 @@ const navItems: NavItem[] = [
   { href: "/inbox", labelKey: "inbox", icon: MessageSquare },
   { href: "/notifications", labelKey: "notifications", icon: Bell },
   { href: "/contacts", labelKey: "contacts", icon: Users },
+  // Empresas va pegada a Contactos: son las dos caras de la misma ficha
+  // (la persona y dónde trabaja) y quien busca una suele querer la otra.
+  { href: "/companies", labelKey: "companies", icon: Building2 },
   { href: "/pipelines", labelKey: "pipelines", icon: GitBranch },
+  { href: "/tasks", labelKey: "tasks", icon: CheckSquare },
+  { href: "/calendar", labelKey: "calendar", icon: CalendarDays },
   { href: "/broadcasts", labelKey: "broadcasts", icon: Radio },
   { href: "/automations", labelKey: "automations", icon: Zap },
   { href: "/flows", labelKey: "flows", icon: Workflow, beta: true },

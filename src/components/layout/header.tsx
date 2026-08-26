@@ -17,6 +17,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { ModeToggle } from "@/components/layout/mode-toggle";
+import { BusquedaGlobal } from "@/components/search/busqueda-global";
 
 const pageTitles: Record<string, string> = {
   "/dashboard": "dashboard",
@@ -74,6 +75,9 @@ export function Header({ onOpenSidebar }: HeaderProps) {
       </div>
 
       <div className="flex items-center gap-1 sm:gap-2">
+        {/* Va en el encabezado y no en una página: la búsqueda global sirve
+            justamente para saltar desde donde sea a otra cosa. */}
+        <BusquedaGlobal />
         <ModeToggle />
 
         <DropdownMenu>
