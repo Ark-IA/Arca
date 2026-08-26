@@ -360,42 +360,54 @@ async function findEntryFlow(
   if (error || !flows) return null;
 
   const typed = flows as FlowRow[];
-  for (const flow of typed) {
-    if (flow.trigger_type === "keyword") {
-      const cfg = flow.trigger_config as KeywordTriggerConfig;
-      if (candidates.some((text) => matchesKeywordTrigger(text, cfg))) {
-        return flow;
-      }
-    } else if (flow.trigger_type === "first_inbound_message") {
-      // Reachable by a tap: a broadcast template with a quick-reply
-      // button can genuinely be what prompts a contact's first-ever
-      // inbound. The automations dispatcher has always treated a tap
-      // that way (the webhook pushes `first_inbound_message` regardless
-      // of envelope) — flows were the inconsistent half.
-      if (isFirstInbound) return flow;
 
-      // Segunda puerta: palabras clave sobre un flujo de bienvenida.
-      //
-      // Un flujo de recepción sirve para el primer mensaje Y para cuando
-      // alguien que ya escribió quiere volver al menú. Sin esto, quien ya
-      // es contacto no puede alcanzarlo NUNCA, ni escribiendo "menú": su
-      // primer mensaje ya pasó y no hay forma de repetirlo salvo borrarle
-      // el historial.
-      //
-      // Las palabras son opcionales. Un flujo sin ellas en `trigger_config`
-      // se comporta exactamente igual que antes: solo primer mensaje.
-      const cfg = flow.trigger_config as Partial<KeywordTriggerConfig>;
-      if (
-        Array.isArray(cfg?.keywords) &&
-        cfg.keywords.length > 0 &&
-        candidates.some((text) =>
-          matchesKeywordTrigger(text, cfg as KeywordTriggerConfig),
-        )
-      ) {
-        return flow;
-      }
+  // Two passes, not one — because a `first_inbound_message` flow matches
+  // ANY first message, so a single ordered pass would let it swallow a
+  // customer who said something specific. "How much does it cost?" from a
+  // brand-new number would open the generic welcome menu and make them
+  // pick an option they had already stated.
+  //
+  // So: declared intent first, greeting second.
+
+  // Pass 1 — an explicit keyword match, on either kind of flow.
+  //
+  // `first_inbound_message` flows read keywords here as a SECOND DOOR.
+  // A reception flow serves the first message AND the returning customer
+  // who wants the menu back; without this, an existing contact can never
+  // reach it again, not even by typing "menu" — their first message is
+  // spent and the only way to replay it is deleting their history.
+  //
+  // The keywords are optional. A flow without them behaves exactly as it
+  // always did: first message only.
+  for (const flow of typed) {
+    if (
+      flow.trigger_type !== "keyword" &&
+      flow.trigger_type !== "first_inbound_message"
+    ) {
+      continue; // 'manual' triggers do not auto-start from inbound messages.
     }
-    // 'manual' triggers do not auto-start from inbound messages.
+    const cfg = flow.trigger_config as Partial<KeywordTriggerConfig>;
+    if (!Array.isArray(cfg?.keywords) || cfg.keywords.length === 0) continue;
+    if (
+      candidates.some((text) =>
+        matchesKeywordTrigger(text, cfg as KeywordTriggerConfig),
+      )
+    ) {
+      return flow;
+    }
+  }
+
+  // Pass 2 — nothing specific was said, so the welcome flow takes it.
+  //
+  // Reachable by a tap: a broadcast template with a quick-reply button
+  // can genuinely be what prompts a contact's first-ever inbound. The
+  // automations dispatcher has always treated a tap that way (the webhook
+  // pushes `first_inbound_message` regardless of envelope) — flows were
+  // the inconsistent half.
+  if (isFirstInbound) {
+    for (const flow of typed) {
+      if (flow.trigger_type === "first_inbound_message") return flow;
+    }
   }
   return null;
 }
