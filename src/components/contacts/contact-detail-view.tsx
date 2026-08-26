@@ -45,6 +45,7 @@ import { PanelNotas } from '@/components/registros/panel-notas';
 import { PanelAdjuntos } from '@/components/registros/panel-adjuntos';
 import { PanelLineaDeTiempo } from '@/components/registros/panel-linea-de-tiempo';
 import { PanelTareasDeContacto } from '@/components/registros/panel-tareas-de-contacto';
+import { PanelProximaGestion } from '@/components/registros/panel-proxima-gestion';
 import { canSendMessages } from '@/lib/auth/roles';
 
 interface ContactDetailViewProps {
@@ -68,6 +69,10 @@ export function ContactDetailView({
   const puedeEditarRegistros = accountRole ? canSendMessages(accountRole) : false;
 
   const [contact, setContact] = useState<Contact | null>(null);
+  // La empresa del contacto, para colgar de ella también la próxima gestión:
+  // así aparece en la ficha de la empresa, que es donde mira quien lleva la
+  // cuenta y no a la persona.
+  const companyIdDelContacto = contact?.company_id ?? null;
   const [loading, setLoading] = useState(false);
   const [copiedPhone, setCopiedPhone] = useState(false);
 
@@ -489,6 +494,30 @@ export function ContactDetailView({
                   {t('tabs.custom')}
                 </TabsTrigger>
                 <TabsTrigger
+                  value="next"
+                  className="data-active:bg-muted data-active:text-primary text-muted-foreground whitespace-nowrap"
+                >
+                  Próxima gestión
+                </TabsTrigger>
+                <TabsTrigger
+                  value="tasks"
+                  className="data-active:bg-muted data-active:text-primary text-muted-foreground"
+                >
+                  Tareas
+                </TabsTrigger>
+                <TabsTrigger
+                  value="files"
+                  className="data-active:bg-muted data-active:text-primary text-muted-foreground"
+                >
+                  Archivos
+                </TabsTrigger>
+                <TabsTrigger
+                  value="activity"
+                  className="data-active:bg-muted data-active:text-primary text-muted-foreground"
+                >
+                  Actividad
+                </TabsTrigger>
+                <TabsTrigger
                   value="deals"
                   className="data-active:bg-muted data-active:text-primary text-muted-foreground"
                 >
@@ -597,6 +626,19 @@ export function ContactDetailView({
                   <PanelNotas
                     tipo="contact"
                     registroId={contactId}
+                    puedeEditar={puedeEditarRegistros}
+                  />
+                )}
+              </TabsContent>
+
+              {/* Próxima gestión: qué sigue con este cliente y cuándo. Lo que
+                  se agenda acá es un evento de calendario de verdad, así que
+                  aparece en la agenda del equipo y no solo en esta ficha. */}
+              <TabsContent value="next" className="flex-1 overflow-y-auto px-4 py-3">
+                {contactId && (
+                  <PanelProximaGestion
+                    contactId={contactId}
+                    companyId={companyIdDelContacto}
                     puedeEditar={puedeEditarRegistros}
                   />
                 )}

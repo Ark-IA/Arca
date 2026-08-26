@@ -860,6 +860,9 @@ export interface CalendarEvent extends DestinoDeVinculo {
   status: EstadoEvento;
   created_at: string;
   updated_at: string;
+  /** Presentes solo cuando la consulta los embebe (ver `useCalendar`). */
+  contacto?: { id: string; name: string | null; phone: string | null } | null;
+  empresa?: { id: string; name: string } | null;
 }
 
 export const TIPOS_BLOQUEO = ['phone', 'whatsapp_user', 'email', 'domain'] as const;

@@ -11,6 +11,7 @@
 import { useMemo, useState } from 'react';
 import { toast } from 'sonner';
 import {
+  Building2,
   CalendarDays,
   ChevronLeft,
   ChevronRight,
@@ -19,6 +20,7 @@ import {
   MapPin,
   Plus,
   Trash2,
+  UserRound,
   Video,
 } from 'lucide-react';
 
@@ -262,23 +264,32 @@ export default function PaginaCalendario() {
                     <div className="mt-1 space-y-0.5">
                       {/* Como mucho tres por celda: con más, la rejilla crece
                           y el mes deja de verse de un vistazo. */}
-                      {delDia.slice(0, 3).map((e) => (
-                        <span
-                          key={e.id}
-                          className={cn(
-                            'block truncate rounded px-1 py-0.5 text-[10px]',
-                            e.status === 'canceled'
-                              ? 'bg-muted text-muted-foreground line-through'
-                              : 'bg-primary/10 text-primary',
-                          )}
-                        >
-                          {new Date(e.starts_at).toLocaleTimeString('es', {
-                            hour: '2-digit',
-                            minute: '2-digit',
-                          })}{' '}
-                          {e.title}
-                        </span>
-                      ))}
+                      {delDia.slice(0, 3).map((e) => {
+                        // Se muestra CON QUIÉN antes que el título: en una
+                        // celda de calendario "Llamada de seguimiento" se
+                        // repite diez veces y no distingue nada; el nombre
+                        // del cliente sí.
+                        const conQuien =
+                          e.contacto?.name || e.empresa?.name || e.contacto?.phone;
+                        return (
+                          <span
+                            key={e.id}
+                            title={`${e.title}${conQuien ? ` · ${conQuien}` : ''}`}
+                            className={cn(
+                              'block truncate rounded px-1 py-0.5 text-[10px]',
+                              e.status === 'canceled'
+                                ? 'bg-muted text-muted-foreground line-through'
+                                : 'bg-primary/10 text-primary',
+                            )}
+                          >
+                            {new Date(e.starts_at).toLocaleTimeString('es', {
+                              hour: '2-digit',
+                              minute: '2-digit',
+                            })}{' '}
+                            {conQuien ?? e.title}
+                          </span>
+                        );
+                      })}
                       {delDia.length > 3 && (
                         <span className="block px-1 text-[10px] text-muted-foreground">
                           +{delDia.length - 3} más
@@ -320,6 +331,26 @@ export default function PaginaCalendario() {
                 <div className="flex items-start gap-2">
                   <div className="min-w-0 flex-1">
                     <p className="truncate text-sm font-medium text-foreground">{e.title}</p>
+
+                    {/* Con quién es. Es lo primero que se necesita saber antes
+                        de entrar a una reunión, así que va arriba de la hora. */}
+                    {(e.contacto || e.empresa) && (
+                      <p className="mt-0.5 flex flex-wrap items-center gap-x-1.5 gap-y-0.5 text-xs">
+                        {e.contacto && (
+                          <span className="inline-flex items-center gap-1 text-foreground">
+                            <UserRound className="size-3 shrink-0" />
+                            {e.contacto.name || e.contacto.phone || 'Contacto'}
+                          </span>
+                        )}
+                        {e.empresa && (
+                          <span className="inline-flex items-center gap-1 text-muted-foreground">
+                            <Building2 className="size-3 shrink-0" />
+                            {e.empresa.name}
+                          </span>
+                        )}
+                      </p>
+                    )}
+
                     <p className="mt-0.5 flex items-center gap-1 text-xs text-muted-foreground">
                       <Clock className="size-3" />
                       {new Date(e.starts_at).toLocaleTimeString('es', {

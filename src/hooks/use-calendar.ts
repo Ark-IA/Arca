@@ -45,7 +45,12 @@ export function useCalendar(desde: Date, hasta: Date) {
     setError(null);
     const { data, error: err } = await createClient()
       .from('calendar_events')
-      .select('*')
+      // Se traen el contacto y la empresa embebidos. Sin esto, la agenda
+      // mostraría "Llamada de seguimiento" sin decir con quién, que es
+      // justamente el dato que se necesita antes de entrar a la reunión.
+      .select(
+        '*, contacto:contacts(id, name, phone), empresa:companies(id, name)',
+      )
       .eq('account_id', accountId)
       // Una reunión que empezó antes del rango pero termina dentro también
       // cae en el mes que se está mirando.
