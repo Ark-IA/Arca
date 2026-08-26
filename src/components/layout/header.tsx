@@ -58,7 +58,10 @@ export function Header({ onOpenSidebar }: HeaderProps) {
     "U";
 
   return (
-    <header className="flex h-14 shrink-0 items-center justify-between gap-3 border-b border-border bg-background px-4 lg:px-6">
+    // `superficie-holografica`: el mismo velo iridiscente del menú lateral.
+    // Los dos forman el armazón, y compartir superficie es lo que los separa
+    // del contenido sin necesidad de otro gris ni de una línea más.
+    <header className="superficie-holografica flex h-14 shrink-0 items-center justify-between gap-3 border-b border-border bg-background px-4 lg:px-6">
       <div className="flex min-w-0 items-center gap-2">
         {/* Hamburger — mobile only. 44×44 hit target per Apple HIG. */}
         <button

@@ -301,3 +301,50 @@ html[data-telefono='1'] .deja-sitio-telefono {
    probaron las dos formas -- relleno inferior y relleno lateral -- y las dos
    descuadraban el redactor, así que la burbuja se quitó de esa pantalla y las
    llamadas entrantes avisan con un aviso propio arriba al centro. */
+
+/* ============================================================
+   Scroll sin barra
+   ============================================================
+   El menú lateral se desplaza cuando no caben todos los módulos, pero la
+   barra gris de lado a lado partía la columna en dos y competía con los
+   iconos. El contenido sigue desplazándose igual: con la rueda, con gesto
+   táctil y con teclado. */
+.scroll-invisible {
+  scrollbar-width: none; /* Firefox */
+  -ms-overflow-style: none; /* Edge antiguo */
+}
+.scroll-invisible::-webkit-scrollbar {
+  width: 0;
+  height: 0;
+}
+
+/* ============================================================
+   Superficie de cristal del menú y la cabecera
+   ============================================================
+   Un velo iridiscente muy tenue -- verde de marca virando a cian y violeta --
+   que separa el armazón del contenido sin usar una línea más ni un gris
+   distinto. Va por debajo de todo (`-z-10` en el pseudo-elemento) para no
+   interceptar clics.
+
+   Las paradas están al 5-8% de opacidad a propósito: por encima de eso el
+   texto pierde contraste y deja de leerse como una superficie para pasar a
+   ser un fondo de color. */
+.superficie-holografica {
+  position: relative;
+  isolation: isolate;
+}
+.superficie-holografica::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background:
+    linear-gradient(
+      135deg,
+      color-mix(in oklab, var(--primary) 8%, transparent) 0%,
+      color-mix(in oklab, #22d3ee 5%, transparent) 38%,
+      transparent 62%,
+      color-mix(in oklab, #a78bfa 6%, transparent) 100%
+    );
+}

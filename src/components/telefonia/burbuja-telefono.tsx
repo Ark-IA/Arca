@@ -97,14 +97,6 @@ export function BurbujaTelefono() {
   // TypeScript que de aca para abajo el telefono existe.
   if (!tel || !hayTelefono) return null;
 
-  // En la bandeja no se dibuja.
-  //
-  // Esa pantalla ocupa el alto exacto de la ventana y termina justo en el
-  // botón de enviar; cualquier cosa flotando en esa esquina se le pone encima.
-  // Las llamadas entrantes siguen avisando igual -- <AvisoLlamada/> vive
-  // aparte y sale arriba al centro -- y para marcar desde acá está el botón de
-  // llamar en la cabecera de la conversación.
-  if (enBandeja) return null;
 
   const pulsar = (digito: string) => {
     // El tono suena siempre, se esté marcando o dentro de una llamada. Es la
@@ -140,8 +132,15 @@ export function BurbujaTelefono() {
     // "Llamando…" en ningún lado y no había forma de colgar.
     <div
       className={cn(
-        'fixed bottom-4 right-4 flex flex-col items-end gap-3',
+        'fixed right-4 flex flex-col items-end gap-3',
         enLlamada ? 'z-[60]' : 'z-40',
+        // En la bandeja sube por encima del redactor.
+        //
+        // Esa pantalla termina justo en el botón de enviar, así que abajo del
+        // todo el teléfono se le pone encima. Elevado, flota sobre el hilo de
+        // mensajes, que se desplaza: lo que quede debajo se corre con un
+        // gesto, cosa que un botón fijo no puede hacer.
+        enBandeja ? 'bottom-24' : 'bottom-4',
       )}
     >
       {abierto && (

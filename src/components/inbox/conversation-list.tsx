@@ -389,7 +389,13 @@ export function ConversationList({
               })()}
             </SelectValue>
           </SelectTrigger>
-          <SelectContent>
+          {/* `alignItemWithTrigger={false}` es lo que lo vuelve instantáneo.
+              Por defecto Base UI alinea la opción elegida con el disparador:
+              mide el contenido, calcula el desplazamiento y lo anima, y eso
+              es medio segundo entre el clic y el cambio de canal. Sin esa
+              alineación se abre como un desplegable normal, hacia abajo y de
+              inmediato. */}
+          <SelectContent alignItemWithTrigger={false}>
             {CANALES_BANDEJA.map((c) => {
               const Icono = c.icono;
               const cuantas = cuentaDeCanal(c.value);
