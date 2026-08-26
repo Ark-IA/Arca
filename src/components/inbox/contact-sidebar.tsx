@@ -141,7 +141,10 @@ export function ContactSidebar({ contact }: ContactSidebarProps) {
   return (
     <div className="flex h-full w-70 flex-col border-l border-border bg-card">
       <ScrollArea className="flex-1">
-        <div className="p-4">
+        {/* `deja-sitio-telefono` añade hueco al final solo cuando la persona
+            tiene extensión: la burbuja se apoya justo en esta esquina y sin
+            esto tapaba lo último de la ficha del contacto. */}
+        <div className="deja-sitio-telefono p-4">
           {/* Contact Info */}
           <div className="flex flex-col items-center text-center">
             <div className="flex h-16 w-16 items-center justify-center rounded-full bg-muted text-lg font-semibold text-foreground">

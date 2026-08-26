@@ -191,7 +191,16 @@ export function useSoftphone(): Softphone {
         audioRef.current = el;
       }
 
-      const socket = new JsSIP.WebSocketInterface(cred.websocket);
+      // Red de seguridad: si la pagina va por https, el WebSocket TIENE que
+      // ir por wss. El navegador bloquea el mixto en silencio, asi que un
+      // `ws://` mal derivado en el servidor se manifestaria como un telefono
+      // que nunca conecta y sin ningun error que lo explique.
+      const urlSocket =
+        window.location.protocol === 'https:'
+          ? cred.websocket.replace(/^ws:/, 'wss:')
+          : cred.websocket;
+
+      const socket = new JsSIP.WebSocketInterface(urlSocket);
       agente = new JsSIP.UA({
         sockets: [socket],
         uri: `sip:${cred.endpoint}@${cred.dominio}`,
@@ -220,8 +229,15 @@ export function useSoftphone(): Softphone {
         setMotivo(`El teléfono no pudo conectarse (${causa}).`);
       });
 
-      agente.on('disconnected', () => {
+      agente.on('disconnected', (d) => {
         if (!vivo) return;
+        // Con la direccion delante, un fallo futuro se diagnostica en un
+        // vistazo: si aparece `ws://` en una pagina `https://`, es el
+        // navegador bloqueando contenido mixto y no la central caida.
+        console.error('[telefonia] websocket caido', {
+          url: urlSocket,
+          detalle: d,
+        });
         setEstado((previo) =>
           previo === 'en-llamada' || previo === 'llamando' ? previo : 'sin-conexion',
         );

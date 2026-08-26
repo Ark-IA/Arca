@@ -16,11 +16,6 @@ import { ContactSidebar } from "@/components/inbox/contact-sidebar";
 import { toast } from "sonner";
 import { WifiOff } from "lucide-react";
 import { cn } from "@/lib/utils";
-import {
-  avisarMensajeNuevo,
-  prepararAudio,
-  sonidoActivado,
-} from "@/lib/inbox/aviso-sonoro";
 
 // Remembers the agent's show/hide choice for the desktop contact panel
 // across reloads and sessions (device-scoped, like the theme prefs).
@@ -133,24 +128,10 @@ function InboxPageInner() {
     conversationsRef.current = conversations;
   }, [conversations]);
 
-  /**
-   * Los navegadores no dejan reproducir audio hasta que la persona
-   * interactua con la pagina. Se prepara en el primer clic o tecla; sin
-   * esto el primer aviso del dia seria mudo y parecerian rotos todos.
-   */
-  useEffect(() => {
-    const alInteractuar = () => {
-      prepararAudio();
-      window.removeEventListener("pointerdown", alInteractuar);
-      window.removeEventListener("keydown", alInteractuar);
-    };
-    window.addEventListener("pointerdown", alInteractuar, { once: true });
-    window.addEventListener("keydown", alInteractuar, { once: true });
-    return () => {
-      window.removeEventListener("pointerdown", alInteractuar);
-      window.removeEventListener("keydown", alInteractuar);
-    };
-  }, []);
+  // El desbloqueo del audio ya no vive aca: lo mantiene <AvisadorMensajes/>
+  // desde el armazon, con escuchas que NO se quitan tras el primer gesto --
+  // el navegador vuelve a suspender el audio cada vez que la pestaña pasa a
+  // segundo plano, y un solo gesto por sesion no alcanzaba.
 
   // Pull the conversation row with its `contact` joined and merge it
   // into state. Needed because Supabase Realtime payloads only carry the
@@ -250,21 +231,9 @@ function InboxPageInner() {
       const newMsg = event.new;
 
       if (event.eventType === "INSERT") {
-        // Aviso sonoro: solo para lo que ENTRA.
-        //
-        // Se filtra por sender_type porque el evento tambien se dispara con
-        // los mensajes que uno mismo envia, y oir un aviso cada vez que
-        // contestas convierte el sonido en ruido y termina apagado.
-        //
-        // El tono depende del canal, asi se sabe de donde entro el mensaje
-        // sin mirar la pantalla.
-        if (newMsg.sender_type === "customer" && sonidoActivado()) {
-          const canalDelMensaje =
-            conversationsRef.current?.find(
-              (c) => c.id === newMsg.conversation_id,
-            )?.channel ?? "whatsapp";
-          avisarMensajeNuevo(canalDelMensaje);
-        }
+        // El aviso sonoro NO se emite aca. Lo hace <AvisadorMensajes/>, que
+        // vive en el armazon y por tanto suena estes donde estes. Tenerlo
+        // tambien aca sonaria dos veces al tener la bandeja abierta.
 
         // Add to messages if it belongs to active conversation
         if (
@@ -610,7 +579,11 @@ function InboxPageInner() {
   const hasActiveConv = !!activeConversation;
 
   return (
-    <div className="-m-4 flex h-[calc(100vh-3.5rem)] flex-col overflow-hidden sm:-m-6">
+    // `pega-al-fondo` devuelve el relleno que `main` reserva para la burbuja
+    // del telefono: esta pantalla ocupa el alto exacto de la ventana y ese
+    // relleno la desbordaria. El hueco lo dejan por dentro el panel de
+    // contacto y el redactor, que son lo unico que llega a esa esquina.
+    <div className="pega-al-fondo -m-4 flex h-[calc(100vh-3.5rem)] flex-col overflow-hidden sm:-m-6">
       {/* WhatsApp connection banner — in the flex column, not absolute,
           so it pushes the panels down instead of overlapping them. */}
       {whatsappConnected === false && (

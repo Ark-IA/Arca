@@ -536,7 +536,10 @@ export function MessageComposer({
   // ---- Render --------------------------------------------------------
 
   return (
-    <div className="border-t border-border bg-card p-3">
+    // El hueco extra de abajo (`deja-sitio-telefono`) solo aparece si la
+    // persona tiene extensión: sin panel de contacto abierto, el botón de
+    // enviar queda justo debajo de la burbuja del teléfono.
+    <div className="deja-sitio-telefono border-t border-border bg-card p-3">
       {replyTo && (
         <div className="mb-2">
           <ReplyQuote

@@ -8,6 +8,7 @@ import { Header } from "@/components/layout/header";
 import { AccountAccessAlert } from "@/components/layout/account-access-alert";
 import { PresenceHeartbeat } from "@/components/presence/presence-heartbeat";
 import { BurbujaTelefono } from "@/components/telefonia/burbuja-telefono";
+import { AvisadorMensajes } from "@/components/inbox/avisador-mensajes";
 
 // Auth-gated dashboard shell. Extracted from the layout so the layout
 // itself can stay a server component and export metadata (noindex) —
@@ -46,6 +47,10 @@ function DashboardShellInner({ children }: { children: React.ReactNode }) {
       {/* Reports this tab's online/away presence once we know a user is
           signed in. Headless — renders nothing. */}
       <PresenceHeartbeat />
+      {/* Aviso sonoro de mensaje nuevo. Va en el armazon para que suene
+          tambien cuando estas en Contactos, Negocios o el Panel -- que es
+          justo cuando hace falta que avise. No pinta nada. */}
+      <AvisadorMensajes />
       {/* El telefono va en el armazon y no en una pagina: el registro SIP
           tiene que sobrevivir a la navegacion, o cada clic en el menu
           desregistraria la extension y cortaria la llamada en curso.

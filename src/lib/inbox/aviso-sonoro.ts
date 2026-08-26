@@ -25,6 +25,11 @@ let contexto: AudioContext | null = null
  * Deja el audio listo. Debe invocarse desde un gesto de la persona (clic,
  * tecla); llamado antes, el navegador crea el contexto en estado
  * 'suspended' y el primer aviso no suena.
+ *
+ * Se puede llamar tantas veces como se quiera: si el contexto ya existe se
+ * limita a reanudarlo. Eso importa porque el navegador SUSPENDE el contexto
+ * cuando la pestaña pasa a segundo plano -- justo cuando el aviso hace mas
+ * falta -- y solo un gesto de la persona puede reanimarlo.
  */
 export function prepararAudio(): void {
   if (contexto) {
@@ -40,6 +45,28 @@ export function prepararAudio(): void {
   } catch {
     // Sin audio disponible se sigue sin sonido: nunca se rompe la bandeja
     // por no poder emitir un aviso.
+  }
+}
+
+/**
+ * Engancha los gestos que mantienen el audio vivo.
+ *
+ * Se registra SIN `once`: un solo gesto no alcanza. El navegador vuelve a
+ * suspender el contexto cada vez que la pestaña queda en segundo plano un
+ * rato, y si solo se escuchara el primer clic de la sesion el aviso se
+ * apagaria para siempre a media mañana sin que nadie supiera por que.
+ *
+ * Devuelve la funcion para desengancharlo.
+ */
+export function mantenerAudioVivo(): () => void {
+  const alInteractuar = () => prepararAudio()
+  window.addEventListener('pointerdown', alInteractuar)
+  window.addEventListener('keydown', alInteractuar)
+  document.addEventListener('visibilitychange', alInteractuar)
+  return () => {
+    window.removeEventListener('pointerdown', alInteractuar)
+    window.removeEventListener('keydown', alInteractuar)
+    document.removeEventListener('visibilitychange', alInteractuar)
   }
 }
 
@@ -63,12 +90,33 @@ const TONOS: Record<Canal, [number, number]> = {
 export function sonarAvisoDeMensaje(canal: Canal = 'whatsapp'): void {
   if (!contexto) prepararAudio()
   if (!contexto || contexto.state === 'closed') return
-  if (contexto.state === 'suspended') {
-    void contexto.resume()
+
+  const ctx = contexto
+
+  // Suspendido: se reanuda y SE TOCA IGUAL cuando termine.
+  //
+  // La version anterior reanudaba y se iba con un `return`, asi que ese aviso
+  // se perdia entero. Como el navegador suspende el contexto cada vez que la
+  // pestaña queda en segundo plano, el mensaje que llegaba mientras estabas
+  // en otra pestaña -- el unico que de verdad necesitas oir -- era
+  // exactamente el que nunca sonaba.
+  if (ctx.state === 'suspended') {
+    void ctx.resume().then(
+      () => {
+        if (ctx.state === 'running') emitir(ctx, canal)
+      },
+      () => {
+        // Reanudar sin un gesto reciente esta prohibido y el rechazo es
+        // normal. Se calla y ya.
+      },
+    )
     return
   }
 
-  const ctx = contexto
+  emitir(ctx, canal)
+}
+
+function emitir(ctx: AudioContext, canal: Canal): void {
   const ahora = ctx.currentTime
   const [nota1, nota2] = TONOS[canal] ?? TONOS.whatsapp
 

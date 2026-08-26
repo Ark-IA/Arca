@@ -39,12 +39,24 @@ export function contextoCuenta(accountId: string): string {
  * Direccion del WebSocket de Asterisk.
  *
  * nginx termina el TLS y hace de puente hacia el 8088 local, asi que desde el
- * navegador siempre es wss sobre el mismo dominio del CRM. Derivarlo del
- * origen en vez de configurarlo evita que quede apuntando al dominio
- * equivocado cuando se despliega en otro lado.
+ * navegador es wss sobre el mismo dominio del CRM.
+ *
+ * OJO con el protocolo. Detras del proxy, el contenedor recibe la peticion
+ * por http en claro, asi que `request.url` dice `http://` aunque la persona
+ * este en `https://`. Derivar el WebSocket de ahi daba `ws://`, y un
+ * navegador NUNCA abre un WebSocket inseguro desde una pagina segura: lo
+ * bloquea como contenido mixto, sin mensaje visible. El telefono se quedaba
+ * en "Se perdio la conexion con la central" y a Asterisk no le llegaba ni un
+ * REGISTER, porque la conexion no salia del navegador.
+ *
+ * Por eso se fuerza `wss` salvo que el origen sea local sin cifrar, que es el
+ * unico caso legitimo de `ws://` (desarrollo en localhost).
  */
 export function urlWebSocket(origen: string): string {
-  return origen.replace(/^http/, 'ws') + '/ws'
+  const u = new URL(origen)
+  const esLocal = u.hostname === 'localhost' || u.hostname === '127.0.0.1'
+  const protocolo = u.protocol === 'https:' || !esLocal ? 'wss:' : 'ws:'
+  return `${protocolo}//${u.host}/ws`
 }
 
 /**

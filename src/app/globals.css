@@ -265,3 +265,32 @@ html[data-theme="rose"] {
   caret-color: #eafff7;
   transition: background-color 5000s ease-in-out 0s;
 }
+
+/* ============================================================
+   Sitio para la burbuja de teléfono
+   ============================================================
+   La burbuja está fija abajo a la derecha, así que taparía lo último de
+   cualquier página: la última fila de una tabla no se puede desplazar más
+   allá del borde, y ahí es donde queda escondida. En vez de confiar en que
+   ninguna pantalla ponga nada en esa esquina, se reserva el hueco.
+
+   Solo se aplica a quien tiene extensión: la burbuja marca el <html> al
+   montarse, y sin esa marca las páginas quedan exactamente como antes. */
+:root {
+  --sitio-telefono: 5.5rem;
+}
+
+html[data-telefono='1'] main {
+  padding-bottom: var(--sitio-telefono);
+}
+
+/* Pantallas que ocupan el alto completo y traen su propio borde inferior
+   (la bandeja). Devuelven el relleno de `main` y se encargan ellas de dejar
+   sitio en los sitios concretos donde hace falta. */
+html[data-telefono='1'] .pega-al-fondo {
+  margin-bottom: calc(-1 * var(--sitio-telefono));
+}
+
+html[data-telefono='1'] .deja-sitio-telefono {
+  padding-bottom: var(--sitio-telefono);
+}

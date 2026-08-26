@@ -51,7 +51,22 @@ export async function GET(request: Request) {
       })
     }
 
-    const origen = new URL(request.url).origin
+    // El origen real, no el que ve el contenedor.
+    //
+    // Detras de nginx, `request.url` trae el protocolo de la conexion interna
+    // (http) y no el que usa la persona (https). Se prefiere la direccion
+    // configurada, y si no la hay se reconstruye con las cabeceras que pone
+    // el proxy.
+    const origen =
+      process.env.NEXT_PUBLIC_SITE_URL?.trim().replace(/\/+$/, '') ||
+      (() => {
+        const url = new URL(request.url)
+        const host = request.headers.get('x-forwarded-host')?.split(',')[0]?.trim() || url.host
+        const proto =
+          request.headers.get('x-forwarded-proto')?.split(',')[0]?.trim() ||
+          url.protocol.replace(':', '')
+        return `${proto}://${host}`
+      })()
     const anfitrion = new URL(origen).hostname
 
     return NextResponse.json({

@@ -68,7 +68,23 @@ export function BurbujaTelefono() {
     if (tel.estado === 'libre') setMarcado('');
   }, [tel.estado]);
 
-  if (tel.estado === 'cargando' || tel.estado === 'sin-extension') return null;
+  /**
+   * Marca el documento mientras el teléfono está montado.
+   *
+   * globals.css usa esa marca para reservar el hueco de abajo a la derecha en
+   * `main`. Se pone desde aquí y no siempre para que quien no tiene extensión
+   * no vea una franja vacía al final de cada página.
+   */
+  const hayTelefono = tel.estado !== 'cargando' && tel.estado !== 'sin-extension';
+  useEffect(() => {
+    if (!hayTelefono) return;
+    document.documentElement.dataset.telefono = '1';
+    return () => {
+      delete document.documentElement.dataset.telefono;
+    };
+  }, [hayTelefono]);
+
+  if (!hayTelefono) return null;
 
   const pulsar = (digito: string) => {
     if (tel.estado === 'en-llamada') {
@@ -86,7 +102,11 @@ export function BurbujaTelefono() {
   };
 
   return (
-    <div className="fixed bottom-5 left-5 z-50 flex flex-col items-start gap-3">
+    // Abajo a la DERECHA. z-40 y no 50: los diálogos y el menú lateral móvil
+    // usan 50, y un teléfono que se dibuja encima de un diálogo modal tapa el
+    // botón de confirmar.
+    // Los avisos de sonner viven arriba a la derecha, así que no se cruzan.
+    <div className="fixed bottom-4 right-4 z-40 flex flex-col items-end gap-3">
       {abierto && (
         <div className="w-[270px] overflow-hidden rounded-2xl border border-border bg-card shadow-2xl">
           {/* Cabecera */}
