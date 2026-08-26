@@ -16,6 +16,22 @@ const BASE = `https://graph.facebook.com/${VERSION}`
 
 export type CanalMeta = 'facebook' | 'instagram'
 
+/** Los tipos de adjunto que acepta la API de mensajeria de Meta. */
+export type TipoMediaMeta = 'image' | 'video' | 'audio' | 'file'
+
+/**
+ * Traduce el tipo interno del CRM al de Meta.
+ *
+ * El CRM usa los nombres de WhatsApp ('document'); Meta lo llama 'file'.
+ * Cualquier otro se manda como archivo generico antes que fallar.
+ */
+export function tipoMediaMeta(contentType: string): TipoMediaMeta {
+  if (contentType === 'image') return 'image'
+  if (contentType === 'video') return 'video'
+  if (contentType === 'audio') return 'audio'
+  return 'file'
+}
+
 export interface EnvioMeta {
   /** Page ID (facebook) o IG Professional Account ID (instagram). */
   cuentaId: string
@@ -23,6 +39,11 @@ export interface EnvioMeta {
   /** PSID o IGSID de la persona. */
   destinatario: string
   texto: string
+  /**
+   * Adjunto, cuando lo hay. Meta lo descarga de la URL, asi que tiene que ser
+   * publica: por eso se sube primero al almacenamiento del CRM.
+   */
+  media?: { url: string; tipo: TipoMediaMeta }
 }
 
 export interface ResultadoEnvio {
@@ -40,7 +61,24 @@ export interface ResultadoEnvio {
  * este campo.
  */
 export async function enviarMensaje(args: EnvioMeta): Promise<ResultadoEnvio> {
-  const { cuentaId, accessToken, destinatario, texto } = args
+  const { cuentaId, accessToken, destinatario, texto, media } = args
+
+  /*
+   * Texto y adjunto son cuerpos distintos, no dos campos del mismo.
+   *
+   * Meta no acepta `{ text, attachment }` a la vez: si van los dos, ignora uno
+   * sin avisar. Por eso se elige uno y, cuando hay archivo con pie de foto, el
+   * pie se manda como un segundo mensaje (ver mas abajo en la ruta de envio).
+   */
+  const mensaje = media
+    ? {
+        attachment: {
+          type: media.tipo,
+          payload: { url: media.url, is_reusable: true },
+        },
+      }
+    : { text: texto }
+
   const respuesta = await fetch(`${BASE}/${cuentaId}/messages`, {
     method: 'POST',
     headers: {
@@ -49,7 +87,7 @@ export async function enviarMensaje(args: EnvioMeta): Promise<ResultadoEnvio> {
     },
     body: JSON.stringify({
       recipient: { id: destinatario },
-      message: { text: texto },
+      message: mensaje,
       messaging_type: 'RESPONSE',
     }),
   })

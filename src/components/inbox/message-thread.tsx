@@ -56,6 +56,7 @@ import { buildReplyPreview } from "./reply-quote";
 import { renderTemplateBody } from "@/lib/whatsapp/template-body";
 import { toast } from "sonner";
 import { useTelefono } from '@/components/telefonia/contexto-telefono';
+import { enviarPorCanal } from '@/lib/inbox/enviar';
 
 interface ReplyDraft {
   id: string;
@@ -497,21 +498,16 @@ export function MessageThread({
       setReplyTo(null);
 
       try {
-        const res = await fetch("/api/whatsapp/send", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            conversation_id: conversation.id,
-            message_type: "text",
-            content_text: text,
-            reply_to_message_id: replyToId,
-          }),
+        // Por el despachador, no directo a WhatsApp: esta misma bandeja
+        // atiende Messenger e Instagram, y esos van por otra API.
+        const resultado = await enviarPorCanal(conversation, {
+          message_type: "text",
+          content_text: text,
+          reply_to_message_id: replyToId,
         });
 
-        const payload = await res.json().catch(() => ({}));
-
-        if (!res.ok) {
-          const reason = payload?.error || `HTTP ${res.status}`;
+        if (!resultado.ok) {
+          const reason = resultado.error ?? "Error desconocido";
           console.error("Failed to send message:", reason);
           toast.error(`Failed to send: ${reason}`);
           // Mark the optimistic bubble as failed so the user sees what happened
@@ -561,23 +557,16 @@ export function MessageThread({
       setReplyTo(null);
 
       try {
-        const res = await fetch("/api/whatsapp/send", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            conversation_id: conversation.id,
-            message_type: payload.kind,
-            media_url: payload.mediaUrl,
-            content_text: contentText,
-            filename: payload.filename,
-            reply_to_message_id: payload.replyToId,
-          }),
+        const resultado = await enviarPorCanal(conversation, {
+          message_type: payload.kind,
+          media_url: payload.mediaUrl,
+          content_text: contentText,
+          filename: payload.filename,
+          reply_to_message_id: payload.replyToId,
         });
 
-        const data = await res.json().catch(() => ({}));
-
-        if (!res.ok) {
-          const reason = data?.error || `HTTP ${res.status}`;
+        if (!resultado.ok) {
+          const reason = resultado.error ?? "Error desconocido";
           console.error("Failed to send media:", reason);
           toast.error(`Failed to send: ${reason}`);
           onUpdateMessage(tempId, { status: "failed" });
@@ -620,21 +609,14 @@ export function MessageThread({
       onNewMessage(optimisticMsg);
 
       try {
-        const res = await fetch("/api/whatsapp/send", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            conversation_id: conversation.id,
-            message_type: "interactive",
-            interactive_payload: payload,
-            reply_to_message_id: replyToId,
-          }),
+        const resultado = await enviarPorCanal(conversation, {
+          message_type: "interactive",
+          interactive_payload: payload,
+          reply_to_message_id: replyToId,
         });
 
-        const data = await res.json().catch(() => ({}));
-
-        if (!res.ok) {
-          const reason = data?.error || `HTTP ${res.status}`;
+        if (!resultado.ok) {
+          const reason = resultado.error ?? "Error desconocido";
           console.error("Failed to send interactive message:", reason);
           toast.error(`Failed to send: ${reason}`);
           onUpdateMessage(tempId, { status: "failed" });
@@ -698,32 +680,25 @@ export function MessageThread({
       onNewMessage(optimisticMsg);
 
       try {
-        const res = await fetch("/api/whatsapp/send", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            conversation_id: conversation.id,
-            message_type: "template",
-            template_name: template.name,
-            template_language: template.language,
-            // Structured params drive the new send-builder path
-            // (header media + URL button substitution). Body values
-            // are mirrored under both shapes so the route can fall
-            // back if the template row isn't found locally.
-            template_message_params: {
-              body: values.body,
-              headerText: values.headerText,
-              buttonParams: values.buttonParams,
-            },
-            template_params: values.body,
-            content_text: renderedBody,
-          }),
-        });
+        const resultado = await enviarPorCanal(conversation, {
+          message_type: "template",
+          template_name: template.name,
+          template_language: template.language,
+          // Structured params drive the new send-builder path
+          // (header media + URL button substitution). Body values
+          // are mirrored under both shapes so the route can fall
+          // back if the template row isn't found locally.
+          template_message_params: {
+            body: values.body,
+            headerText: values.headerText,
+            buttonParams: values.buttonParams,
+          },
+          template_params: values.body,
+          content_text: renderedBody,
+        } as Parameters<typeof enviarPorCanal>[1]);
 
-        const payload = await res.json().catch(() => ({}));
-
-        if (!res.ok) {
-          const reason = payload?.error || `HTTP ${res.status}`;
+        if (!resultado.ok) {
+          const reason = resultado.error ?? "Error desconocido";
           console.error("Failed to send template:", reason);
           toast.error(`Failed to send template: ${reason}`);
           onUpdateMessage(tempId, { status: "failed" });

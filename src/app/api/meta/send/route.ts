@@ -14,7 +14,7 @@ import { NextResponse } from 'next/server'
 import { requireRole, toErrorResponse } from '@/lib/auth/account'
 import { supabaseAdmin } from '@/lib/flows/admin-client'
 import { decrypt } from '@/lib/whatsapp/encryption'
-import { enviarMensaje } from '@/lib/meta/mensajeria'
+import { enviarMensaje, tipoMediaMeta } from '@/lib/meta/mensajeria'
 
 export const dynamic = 'force-dynamic'
 
@@ -29,17 +29,26 @@ export async function POST(request: Request) {
     return toErrorResponse(e)
   }
 
-  let cuerpo: { conversationId?: string; text?: string }
+  let cuerpo: {
+    conversationId?: string
+    text?: string
+    /** Adjunto opcional. La URL tiene que ser publica: Meta la descarga. */
+    mediaUrl?: string
+    /** Tipo interno del CRM: image | video | audio | document. */
+    contentType?: string
+  }
   try {
     cuerpo = await request.json()
   } catch {
     return NextResponse.json({ error: 'Cuerpo invalido' }, { status: 400 })
   }
 
-  const { conversationId, text } = cuerpo
-  if (!conversationId || !text?.trim()) {
+  const { conversationId, text, mediaUrl, contentType } = cuerpo
+  // Hace falta texto O un adjunto. Un mensaje sin ninguno de los dos no
+  // existe para Meta y devolveria un error que no explica nada.
+  if (!conversationId || (!text?.trim() && !mediaUrl)) {
     return NextResponse.json(
-      { error: 'Faltan la conversacion o el texto' },
+      { error: 'Falta la conversacion o el contenido del mensaje' },
       { status: 400 },
     )
   }
@@ -90,26 +99,55 @@ export async function POST(request: Request) {
   // La fila se crea ANTES de llamar a Meta, en estado 'sending'. Si la
   // llamada falla, queda registro de que se intento; crearla despues haria
   // desaparecer de la pantalla los mensajes que no salieron.
+  const tipo = mediaUrl ? (contentType ?? 'document') : 'text'
+
   const { data: fila } = await db
     .from('messages')
     .insert({
       conversation_id: conversationId,
       sender_type: 'agent',
       sender_id: userId,
-      content_type: 'text',
-      content_text: text,
+      content_type: tipo,
+      content_text: text ?? null,
+      media_url: mediaUrl ?? null,
       status: 'sending',
     })
     .select()
     .single()
 
   try {
+    const token = decrypt(conexion.access_token)
+
     const resultado = await enviarMensaje({
       cuentaId: conexion.external_id,
-      accessToken: decrypt(conexion.access_token),
+      accessToken: token,
       destinatario,
-      texto: text,
+      texto: text ?? '',
+      ...(mediaUrl
+        ? { media: { url: mediaUrl, tipo: tipoMediaMeta(tipo) } }
+        : {}),
     })
+
+    // El pie de foto va como un SEGUNDO mensaje.
+    //
+    // Meta ignora el texto cuando el cuerpo lleva adjunto, asi que mandar
+    // ambos juntos haria desaparecer el pie sin ningun error. Se envia aparte
+    // y se tolera que falle: el archivo, que es lo importante, ya salio.
+    if (mediaUrl && text?.trim()) {
+      try {
+        await enviarMensaje({
+          cuentaId: conexion.external_id,
+          accessToken: token,
+          destinatario,
+          texto: text,
+        })
+      } catch (e) {
+        console.error(
+          '[meta send] el adjunto salio pero el pie de foto no:',
+          e instanceof Error ? e.message : e,
+        )
+      }
+    }
 
     await db
       .from('messages')
@@ -119,7 +157,7 @@ export async function POST(request: Request) {
     await db
       .from('conversations')
       .update({
-        last_message_text: text,
+        last_message_text: text?.trim() || `[${tipo}]`,
         last_message_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
       })
