@@ -97,12 +97,16 @@ export function AvisadorMensajes() {
 
       toast(`${quien} escribió por ${ETIQUETA_CANAL[canal]}`, {
         description: 'Mensaje nuevo sin leer.',
+        // 10 segundos, no los 4 de fábrica. El aviso por defecto se iba antes
+        // de que a uno le diera tiempo de mirar la pantalla y decidir.
+        duration: 10_000,
         action: {
-          label: 'Ver',
-          // El canal viaja en la dirección: la bandeja lo lee al abrirse y se
-          // posiciona sola. Con localStorage a secas no bastaría, porque la
-          // lista solo lo consulta al montarse.
-          onClick: () => router.push(`/inbox?canal=${canal}`),
+          label: 'Abrir',
+          onClick: () =>
+            // `c` abre la conversación exacta; `canal` deja el filtro donde
+            // toca. Antes iba solo el canal, y por eso el clic dejaba en la
+            // bandeja sin abrir nada.
+            router.push(`/inbox?canal=${canal}&c=${conversationId}`),
         },
       });
     },
