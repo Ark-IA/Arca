@@ -16,6 +16,7 @@ import {
   isRecipientNotAllowedError,
 } from '@/lib/whatsapp/phone-utils'
 import { supabaseAdmin } from './admin-client'
+import { enviarSiEsCanalMeta } from './envio-omnicanal'
 
 // ------------------------------------------------------------
 // Flows-side Meta sender (interactive variants).
@@ -65,6 +66,19 @@ interface SendTextEngineArgs {
 export async function engineSendText(
   args: SendTextEngineArgs,
 ): Promise<{ whatsapp_message_id: string }> {
+  // Desvío omnicanal. Si la conversación es de Messenger o Instagram, se
+  // envía por ahí y se sale; si es de WhatsApp devuelve null y sigue el
+  // camino de siempre, byte por byte igual que antes.
+  const porMeta = await enviarSiEsCanalMeta({
+    accountId: args.accountId,
+    conversationId: args.conversationId,
+    contactId: args.contactId,
+    userId: args.userId,
+    texto: args.text,
+    aiGenerated: args.aiGenerated,
+  })
+  if (porMeta) return { whatsapp_message_id: porMeta.messageId }
+
   const db = supabaseAdmin()
 
   const { data: contact, error: contactErr } = await db
@@ -324,6 +338,31 @@ type SendInput =
 async function sendInteractiveViaMeta(
   input: SendInput,
 ): Promise<{ whatsapp_message_id: string }> {
+  // Mismo desvío que en el texto. Botones y lista se aplanan a opciones
+  // rápidas: Messenger no tiene el concepto de lista desplegable, pero sí
+  // opciones tocables, y son las que devuelven el identificador que el flujo
+  // necesita para elegir la rama.
+  const opciones =
+    input.kind === 'buttons'
+      ? input.buttons.map((b) => ({ id: b.id, titulo: b.title }))
+      : input.sections.flatMap((s) =>
+          s.rows.map((r) => ({ id: r.id, titulo: r.title })),
+        )
+
+  const porMeta = await enviarSiEsCanalMeta({
+    accountId: input.accountId,
+    conversationId: input.conversationId,
+    contactId: input.contactId,
+    userId: input.userId,
+    // El encabezado y el pie de WhatsApp se pegan al cuerpo: Meta no los
+    // tiene, y perderlos dejaría el menú sin contexto.
+    texto: [input.headerText, input.bodyText, input.footerText]
+      .filter(Boolean)
+      .join('\n\n'),
+    opciones,
+  })
+  if (porMeta) return { whatsapp_message_id: porMeta.messageId }
+
   const db = supabaseAdmin()
 
   // Scope the contact + whatsapp_config lookups by account_id —

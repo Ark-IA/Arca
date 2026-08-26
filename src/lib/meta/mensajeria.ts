@@ -44,7 +44,23 @@ export interface EnvioMeta {
    * publica: por eso se sube primero al almacenamiento del CRM.
    */
   media?: { url: string; tipo: TipoMediaMeta }
+  /**
+   * Opciones rapidas: el equivalente en Messenger e Instagram de los botones
+   * interactivos de WhatsApp.
+   *
+   * No son lo mismo tecnicamente -- WhatsApp usa `interactive.button`, Meta
+   * usa `quick_replies` colgando de un mensaje de texto -- pero cumplen la
+   * misma funcion: el cliente toca en vez de escribir, y vuelve un
+   * identificador estable que el flujo usa para elegir la rama.
+   *
+   * Meta admite hasta 13; WhatsApp solo 3 botones. Quien construya el flujo
+   * ve el limite mas bajo, asi que en la practica nunca se llega al de Meta.
+   */
+  opciones?: { id: string; titulo: string }[]
 }
+
+/** Meta corta las etiquetas de opcion rapida a 20 caracteres. */
+const MAX_ETIQUETA = 20
 
 export interface ResultadoEnvio {
   messageId: string
@@ -61,7 +77,7 @@ export interface ResultadoEnvio {
  * este campo.
  */
 export async function enviarMensaje(args: EnvioMeta): Promise<ResultadoEnvio> {
-  const { cuentaId, accessToken, destinatario, texto, media } = args
+  const { cuentaId, accessToken, destinatario, texto, media, opciones } = args
 
   /*
    * Texto y adjunto son cuerpos distintos, no dos campos del mismo.
@@ -70,7 +86,7 @@ export async function enviarMensaje(args: EnvioMeta): Promise<ResultadoEnvio> {
    * sin avisar. Por eso se elige uno y, cuando hay archivo con pie de foto, el
    * pie se manda como un segundo mensaje (ver mas abajo en la ruta de envio).
    */
-  const mensaje = media
+  const mensaje: Record<string, unknown> = media
     ? {
         attachment: {
           type: media.tipo,
@@ -78,6 +94,20 @@ export async function enviarMensaje(args: EnvioMeta): Promise<ResultadoEnvio> {
         },
       }
     : { text: texto }
+
+  // Las opciones rapidas SOLO viajan sobre un mensaje de texto. Meta las
+  // ignora en silencio si van con un adjunto, asi que ponerlas ahi seria
+  // mandar un menu que nadie ve y esperar una respuesta que nunca llega.
+  if (opciones?.length && !media) {
+    mensaje.quick_replies = opciones.slice(0, 13).map((o) => ({
+      content_type: 'text',
+      title: o.titulo.slice(0, MAX_ETIQUETA),
+      // Meta devuelve este valor tal cual cuando el cliente toca la opcion.
+      // Es el mismo identificador que el flujo usa para elegir la rama, asi
+      // que las dos plataformas avanzan con la misma logica.
+      payload: o.id,
+    }))
+  }
 
   const respuesta = await fetch(`${BASE}/${cuentaId}/messages`, {
     method: 'POST',
@@ -146,11 +176,24 @@ export interface MensajeEntranteMeta {
     text?: string
     /** Presente cuando el mensaje lo enviamos nosotros y vuelve como eco. */
     is_echo?: boolean
+    /**
+     * El cliente tocó una opción rápida en vez de escribir.
+     *
+     * `payload` es el mismo identificador que se envió al crear la opción, y
+     * es lo que el motor de flujos usa para elegir la rama — el equivalente
+     * exacto del `interactive.button_reply.id` de WhatsApp.
+     */
+    quick_reply?: { payload?: string }
     attachments?: Array<{
       type: string
       payload?: { url?: string }
     }>
   }
+  /**
+   * Botón de plantilla pulsado. Meta lo manda fuera de `message`, así que hay
+   * que mirarlo aparte o los toques se pierden.
+   */
+  postback?: { mid?: string; title?: string; payload?: string }
   /** Avisos de leido y entregado, que no son mensajes. */
   delivery?: unknown
   read?: unknown

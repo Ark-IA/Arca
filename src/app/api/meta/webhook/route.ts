@@ -15,6 +15,8 @@ import crypto from 'crypto'
 import { supabaseAdmin } from '@/lib/flows/admin-client'
 import { decrypt } from '@/lib/whatsapp/encryption'
 import { dispatchInboundToAiReply } from '@/lib/ai/auto-reply'
+import { dispatchInboundToFlows } from '@/lib/flows/engine'
+import { runAutomationsForTrigger } from '@/lib/automations/engine'
 import {
   canalDesdeObjeto,
   perfilDeUsuario,
@@ -268,6 +270,89 @@ async function procesarEvento(
     return
   }
 
+  // ---- flujos, automatizaciones y agente de IA ----
+  //
+  // El MISMO orden que en el webhook de WhatsApp, y no por simetría estética:
+  // lo determinista tiene que ganar sobre lo probabilístico, o el cliente
+  // recibe dos respuestas a la misma pregunta. Si los dos webhooks
+  // resolvieran distinto, el mismo escenario se comportaría de una forma en
+  // WhatsApp y de otra en Messenger, que es imposible de explicar y peor de
+  // depurar.
+  //
+  //   1. flujos          → si consumen el mensaje, nadie más contesta
+  //   2. automatizaciones → siempre corren (etiquetas, negocios, avisos)
+  //   3. agente de IA    → solo si ningún flujo consumió
+
+  // El identificador de la opción tocada. En Messenger llega como
+  // `quick_reply.payload` o como `postback.payload`; es el equivalente del
+  // `button_reply.id` de WhatsApp y lo que hace avanzar el flujo.
+  const idOpcion =
+    evento.message?.quick_reply?.payload ?? evento.postback?.payload ?? null
+
+  /**
+   * ¿Es el primer mensaje que manda esta persona?
+   *
+   * Lo necesita el disparador `first_inbound_message`, que es el que arranca
+   * el flujo de recepción. Se cuenta sobre los mensajes ya guardados: el
+   * recién insertado va incluido, así que "primero" es exactamente uno.
+   *
+   * Se cuenta por CONTACTO y no por conversación: si alguien escribió hace
+   * meses, se cerró la conversación y vuelve, no es su primer contacto y no
+   * corresponde darle otra vez la bienvenida.
+   */
+  const { count: mensajesDelCliente } = await db
+    .from('messages')
+    .select('id, conversations!inner(contact_id)', { count: 'exact', head: true })
+    .eq('sender_type', 'customer')
+    .eq('conversations.contact_id', contacto.id)
+
+  let consumidoPorFlujo = false
+  try {
+    const r = await dispatchInboundToFlows({
+      accountId: conexion.account_id,
+      userId: conexion.user_id ?? conexion.account_id,
+      contactId: contacto.id,
+      conversationId: conversacion.id,
+      isFirstInboundMessage: (mensajesDelCliente ?? 0) <= 1,
+      message: idOpcion
+        ? {
+            kind: 'interactive_reply',
+            reply_id: idOpcion,
+            reply_title: evento.postback?.title ?? texto,
+            meta_message_id: evento.message?.mid ?? evento.postback?.mid ?? '',
+          }
+        : {
+            kind: 'text',
+            text: texto,
+            // El identificador del mensaje es lo que hace el motor
+            // idempotente: Meta reintenta las entregas, y sin él el mismo
+            // mensaje haria avanzar el flujo dos veces.
+            meta_message_id: evento.message?.mid ?? '',
+          },
+    })
+    consumidoPorFlujo = r?.consumed === true
+  } catch (e) {
+    console.error('[meta webhook] el motor de flujos fallo:', e)
+  }
+
+  // Las automatizaciones corren aunque el flujo haya consumido: hacen cosas
+  // que no son responder (etiquetar, crear un negocio, asignar), y saltárselas
+  // dejaría el CRM sin registrar lo que acaba de pasar.
+  for (const disparador of ['new_message_received', 'keyword_match'] as const) {
+    await runAutomationsForTrigger({
+      accountId: conexion.account_id,
+      triggerType: disparador,
+      contactId: contacto.id,
+      context: {
+        message_text: texto,
+        conversation_id: conversacion.id,
+        ...(idOpcion ? { interactive_reply_id: idOpcion } : {}),
+      },
+    }).catch((e) =>
+      console.error(`[meta webhook] automatizacion ${disparador} fallo:`, e),
+    )
+  }
+
   // ---- agente de IA ----
   //
   // Solo para mensajes de TEXTO. Un audio o una imagen llegan aca como
@@ -277,7 +362,7 @@ async function procesarEvento(
   // Va sin `await` y con su propio manejo de errores: la respuesta a Meta no
   // puede esperar a un modelo de lenguaje. Meta reintenta el webhook si
   // tarda mas de unos segundos, y cada reintento seria otro mensaje.
-  if (!adjunto && texto.trim() !== '') {
+  if (!consumidoPorFlujo && !idOpcion && !adjunto && texto.trim() !== '') {
     void dispatchInboundToAiReply({
       accountId: conexion.account_id,
       conversationId: conversacion.id,
