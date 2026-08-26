@@ -46,6 +46,7 @@ import { PanelAdjuntos } from '@/components/registros/panel-adjuntos';
 import { PanelLineaDeTiempo } from '@/components/registros/panel-linea-de-tiempo';
 import { PanelTareasDeContacto } from '@/components/registros/panel-tareas-de-contacto';
 import { PanelProximaGestion } from '@/components/registros/panel-proxima-gestion';
+import { AvisoProximaGestion } from '@/components/registros/aviso-proxima-gestion';
 import { canSendMessages } from '@/lib/auth/roles';
 
 interface ContactDetailViewProps {
@@ -69,6 +70,13 @@ export function ContactDetailView({
   const puedeEditarRegistros = accountRole ? canSendMessages(accountRole) : false;
 
   const [contact, setContact] = useState<Contact | null>(null);
+  const [pestana, setPestana] = useState('details');
+  /**
+   * Cambia cada vez que se agenda una gestión, para que el aviso de la pestaña
+   * Detalles se entere. Sin esto, agendar y volver a Detalles seguiría diciendo
+   * "Sin próxima gestión": son dos componentes con su propia consulta.
+   */
+  const [gestionesVersion, setGestionesVersion] = useState(0);
   // La empresa del contacto, para colgar de ella también la próxima gestión:
   // así aparece en la ficha de la empresa, que es donde mira quien lleva la
   // cuenta y no a la persona.
@@ -195,6 +203,11 @@ export function ContactDetailView({
 
   useEffect(() => {
     if (open && contactId) {
+      // Se vuelve a Detalles al abrir otra ficha. Sin esto, quien mira la
+      // pestaña Actividad de un contacto y abre el siguiente cae en Actividad
+      // de otra persona, que es justo el sitio donde peor se nota que estás
+      // viendo la ficha equivocada.
+      setPestana('details');
       fetchContact();
       fetchTags();
       fetchNotes();
@@ -467,13 +480,30 @@ export function ContactDetailView({
             </SheetHeader>
 
             {/* Tabs */}
-            <Tabs defaultValue="details" className="flex-1 flex flex-col min-h-0">
+            {/* Controlada, no con `defaultValue`: el aviso de arriba de
+                Detalles tiene que poder saltar a "Próxima gestión", y para eso
+                hace falta poder cambiar la pestaña desde fuera. */}
+            <Tabs
+              value={pestana}
+              onValueChange={(v) => v && setPestana(v as string)}
+              className="flex-1 flex flex-col min-h-0"
+            >
               <TabsList className="bg-muted/50 border-b border-border mx-4 mt-3 overflow-x-auto">
                 <TabsTrigger
                   value="details"
                   className="data-active:bg-muted data-active:text-primary text-muted-foreground"
                 >
                   {t('tabs.details')}
+                </TabsTrigger>
+                {/* Segunda, pegada a Detalles. Es la acción más importante de
+                    una ficha de contacto -- "qué sigue con esta persona" -- y
+                    quinta entre nueve pestañas, en un panel angosto, quedaba
+                    fuera de la vista y nadie la encontraba. */}
+                <TabsTrigger
+                  value="next"
+                  className="data-active:bg-muted data-active:text-primary text-muted-foreground whitespace-nowrap"
+                >
+                  Próxima gestión
                 </TabsTrigger>
                 <TabsTrigger
                   value="tags"
@@ -492,12 +522,6 @@ export function ContactDetailView({
                   className="data-active:bg-muted data-active:text-primary text-muted-foreground"
                 >
                   {t('tabs.custom')}
-                </TabsTrigger>
-                <TabsTrigger
-                  value="next"
-                  className="data-active:bg-muted data-active:text-primary text-muted-foreground whitespace-nowrap"
-                >
-                  Próxima gestión
                 </TabsTrigger>
                 <TabsTrigger
                   value="tasks"
@@ -527,6 +551,19 @@ export function ContactDetailView({
 
               {/* Details Tab */}
               <TabsContent value="details" className="flex-1 overflow-y-auto px-4 py-3">
+                {/* Lo primero que hay que saber de un contacto no es su correo
+                    sino qué sigue con él. Va arriba de todo y es el único sitio
+                    donde una gestión vencida se ve sin buscarla. */}
+                {contactId && (
+                  <AvisoProximaGestion
+                    // La clave incluye la versión: cambiarla remonta el aviso y
+                    // lo obliga a releer, que es más simple y más difícil de
+                    // romper que pasarle un `refrescar` hacia abajo.
+                    key={`${contactId}-${gestionesVersion}`}
+                    contactId={contactId}
+                    onIr={() => setPestana('next')}
+                  />
+                )}
                 <div className="space-y-3">
                   <div className="space-y-1.5">
                     <Label className="text-muted-foreground text-xs">{t('name')}</Label>
@@ -640,6 +677,7 @@ export function ContactDetailView({
                     contactId={contactId}
                     companyId={companyIdDelContacto}
                     puedeEditar={puedeEditarRegistros}
+                    onAgendado={() => setGestionesVersion((v) => v + 1)}
                   />
                 )}
               </TabsContent>

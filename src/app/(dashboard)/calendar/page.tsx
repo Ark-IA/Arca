@@ -211,6 +211,23 @@ export default function PaginaCalendario() {
         </div>
       </div>
 
+      {/* Qué significa cada color. Sin esto, el rojo de una gestión vencida se
+          lee como un error de la aplicación en vez de como un aviso. */}
+      <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted-foreground">
+        <span className="inline-flex items-center gap-1.5">
+          <span className="size-2.5 rounded-sm bg-primary/40" />
+          Gestión con un contacto
+        </span>
+        <span className="inline-flex items-center gap-1.5">
+          <span className="size-2.5 rounded-sm bg-red-500/40" />
+          Gestión vencida
+        </span>
+        <span className="inline-flex items-center gap-1.5">
+          <span className="size-2.5 rounded-sm bg-muted-foreground/30" />
+          Otro evento
+        </span>
+      </div>
+
       <Card>
         <CardContent className="p-0">
           <div className="grid grid-cols-7 border-b border-border">
@@ -271,6 +288,15 @@ export default function PaginaCalendario() {
                         // del cliente sí.
                         const conQuien =
                           e.contacto?.name || e.empresa?.name || e.contacto?.phone;
+                        // Una gestión (atada a un contacto) se pinta distinto
+                        // de una reunión suelta: al mirar el mes de un vistazo,
+                        // lo que interesa distinguir es "qué le debo a un
+                        // cliente" de "qué tengo agendado".
+                        const esGestion = !!e.contact_id;
+                        const vencida =
+                          esGestion &&
+                          e.status !== 'canceled' &&
+                          new Date(e.ends_at).getTime() < Date.now();
                         return (
                           <span
                             key={e.id}
@@ -279,7 +305,11 @@ export default function PaginaCalendario() {
                               'block truncate rounded px-1 py-0.5 text-[10px]',
                               e.status === 'canceled'
                                 ? 'bg-muted text-muted-foreground line-through'
-                                : 'bg-primary/10 text-primary',
+                                : vencida
+                                  ? 'bg-red-500/15 font-medium text-red-400'
+                                  : esGestion
+                                    ? 'bg-primary/15 font-medium text-primary'
+                                    : 'bg-muted text-muted-foreground',
                             )}
                           >
                             {new Date(e.starts_at).toLocaleTimeString('es', {

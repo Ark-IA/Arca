@@ -99,10 +99,13 @@ export function PanelProximaGestion({
   /** Empresa del contacto, para que el evento también quede colgado de ella. */
   companyId,
   puedeEditar,
+  /** Aviso a la ficha de que hay una gestión nueva, para que refresque. */
+  onAgendado,
 }: {
   contactId: string;
   companyId: string | null;
   puedeEditar: boolean;
+  onAgendado?: () => void;
 }) {
   const { accountId, user } = useAuth();
   const [eventos, setEventos] = useState<CalendarEvent[]>([]);
@@ -168,6 +171,7 @@ export function PanelProximaGestion({
     }
     setNota('');
     await cargar();
+    onAgendado?.();
     toast.success('Agendado. Ya aparece en el calendario.');
   };
 
