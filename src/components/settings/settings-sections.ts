@@ -1,4 +1,5 @@
 import {
+  Bot,
   Camera,
   Coins,
   FileText,
@@ -37,6 +38,7 @@ export const SETTINGS_SECTIONS = [
   'fields',
   'deals',
   'members',
+  'agente-ia',
   'blocklist',
   'api',
 ] as const;
@@ -69,6 +71,10 @@ export const SECTION_META: Record<SettingsSection, SectionMeta> = {
   fields: { id: 'fields', label: 'Fields & tags', icon: Tags, group: 'workspace' },
   deals: { id: 'deals', label: 'Deals & currency', icon: Coins, group: 'workspace' },
   members: { id: 'members', label: 'Team members', icon: UsersRound, group: 'workspace' },
+  // Asignar el agente a cada bandeja. Va en Configuracion, junto a los
+  // canales, porque es una decision sobre COMO se atiende cada bandeja; el
+  // ajuste del modelo y la clave sigue viviendo en Agentes IA.
+  'agente-ia': { id: 'agente-ia', label: 'Agente de IA', icon: Bot, group: 'workspace' },
   blocklist: { id: 'blocklist', label: 'Lista de bloqueo', icon: ShieldBan, group: 'workspace' },
   api: { id: 'api', label: 'API keys', icon: KeyRound, group: 'workspace' },
 };
