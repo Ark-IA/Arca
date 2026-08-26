@@ -95,6 +95,20 @@ export async function POST(request: Request) {
     if (!Number.isFinite(maxPer)) maxPer = 3
     maxPer = Math.min(20, Math.max(1, Math.floor(maxPer)))
 
+    // Canales donde el agente contesta solo. Se filtra contra la lista de
+    // canales reales: un valor inventado seria aceptado por la base solo si
+    // coincide con la restriccion, y confiar en eso es dejar la validacion en
+    // el sitio equivocado.
+    const CANALES_IA = ['whatsapp', 'facebook', 'instagram'] as const
+    const canalesCrudos = Array.isArray(body.auto_reply_channels)
+      ? body.auto_reply_channels
+      : null
+    const autoReplyChannels = canalesCrudos
+      ? canalesCrudos.filter((c: unknown): c is string =>
+          typeof c === 'string' && (CANALES_IA as readonly string[]).includes(c),
+        )
+      : null
+
     // Handoff routing target for auto-reply. A non-empty string must be a
     // member of this account (else the conversation would be assigned to a
     // stranger); an empty string / null means "leave unassigned" (the
@@ -161,12 +175,6 @@ export async function POST(request: Request) {
           provider,
           model,
           apiKey: apiKeyPlain,
-          systemPrompt,
-          isActive,
-          autoReplyEnabled,
-          autoReplyMaxPerConversation: maxPer,
-          handoffAgentId: null,
-          embeddingsApiKey: null,
         })
       } catch (err) {
         if (err instanceof AiError) {

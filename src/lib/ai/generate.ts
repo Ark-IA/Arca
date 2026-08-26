@@ -11,7 +11,16 @@ import { generateAnthropic } from './providers/anthropic'
 import { generateOpenRouter } from './providers/openrouter'
 
 export interface GenerateArgs {
-  config: AiConfig
+  /**
+   * Solo lo que hace falta para hablar con el proveedor.
+   *
+   * Pedir un `AiConfig` entero obligaba a inventar valores para campos que
+   * esta funcion no mira -- los canales del agente, el tope por conversacion,
+   * a quien derivar -- en cada sitio que solo quiere probar una clave. Y esos
+   * valores inventados son los que despues alguien lee creyendo que
+   * significan algo.
+   */
+  config: Pick<AiConfig, 'provider' | 'model' | 'apiKey'>
   /** Fully-built system prompt (see `buildSystemPrompt`). */
   systemPrompt: string
   /** Recent conversation turns, oldest first. */

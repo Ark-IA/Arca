@@ -2,7 +2,17 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { toast } from 'sonner';
-import { Loader2, Sparkles, CheckCircle2, Trash2, Eye, EyeOff } from 'lucide-react';
+import {
+  Check,
+  CheckCircle2,
+  Eye,
+  EyeOff,
+  Loader2,
+  MessageCircle,
+  Sparkles,
+  Trash2,
+} from 'lucide-react';
+import { cn } from '@/lib/utils';
 import { useAuth } from '@/hooks/use-auth';
 import { canEditSettings } from '@/lib/auth/roles';
 import { Button } from '@/components/ui/button';
@@ -37,6 +47,41 @@ const MASKED_KEY = '••••••••••••••••';
 // Radix Select can't use an empty-string item value, so the "leave
 // unassigned" choice gets a sentinel that maps to null in the payload.
 const HANDOFF_QUEUE = '__queue__';
+
+type CanalIa = 'whatsapp' | 'facebook' | 'instagram';
+
+/**
+ * Los canales donde el agente puede contestar.
+ *
+ * Los iconos de marca los quitó Lucide por motivos de marca registrada, así
+ * que Facebook e Instagram se dibujan aquí. Una forma cada uno: pesan menos
+ * que traer una librería de iconos de marcas entera.
+ */
+function IconoFacebook(props: React.SVGProps<SVGSVGElement>) {
+  return (
+    <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" {...props}>
+      <path d="M22 12.06C22 6.5 17.52 2 12 2S2 6.5 2 12.06c0 5 3.66 9.15 8.44 9.94v-7.03H7.9v-2.91h2.54V9.85c0-2.52 1.5-3.91 3.77-3.91 1.09 0 2.24.2 2.24.2v2.46h-1.26c-1.24 0-1.63.78-1.63 1.57v1.89h2.78l-.44 2.91h-2.34V22c4.78-.79 8.44-4.94 8.44-9.94Z" />
+    </svg>
+  );
+}
+
+function IconoInstagram(props: React.SVGProps<SVGSVGElement>) {
+  return (
+    <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" {...props}>
+      <path d="M12 2.16c3.2 0 3.58.01 4.85.07 1.17.05 1.8.25 2.23.41.56.22.96.48 1.38.9.42.42.68.82.9 1.38.16.42.36 1.06.41 2.23.06 1.27.07 1.65.07 4.85s-.01 3.58-.07 4.85c-.05 1.17-.25 1.8-.41 2.23-.22.56-.48.96-.9 1.38-.42.42-.82.68-1.38.9-.42.16-1.06.36-2.23.41-1.27.06-1.65.07-4.85.07s-3.58-.01-4.85-.07c-1.17-.05-1.8-.25-2.23-.41a3.8 3.8 0 0 1-1.38-.9 3.8 3.8 0 0 1-.9-1.38c-.16-.42-.36-1.06-.41-2.23C2.17 15.58 2.16 15.2 2.16 12s.01-3.58.07-4.85c.05-1.17.25-1.8.41-2.23.22-.56.48-.96.9-1.38.42-.42.82-.68 1.38-.9.42-.16 1.06-.36 2.23-.41C8.42 2.17 8.8 2.16 12 2.16Zm0 6.03a3.81 3.81 0 1 0 0 7.62 3.81 3.81 0 0 0 0-7.62Zm0 6.29a2.48 2.48 0 1 1 0-4.96 2.48 2.48 0 0 1 0 4.96Zm4.85-6.44a.89.89 0 1 1-1.78 0 .89.89 0 0 1 1.78 0Z" />
+    </svg>
+  );
+}
+
+const CANALES_IA: {
+  id: CanalIa;
+  etiqueta: string;
+  icono: (p: React.SVGProps<SVGSVGElement>) => React.ReactElement;
+}[] = [
+  { id: 'whatsapp', etiqueta: 'WhatsApp', icono: MessageCircle as never },
+  { id: 'facebook', etiqueta: 'Messenger', icono: IconoFacebook },
+  { id: 'instagram', etiqueta: 'Instagram', icono: IconoInstagram },
+];
 
 const PROVIDER_LABEL: Record<AiProvider, string> = {
   openai: 'OpenAI',
@@ -82,6 +127,9 @@ export function AiConfig() {
   const [isActive, setIsActive] = useState(false);
   const [autoReplyEnabled, setAutoReplyEnabled] = useState(false);
   const [maxPerConversation, setMaxPerConversation] = useState(3);
+  // Canales donde el agente contesta solo. Por defecto WhatsApp: es el que ya
+  // funcionaba antes de que existiera esta opción.
+  const [canalesIa, setCanalesIa] = useState<CanalIa[]>(['whatsapp']);
   // Empty string = leave unassigned (shared queue).
   const [handoffAgentId, setHandoffAgentId] = useState('');
   const [members, setMembers] = useState<AccountMember[]>([]);
@@ -109,6 +157,11 @@ export function AiConfig() {
         setIsActive(data.is_active);
         setAutoReplyEnabled(data.auto_reply_enabled);
         setMaxPerConversation(data.auto_reply_max_per_conversation ?? 3);
+        setCanalesIa(
+          Array.isArray(data.auto_reply_channels) && data.auto_reply_channels.length
+            ? (data.auto_reply_channels as CanalIa[])
+            : ['whatsapp'],
+        );
         setHandoffAgentId(data.handoff_agent_id ?? '');
         setHasStoredKey(Boolean(data.has_key));
         setApiKey(data.has_key ? MASKED_KEY : '');
@@ -161,6 +214,7 @@ export function AiConfig() {
     is_active: isActive,
     auto_reply_enabled: autoReplyEnabled,
     auto_reply_max_per_conversation: maxPerConversation,
+    auto_reply_channels: canalesIa,
     handoff_agent_id: handoffAgentId || null,
   });
 
@@ -459,6 +513,61 @@ export function AiConfig() {
                 onCheckedChange={setAutoReplyEnabled}
                 disabled={disabled || !isActive}
               />
+            </div>
+
+            {/* En qué canales contesta.
+                Encender la IA de golpe en los tres sería decidir por quien
+                atiende: por WhatsApp entran consultas repetidas que el agente
+                resuelve bien, y por Instagram suele entrar otra cosa. */}
+            <div className="space-y-2 rounded-md border border-border p-3">
+              <div>
+                <p className="text-sm font-medium text-foreground">
+                  Canales donde contesta
+                </p>
+                <p className="text-xs text-muted-foreground">
+                  El agente solo responde solo en los canales marcados. Los que
+                  no estén marcados quedan para atención humana.
+                </p>
+              </div>
+
+              <div className="grid gap-2 sm:grid-cols-3">
+                {CANALES_IA.map((c) => {
+                  const Icono = c.icono;
+                  const activo = canalesIa.includes(c.id);
+                  return (
+                    <button
+                      key={c.id}
+                      type="button"
+                      disabled={disabled || !autoReplyEnabled}
+                      onClick={() =>
+                        setCanalesIa((prev) =>
+                          prev.includes(c.id)
+                            ? prev.filter((x) => x !== c.id)
+                            : [...prev, c.id],
+                        )
+                      }
+                      className={cn(
+                        'flex items-center gap-2 rounded-lg border px-3 py-2 text-sm transition-colors',
+                        'disabled:cursor-not-allowed disabled:opacity-50',
+                        activo
+                          ? 'border-primary/40 bg-primary/10 font-medium text-primary'
+                          : 'border-border text-muted-foreground hover:bg-muted',
+                      )}
+                    >
+                      <Icono className="size-4 shrink-0" />
+                      {c.etiqueta}
+                      {activo && <Check className="ml-auto size-3.5 shrink-0" />}
+                    </button>
+                  );
+                })}
+              </div>
+
+              {autoReplyEnabled && canalesIa.length === 0 && (
+                <p className="text-xs text-amber-400">
+                  Sin ningún canal marcado el agente no va a contestar en ningún
+                  lado, aunque la auto-respuesta esté encendida.
+                </p>
+              )}
             </div>
 
             <div className="flex items-center justify-between gap-4">

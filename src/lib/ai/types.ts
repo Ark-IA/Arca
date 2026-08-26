@@ -31,6 +31,11 @@ export interface AiConfig {
   isActive: boolean
   autoReplyEnabled: boolean
   autoReplyMaxPerConversation: number
+  /**
+   * Canales donde el agente contesta solo. Se evalúa ADEMÁS de
+   * `autoReplyEnabled`: con la auto-respuesta apagada, la lista no importa.
+   */
+  autoReplyChannels: ('whatsapp' | 'facebook' | 'instagram')[]
   /** Where auto-reply hands a conversation off when the model bails: an
    *  agent's `auth.users.id`, or null to leave it unassigned (drop into
    *  the shared queue). */

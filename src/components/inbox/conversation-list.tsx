@@ -172,6 +172,25 @@ export function ConversationList({
       localStorage.setItem(CLAVE_CANAL, c);
     } catch {}
   }, []);
+
+  /**
+   * Canal que llega en la dirección, desde el aviso de mensaje nuevo.
+   *
+   * Cuando entra algo por un canal que no se está mirando, el aviso ofrece
+   * "Ver" y trae a la bandeja con `?canal=facebook`. Sin leerlo acá, ese botón
+   * dejaría en la bandeja con el filtro anterior y el mensaje seguiría
+   * invisible — que es exactamente el problema que el aviso venía a resolver.
+   */
+  useEffect(() => {
+    const pedido = new URLSearchParams(window.location.search).get("canal");
+    if (!pedido || !CANALES_BANDEJA.some((c) => c.value === pedido)) return;
+    elegirCanal(pedido as CanalDeBandeja);
+    // Se limpia de la barra: si se quedara, recargar volvería a forzar ese
+    // canal y no se podría cambiar de forma persistente.
+    const url = new URL(window.location.href);
+    url.searchParams.delete("canal");
+    window.history.replaceState({}, "", url.toString());
+  }, [elegirCanal]);
   const [loading, setLoading] = useState(true);
   // Contact-based filters (issue #272). Tags use OR logic (a conversation
   // matches if its contact carries any selected tag), consistent with
@@ -279,6 +298,36 @@ export function ConversationList({
     [conversations],
   );
 
+  /**
+   * Sin leer por canal.
+   *
+   * Es el dato que de verdad importa en el selector: el total dice cuántas
+   * conversaciones hay, pero lo que hace falta saber es dónde hay algo
+   * esperando. Con el selector filtrado en WhatsApp, un mensaje de Facebook
+   * era invisible -- sonaba el aviso y no había forma de ver de dónde venía.
+   */
+  const sinLeerDeCanal = useCallback(
+    (valor: CanalDeBandeja) =>
+      conversations
+        .filter((x) => valor === "todos" || (x.channel ?? "whatsapp") === valor)
+        .reduce((n, x) => n + (x.unread_count > 0 ? 1 : 0), 0),
+    [conversations],
+  );
+
+  /**
+   * ¿Hay algo sin leer en un canal que NO se está mirando?
+   *
+   * Con el selector en "Todos" no aplica: ahí se ve todo. Solo tiene sentido
+   * cuando la lista está filtrada, que es justo cuando un mensaje de otro
+   * canal desaparece de la vista.
+   */
+  const hayEnOtroCanal = useMemo(() => {
+    if (canal === "todos") return false;
+    return conversations.some(
+      (c) => c.unread_count > 0 && (c.channel ?? "whatsapp") !== canal,
+    );
+  }, [conversations, canal]);
+
   const filtered = useMemo(() => {
     let result = conversations;
 
@@ -384,6 +433,16 @@ export function ConversationList({
                   <span className="flex items-center gap-2">
                     <Icono className="h-4 w-4 shrink-0" />
                     {c.etiqueta}
+                    {/* Aviso de que hay algo sin leer en OTRO canal: un punto
+                        que late en el propio selector. Es lo único visible
+                        cuando la lista está filtrada y el mensaje entró por un
+                        canal que no se está mirando. */}
+                    {hayEnOtroCanal && (
+                      <span className="relative ml-1 flex size-2 shrink-0">
+                        <span className="absolute inline-flex size-full animate-ping rounded-full bg-primary/70" />
+                        <span className="relative inline-flex size-2 rounded-full bg-primary" />
+                      </span>
+                    )}
                     <span className="ml-auto rounded-full bg-background/60 px-1.5 text-[10px] font-semibold tabular-nums">
                       {cuentaDeCanal(canal)}
                     </span>
@@ -402,17 +461,24 @@ export function ConversationList({
             {CANALES_BANDEJA.map((c) => {
               const Icono = c.icono;
               const cuantas = cuentaDeCanal(c.value);
+              const sinLeer = sinLeerDeCanal(c.value);
               return (
                 <SelectItem key={c.value} value={c.value}>
                   <span className="flex w-full items-center gap-2">
                     <Icono className="h-4 w-4 shrink-0" />
                     {c.etiqueta}
+
+                    {/* Sin leer va PRIMERO y en verde: es lo que hay que
+                        atender. El total va detrás, apagado, como referencia. */}
+                    {sinLeer > 0 && (
+                      <span className="ml-auto rounded-full bg-primary px-1.5 text-[10px] font-semibold tabular-nums text-primary-foreground">
+                        {sinLeer}
+                      </span>
+                    )}
                     <span
                       className={cn(
-                        "ml-auto rounded-full px-1.5 text-[10px] font-semibold tabular-nums",
-                        cuantas > 0
-                          ? "bg-primary/15 text-primary"
-                          : "bg-muted text-muted-foreground",
+                        "rounded-full px-1.5 text-[10px] tabular-nums text-muted-foreground",
+                        sinLeer > 0 ? "" : "ml-auto",
                       )}
                     >
                       {cuantas}

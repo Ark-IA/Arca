@@ -7,8 +7,9 @@ import { buildSystemPrompt } from './defaults'
 import { buildHandoffSummary } from './handoff'
 import { logAiUsage } from './usage'
 import { latestUserMessage } from './query'
-import { engineSendText } from '@/lib/flows/meta-send'
+import { responderPorCanal } from './enviar-por-canal'
 import { checkRateLimit, RATE_LIMITS } from '@/lib/rate-limit'
+import type { Canal } from '@/types'
 
 interface DispatchArgs {
   /** Tenancy key — drives config, contact, and whatsapp_config lookups. */
@@ -69,12 +70,20 @@ export async function dispatchInboundToAiReply(
 
     const { data: conv, error: convErr } = await db
       .from('conversations')
-      .select('assigned_agent_id, ai_autoreply_disabled, ai_reply_count')
+      .select('assigned_agent_id, ai_autoreply_disabled, ai_reply_count, channel')
       .eq('id', conversationId)
       .maybeSingle()
     if (convErr || !conv) return
     if (conv.assigned_agent_id) return // a human owns this thread
     if (conv.ai_autoreply_disabled) return // handed off / turned off here
+
+    // Canal apagado para el agente.
+    //
+    // Las conversaciones anteriores a los canales multiples no traen el campo
+    // y son de WhatsApp: sin ese valor por defecto, encender la lista dejaria
+    // muda a toda la bandeja historica.
+    const canal = (conv.channel ?? 'whatsapp') as Canal
+    if (!config.autoReplyChannels.includes(canal)) return
     // Cheap early-out; the authoritative cap check is the atomic claim
     // below (this read can race a concurrent inbound).
     if (conv.ai_reply_count >= config.autoReplyMaxPerConversation) return
@@ -179,13 +188,14 @@ export async function dispatchInboundToAiReply(
     }
     if (claimed !== true) return // lost the per-conversation cap race
 
-    await engineSendText({
+    await responderPorCanal({
+      db,
       accountId,
-      userId: configOwnerUserId,
+      configOwnerUserId,
       conversationId,
       contactId,
-      text,
-      aiGenerated: true,
+      canal,
+      texto: text,
     })
   } catch (err) {
     console.error('[ai auto-reply] dispatch failed:', err)

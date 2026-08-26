@@ -14,6 +14,7 @@ import { NextResponse } from 'next/server'
 import crypto from 'crypto'
 import { supabaseAdmin } from '@/lib/flows/admin-client'
 import { decrypt } from '@/lib/whatsapp/encryption'
+import { dispatchInboundToAiReply } from '@/lib/ai/auto-reply'
 import {
   canalDesdeObjeto,
   perfilDeUsuario,
@@ -261,6 +262,30 @@ async function procesarEvento(
     if (errMsg.code !== '23505') {
       console.error('[meta webhook] no se pudo guardar el mensaje:', errMsg.message)
     }
+    // Un duplicado NO sigue adelante: si lo hiciera, cada reintento de Meta
+    // dispararia otra respuesta del agente y el cliente recibiria la misma
+    // contestacion tres veces.
+    return
+  }
+
+  // ---- agente de IA ----
+  //
+  // Solo para mensajes de TEXTO. Un audio o una imagen llegan aca como
+  // '[Imagen]', y hacer que el modelo conteste a esa etiqueta produce
+  // respuestas sin sentido -- mejor que lo vea una persona.
+  //
+  // Va sin `await` y con su propio manejo de errores: la respuesta a Meta no
+  // puede esperar a un modelo de lenguaje. Meta reintenta el webhook si
+  // tarda mas de unos segundos, y cada reintento seria otro mensaje.
+  if (!adjunto && texto.trim() !== '') {
+    void dispatchInboundToAiReply({
+      accountId: conexion.account_id,
+      conversationId: conversacion.id,
+      contactId: contacto.id,
+      configOwnerUserId: conexion.user_id ?? conexion.account_id,
+    }).catch((e) => {
+      console.error('[meta webhook] el agente de IA fallo:', e)
+    })
   }
 }
 

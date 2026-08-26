@@ -67,12 +67,6 @@ export async function POST(request: Request) {
         provider,
         model,
         apiKey: apiKeyPlain,
-        systemPrompt: null,
-        isActive: true,
-        autoReplyEnabled: false,
-        autoReplyMaxPerConversation: 3,
-        handoffAgentId: null,
-        embeddingsApiKey: null,
       })
     } catch (err) {
       if (err instanceof AiError) {

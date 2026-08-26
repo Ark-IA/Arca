@@ -75,6 +75,7 @@ function aiConfig(overrides: Partial<AiConfig> = {}): AiConfig {
     isActive: true,
     autoReplyEnabled: true,
     autoReplyMaxPerConversation: 3,
+    autoReplyChannels: ['whatsapp', 'facebook', 'instagram'],
     handoffAgentId: null,
     embeddingsApiKey: null,
     ...overrides,

@@ -10,12 +10,13 @@ interface AiConfigRow {
   is_active: boolean
   auto_reply_enabled: boolean
   auto_reply_max_per_conversation: number
+  auto_reply_channels: string[] | null
   handoff_agent_id: string | null
   embeddings_api_key: string | null
 }
 
 const CONFIG_COLUMNS =
-  'provider, model, api_key, system_prompt, is_active, auto_reply_enabled, auto_reply_max_per_conversation, handoff_agent_id, embeddings_api_key'
+  'provider, model, api_key, system_prompt, is_active, auto_reply_enabled, auto_reply_max_per_conversation, auto_reply_channels, handoff_agent_id, embeddings_api_key'
 
 /**
  * Load and decrypt the account's AI config for *use* (draft or
@@ -77,6 +78,13 @@ export async function loadAiConfig(
     isActive: row.is_active,
     autoReplyEnabled: row.auto_reply_enabled,
     autoReplyMaxPerConversation: row.auto_reply_max_per_conversation,
+    // Si la columna viniera vacía -- fila anterior a la migración 051, o una
+    // escritura parcial -- se asume WhatsApp. Es el canal que ya funcionaba,
+    // así que en el peor caso el comportamiento no cambia; asumir los tres
+    // encendería el agente en canales que nadie eligió.
+    autoReplyChannels: (row.auto_reply_channels?.length
+      ? row.auto_reply_channels
+      : ['whatsapp']) as AiConfig['autoReplyChannels'],
     handoffAgentId: row.handoff_agent_id,
     embeddingsApiKey,
   }
