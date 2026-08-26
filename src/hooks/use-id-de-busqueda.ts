@@ -17,19 +17,31 @@
 import { useEffect, useState } from 'react';
 
 export function useIdDeBusqueda(): string | null {
-  const [id, setId] = useState<string | null>(null);
+  return useParametroUnaVez('id');
+}
+
+/**
+ * Lo mismo para `?nuevo=<teléfono>`, con el que el aviso de llamada entrante
+ * manda a crear el contacto de un número desconocido.
+ */
+export function useTelefonoNuevo(): string | null {
+  return useParametroUnaVez('nuevo');
+}
+
+function useParametroUnaVez(nombre: string): string | null {
+  const [valor, setValor] = useState<string | null>(null);
 
   useEffect(() => {
-    const buscado = new URLSearchParams(window.location.search).get('id');
-    if (!buscado) return;
-    setId(buscado);
+    const leido = new URLSearchParams(window.location.search).get(nombre);
+    if (!leido) return;
+    setValor(leido);
 
     // `replaceState` y no `router.replace`: no hace falta volver a renderizar
     // ni tocar el historial, solo limpiar lo que se ve en la barra.
     const url = new URL(window.location.href);
-    url.searchParams.delete('id');
+    url.searchParams.delete(nombre);
     window.history.replaceState({}, '', url.toString());
-  }, []);
+  }, [nombre]);
 
-  return id;
+  return valor;
 }

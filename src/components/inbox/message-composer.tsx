@@ -536,11 +536,7 @@ export function MessageComposer({
   // ---- Render --------------------------------------------------------
 
   return (
-    // Hueco LATERAL, no inferior. El teléfono flota abajo a la derecha y lo
-    // único que puede tapar acá es el botón de enviar; despejarlo por el
-    // costado no cuesta altura. La versión anterior usaba relleno inferior y
-    // abría un vacío de 5,5rem debajo del campo de texto.
-    <div className="deja-sitio-telefono-lado border-t border-border bg-card p-3">
+    <div className="border-t border-border bg-card p-3">
       {replyTo && (
         <div className="mb-2">
           <ReplyQuote

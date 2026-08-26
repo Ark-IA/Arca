@@ -9,6 +9,7 @@ import { AccountAccessAlert } from "@/components/layout/account-access-alert";
 import { PresenceHeartbeat } from "@/components/presence/presence-heartbeat";
 import { BurbujaTelefono } from "@/components/telefonia/burbuja-telefono";
 import { ProveedorTelefono } from "@/components/telefonia/contexto-telefono";
+import { AvisoLlamada } from "@/components/telefonia/aviso-llamada";
 import { AvisadorMensajes } from "@/components/inbox/avisador-mensajes";
 
 // Auth-gated dashboard shell. Extracted from the layout so the layout
@@ -61,6 +62,11 @@ function DashboardShellInner({ children }: { children: React.ReactNode }) {
           desregistraria la extension y cortaria la llamada en curso.
           No renderiza nada para quien no tiene extension asignada. */}
       <BurbujaTelefono />
+      {/* Aviso de llamada entrante y barra de llamada en curso. Va aparte de
+          la burbuja porque tiene que salir SIEMPRE, también donde la burbuja
+          se oculta (la bandeja): una llamada perdida por no avisar es peor
+          que una esquina ocupada. */}
+      <AvisoLlamada />
       <Sidebar open={sidebarOpen} onClose={closeSidebar} />
       <div className="flex flex-1 flex-col overflow-hidden">
         <Header onOpenSidebar={() => setSidebarOpen(true)} />

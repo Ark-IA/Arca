@@ -5,7 +5,7 @@ import { createClient } from '@/lib/supabase/client';
 import { toast } from 'sonner';
 import type { Contact, Tag, ContactTag } from '@/types';
 import { BarraDeVistas } from '@/components/views/barra-de-vistas';
-import { useIdDeBusqueda } from '@/hooks/use-id-de-busqueda';
+import { useIdDeBusqueda, useTelefonoNuevo } from '@/hooks/use-id-de-busqueda';
 import type { SavedView } from '@/hooks/use-saved-views';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -81,6 +81,9 @@ export default function ContactsPage() {
   // Tag filter — contacts shown must have ANY of these tags (OR).
   const [selectedTagIds, setSelectedTagIds] = useState<string[]>([]);
   const [vistaActiva, setVistaActiva] = useState<string | null>(null);
+  /** Teléfono con el que abrir el formulario ya rellenado (llamada entrante
+   *  de un número desconocido). */
+  const [telefonoPrellenado, setTelefonoPrellenado] = useState<string | null>(null);
 
   // Modals
   const [formOpen, setFormOpen] = useState(false);
@@ -230,6 +233,7 @@ export default function ContactsPage() {
   function openAddForm() {
     setEditContact(null);
     setEditContactTags([]);
+    setTelefonoPrellenado(null);
     setFormOpen(true);
   }
 
@@ -256,6 +260,18 @@ export default function ContactsPage() {
     if (idBuscado) openDetail(idBuscado);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [idBuscado]);
+
+  // Número que llega desde el aviso de llamada entrante cuando quien llamó no
+  // estaba registrado: abre el formulario con el teléfono ya escrito, para que
+  // dar de alta al cliente después de atenderlo cueste un clic.
+  const telefonoNuevo = useTelefonoNuevo();
+  useEffect(() => {
+    if (!telefonoNuevo) return;
+    setEditContact(null);
+    setEditContactTags([]);
+    setTelefonoPrellenado(telefonoNuevo);
+    setFormOpen(true);
+  }, [telefonoNuevo]);
 
   function confirmDelete(contact: Contact) {
     setDeleteTarget(contact);
@@ -779,6 +795,7 @@ export default function ContactsPage() {
         onOpenChange={setFormOpen}
         contact={editContact}
         contactTags={editContactTags}
+        telefonoInicial={telefonoPrellenado}
         onSaved={() => {
           fetchContacts();
           fetchTags();

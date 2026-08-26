@@ -24,6 +24,7 @@ import {
   Check,
   Clock,
   ArrowLeft,
+  PhoneCall,
   RefreshCw,
   PanelRightOpen,
   PanelRightClose,
@@ -54,6 +55,7 @@ import { AiThreadBanner } from "./ai-thread-banner";
 import { buildReplyPreview } from "./reply-quote";
 import { renderTemplateBody } from "@/lib/whatsapp/template-body";
 import { toast } from "sonner";
+import { useTelefono } from '@/components/telefonia/contexto-telefono';
 
 interface ReplyDraft {
   id: string;
@@ -170,6 +172,17 @@ export function MessageThread({
 
   const { user } = useAuth();
   const { getPresence, getRow, now } = usePresence();
+
+  // Teléfono del CRM, para llamar al contacto sin salir de la conversación.
+  const telefono = useTelefono();
+  const puedeLlamar = !!telefono?.disponible && !!contact?.phone;
+  const llamarAlContacto = useCallback(() => {
+    if (!telefono || !contact?.phone) return;
+    // Se limpian espacios y paréntesis: Asterisk marca dígitos, y un número
+    // guardado como "+57 (300) 123-4567" fallaría tal cual.
+    telefono.llamar(contact.phone.replace(/[^\d*#+]/g, ""));
+  }, [telefono, contact?.phone]);
+
   const [loading, setLoading] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
   const [templateModalOpen, setTemplateModalOpen] = useState(false);
@@ -970,6 +983,23 @@ export function MessageThread({
               ) : (
                 <PanelRightOpen className="h-4 w-4" />
               )}
+            </button>
+          )}
+
+          {/* Llamar al contacto.
+              La burbuja del teléfono no se dibuja en la bandeja -- se ponía
+              encima del botón de enviar -- así que este es el único sitio
+              desde el que se puede marcar sin salir de la conversación. Solo
+              aparece si esta persona tiene extensión y el contacto teléfono. */}
+          {puedeLlamar && (
+            <button
+              type="button"
+              onClick={llamarAlContacto}
+              aria-label={`Llamar a ${contact?.name || contact?.phone}`}
+              title={`Llamar a ${contact?.phone}`}
+              className="inline-flex h-7 w-7 items-center justify-center rounded-md text-primary transition-colors hover:bg-primary/10"
+            >
+              <PhoneCall className="h-3.5 w-3.5" />
             </button>
           )}
 

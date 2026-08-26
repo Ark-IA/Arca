@@ -9,6 +9,7 @@
  */
 
 import { useEffect, useState } from 'react';
+import { usePathname } from 'next/navigation';
 import {
   Delete,
   Mic,
@@ -51,6 +52,8 @@ function reloj(segundos: number): string {
 
 export function BurbujaTelefono() {
   const tel = useTelefono();
+  const ruta = usePathname();
+  const enBandeja = ruta?.startsWith('/inbox') ?? false;
   const [abierto, setAbierto] = useState(false);
   const [marcado, setMarcado] = useState('');
 
@@ -93,6 +96,15 @@ export function BurbujaTelefono() {
   // !tel va explicito aunque hayTelefono ya lo cubra: es lo que le dice a
   // TypeScript que de aca para abajo el telefono existe.
   if (!tel || !hayTelefono) return null;
+
+  // En la bandeja no se dibuja.
+  //
+  // Esa pantalla ocupa el alto exacto de la ventana y termina justo en el
+  // botón de enviar; cualquier cosa flotando en esa esquina se le pone encima.
+  // Las llamadas entrantes siguen avisando igual -- <AvisoLlamada/> vive
+  // aparte y sale arriba al centro -- y para marcar desde acá está el botón de
+  // llamar en la cabecera de la conversación.
+  if (enBandeja) return null;
 
   const pulsar = (digito: string) => {
     // El tono suena siempre, se esté marcando o dentro de una llamada. Es la

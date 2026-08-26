@@ -37,6 +37,15 @@ interface ContactFormProps {
   /** Open an existing contact's detail view — used by the duplicate
    *  notice to jump to the contact that already owns this number. */
   onViewExisting?: (contactId: string) => void;
+  /**
+   * Teléfono con el que abrir el formulario ya rellenado.
+   *
+   * Lo usa el aviso de llamada entrante cuando quien llamó no estaba
+   * registrado: se atiende la llamada, se pulsa "Crear contacto" y el número
+   * ya está puesto. Volver a teclearlo de memoria después de colgar es
+   * exactamente donde se pierden los contactos nuevos.
+   */
+  telefonoInicial?: string | null;
 }
 
 export function ContactForm({
@@ -46,6 +55,7 @@ export function ContactForm({
   contactTags = [],
   onSaved,
   onViewExisting,
+  telefonoInicial,
 }: ContactFormProps) {
   const t = useTranslations('Contacts.form');
   const supabase = createClient();
@@ -79,7 +89,9 @@ export function ContactForm({
   useEffect(() => {
     if (open) {
       setName(contact?.name ?? '');
-      setPhone(contact?.phone ?? '');
+      // Al editar manda el contacto; al crear desde una llamada entrante,
+      // el número que llamó.
+      setPhone(contact?.phone ?? telefonoInicial ?? '');
       setEmail(contact?.email ?? '');
       setCompany(contact?.company ?? '');
       setCompanyId(contact?.company_id ?? null);
@@ -88,7 +100,7 @@ export function ContactForm({
       setDupMatch(null);
       fetchTags();
     }
-  }, [open, contact]);
+  }, [open, contact, telefonoInicial]);
 
   // Look up an existing contact with this number (new contacts only).
   // Runs on blur so we don't query on every keystroke.

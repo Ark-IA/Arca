@@ -18,8 +18,7 @@ import {
   LayoutDashboard,
   LogOut,
   MessageSquare,
-  PanelLeftClose,
-  PanelLeftOpen,
+  ChevronsLeft,
   Radio,
   Settings,
   Shield,
@@ -226,9 +225,41 @@ export function Sidebar({ open = false, onClose }: SidebarProps) {
           // desliza y animar tambien el ancho encimaria dos movimientos.
           "lg:static lg:z-0 lg:translate-x-0 lg:transition-[width] lg:duration-200",
           plegado ? "lg:w-16" : "lg:w-60",
+          // `relative` para poder anclar el tirador de plegado al borde.
+          "lg:relative",
         )}
         aria-label="Primary"
       >
+        {/* Tirador de plegado.
+            Va montado SOBRE el borde derecho, a la altura del logotipo, y no
+            dentro del menu: plegada la barra mide 64px y ahi no caben el
+            monograma y un boton uno al lado del otro. Colgado del borde se ve
+            igual en los dos estados y no le quita sitio a nada.
+            Chevrones dobles y no una hamburguesa: la hamburguesa significa
+            "abrir un menu", y esto pliega uno que ya esta abierto. */}
+        <button
+          type="button"
+          onClick={alternarPlegado}
+          aria-expanded={!plegado}
+          aria-label={plegado ? t("expand") : t("collapse")}
+          title={plegado ? t("expand") : t("collapse")}
+          className={cn(
+            "absolute -right-3 top-[1.375rem] z-10 hidden size-6 items-center justify-center lg:flex",
+            "rounded-full border border-border bg-card text-muted-foreground shadow-md",
+            "transition-all hover:border-primary/50 hover:bg-primary hover:text-primary-foreground hover:shadow-lg hover:shadow-primary/20",
+            "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background",
+          )}
+        >
+          <ChevronsLeft
+            className={cn(
+              "size-3.5 transition-transform duration-200",
+              // Un solo icono que gira, en vez de dos que se intercambian: la
+              // rotacion se anima y deja claro que es el mismo control.
+              plegado && "rotate-180",
+            )}
+          />
+        </button>
+
         {/* Logo row. On mobile we put a close button here; on desktop the
             close button is hidden since the sidebar is always-visible. */}
         <div
@@ -381,30 +412,8 @@ export function Sidebar({ open = false, onClose }: SidebarProps) {
               );
             })}
 
-            {/* Plegar / desplegar. Va al final de la navegacion y no en el
-                encabezado porque plegada la barra mide 64px: ahi no entran el
-                logotipo y un boton uno al lado del otro. Solo escritorio: en
-                movil la barra es un cajon que ya se cierra entero. */}
-            <li className="hidden lg:block">
-              <button
-                type="button"
-                onClick={alternarPlegado}
-                aria-expanded={!plegado}
-                aria-label={plegado ? t("expand") : t("collapse")}
-                title={plegado ? t("expand") : t("collapse")}
-                className={cn(
-                  "flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground",
-                  plegado && "justify-center gap-0 px-0",
-                )}
-              >
-                {plegado ? (
-                  <PanelLeftOpen className="h-4 w-4 shrink-0" />
-                ) : (
-                  <PanelLeftClose className="h-4 w-4 shrink-0" />
-                )}
-                <span className={cn(plegado && "hidden")}>{t("collapse")}</span>
-              </button>
-            </li>
+            {/* El control de plegado ya no vive aca: subio al borde derecho
+                del encabezado, colgado sobre la linea divisoria. */}
           </ul>
         </nav>
 

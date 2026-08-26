@@ -10,6 +10,13 @@ import {
 import { cn } from "@/lib/utils";
 import type { Conversation, ConversationStatus, Tag } from "@/types";
 import { Search, ChevronDown, X, MessageCircle, Inbox } from "lucide-react";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 /*
  * Lucide quito los iconos de marca por motivos de marca registrada, asi que
@@ -258,6 +265,20 @@ export function ConversationList({
     return m;
   }, [tags]);
 
+  /**
+   * Cuántas conversaciones hay en un canal.
+   *
+   * Sale de las que ya están cargadas, no de una consulta aparte: es el mismo
+   * dato y evita un viaje más al servidor cada vez que se abre el selector.
+   */
+  const cuentaDeCanal = useCallback(
+    (valor: CanalDeBandeja) =>
+      valor === "todos"
+        ? conversations.length
+        : conversations.filter((x) => (x.channel ?? "whatsapp") === valor).length,
+    [conversations],
+  );
+
   const filtered = useMemo(() => {
     let result = conversations;
 
@@ -335,48 +356,64 @@ export function ConversationList({
       {/* Bandejas por canal. El contador de cada una sale de las
           conversaciones ya cargadas, no de una consulta aparte: es el mismo
           dato y evita un viaje mas al servidor en cada cambio de pestana. */}
-      <div className="flex shrink-0 items-center gap-0.5 border-b border-border px-2 pt-2">
-        {CANALES_BANDEJA.map((c) => {
-          const Icono = c.icono;
-          const activo = canal === c.value;
-          const cuantas =
-            c.value === "todos"
-              ? conversations.length
-              : conversations.filter(
-                  (x) => (x.channel ?? "whatsapp") === c.value,
-                ).length;
-          return (
-            <button
-              key={c.value}
-              type="button"
-              onClick={() => elegirCanal(c.value)}
-              title={c.etiqueta}
-              aria-pressed={activo}
-              className={cn(
-                "flex flex-1 items-center justify-center gap-1.5 rounded-t-md border-b-2 px-2 py-2 text-xs font-medium transition-colors",
-                activo
-                  ? "border-primary text-primary"
-                  : "border-transparent text-muted-foreground hover:bg-muted hover:text-foreground",
-              )}
-            >
-              <Icono className="h-3.5 w-3.5 shrink-0" />
-              {/* La etiqueta se esconde en pantallas angostas: cuatro
-                  nombres completos no entran en 320 px y los iconos ya
-                  identifican cada canal. */}
-              <span className="hidden xl:inline">{c.etiqueta}</span>
-              {cuantas > 0 && (
-                <span
-                  className={cn(
-                    "rounded-full px-1.5 text-[10px] font-semibold tabular-nums",
-                    activo ? "bg-primary/15 text-primary" : "bg-muted text-muted-foreground",
-                  )}
-                >
-                  {cuantas}
-                </span>
-              )}
-            </button>
-          );
-        })}
+      <div className="shrink-0 border-b border-border p-3 pb-2">
+        <Select
+          value={canal}
+          onValueChange={(v) => v && elegirCanal(v as CanalDeBandeja)}
+        >
+          <SelectTrigger
+            aria-label="Canal de la bandeja"
+            className={cn(
+              "w-full transition-colors",
+              // El selector toma el color del canal elegido: en una bandeja
+              // compartida, saber de un vistazo cuál estás mirando evita
+              // contestar en el canal equivocado.
+              canal === "todos"
+                ? "border-border bg-muted text-foreground hover:border-primary/40"
+                : "border-primary/30 bg-primary/10 font-medium text-primary hover:border-primary/50",
+            )}
+          >
+            <SelectValue>
+              {(() => {
+                const c = CANALES_BANDEJA.find((x) => x.value === canal)!;
+                const Icono = c.icono;
+                return (
+                  <span className="flex items-center gap-2">
+                    <Icono className="h-4 w-4 shrink-0" />
+                    {c.etiqueta}
+                    <span className="ml-auto rounded-full bg-background/60 px-1.5 text-[10px] font-semibold tabular-nums">
+                      {cuentaDeCanal(canal)}
+                    </span>
+                  </span>
+                );
+              })()}
+            </SelectValue>
+          </SelectTrigger>
+          <SelectContent>
+            {CANALES_BANDEJA.map((c) => {
+              const Icono = c.icono;
+              const cuantas = cuentaDeCanal(c.value);
+              return (
+                <SelectItem key={c.value} value={c.value}>
+                  <span className="flex w-full items-center gap-2">
+                    <Icono className="h-4 w-4 shrink-0" />
+                    {c.etiqueta}
+                    <span
+                      className={cn(
+                        "ml-auto rounded-full px-1.5 text-[10px] font-semibold tabular-nums",
+                        cuantas > 0
+                          ? "bg-primary/15 text-primary"
+                          : "bg-muted text-muted-foreground",
+                      )}
+                    >
+                      {cuantas}
+                    </span>
+                  </span>
+                </SelectItem>
+              );
+            })}
+          </SelectContent>
+        </Select>
       </div>
 
       {/* Search + Filter */}

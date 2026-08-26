@@ -297,14 +297,7 @@ html[data-telefono='1'] .deja-sitio-telefono {
   padding-bottom: var(--sitio-telefono);
 }
 
-/* Hueco LATERAL, para lo que vive pegado al fondo y no puede crecer hacia
-   arriba.
-
-   El redactor de la bandeja es el caso: darle 5,5rem de relleno inferior le
-   abría un vacío enorme debajo del campo de texto y rompía el diseño de toda
-   la pantalla. Lo único que hay que despejar ahí es el botón de enviar, que
-   está a la derecha; con relleno lateral se consigue sin gastar ni un píxel
-   de altura. */
-html[data-telefono='1'] .deja-sitio-telefono-lado {
-  padding-right: 4rem;
-}
+/* La bandeja no necesita reservar nada: el teléfono no se dibuja ahí. Se
+   probaron las dos formas -- relleno inferior y relleno lateral -- y las dos
+   descuadraban el redactor, así que la burbuja se quitó de esa pantalla y las
+   llamadas entrantes avisan con un aviso propio arriba al centro. */
