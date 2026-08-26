@@ -100,9 +100,12 @@ export function AgenteIaBandejas() {
         .select('channel, name, external_id')
         .eq('account_id', accountId)
         .eq('status', 'connected'),
+      // `phone_number_id` es el identificador de Meta, no el número: la tabla
+      // no guarda el número legible. Se muestra el identificador, que al menos
+      // permite distinguir dos líneas si algún día hay dos.
       supabase
         .from('whatsapp_config')
-        .select('phone_number, status')
+        .select('phone_number_id, status')
         .eq('account_id', accountId)
         .maybeSingle(),
     ]);
@@ -125,9 +128,16 @@ export function AgenteIaBandejas() {
         porCanal.set(c.channel, c.name || c.external_id);
       }
     }
-    const numero = (wa.data as { phone_number?: string; status?: string } | null);
-    if (numero?.status === 'connected' || numero?.phone_number) {
-      porCanal.set('whatsapp', numero.phone_number ?? 'Número conectado');
+    const linea = wa.data as
+      | { phone_number_id?: string; status?: string }
+      | null;
+    if (linea?.phone_number_id) {
+      porCanal.set(
+        'whatsapp',
+        linea.status === 'connected'
+          ? `Número conectado · ${linea.phone_number_id}`
+          : `Configurado, sin verificar · ${linea.phone_number_id}`,
+      );
     }
 
     setBandejas(
