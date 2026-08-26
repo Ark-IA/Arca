@@ -13,6 +13,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { CredencialesSip } from '@/lib/telefonia/sip';
+import { iniciarTimbre, iniciarTonoDeLlamada } from '@/lib/telefonia/tonos-llamada';
 
 export type EstadoTelefono =
   /** Todavia no se sabe si esta persona tiene extension. */
@@ -104,6 +105,13 @@ export function useSoftphone(): Softphone {
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const credRef = useRef<CredencialesSip | null>(null);
   const registroRef = useRef<string | null>(null);
+  /** Cómo callar el tono que esté sonando ahora mismo, si hay alguno. */
+  const pararTonoRef = useRef<(() => void) | null>(null);
+
+  const pararTono = useCallback(() => {
+    pararTonoRef.current?.();
+    pararTonoRef.current = null;
+  }, []);
 
   // --- registro de la llamada en la base -------------------------------
   const abrirRegistro = useCallback(
@@ -133,7 +141,12 @@ export function useSoftphone(): Softphone {
     async (estadoFinal: string, contestada: boolean) => {
       const id = registroRef.current;
       if (!id) return;
-      registroRef.current = null;
+      // 'answered' NO es el final de la llamada, es su mitad. Si se soltara el
+      // identificador aca, el 'completed' posterior no tendria a que fila
+      // apuntar: la llamada quedaria registrada como contestada, sin hora de
+      // fin, y por tanto sin duracion. El informe mostraria todas las
+      // llamadas atendidas con duracion vacia.
+      if (estadoFinal !== 'answered') registroRef.current = null;
       try {
         await fetch('/api/telefonia/llamadas', {
           method: 'PATCH',
@@ -263,7 +276,18 @@ export function useSoftphone(): Softphone {
 
         if (ev.originator === 'remote') {
           setEstado('entrante');
+          pararTono();
+          pararTonoRef.current = iniciarTimbre();
           void abrirRegistro('inbound', sesion.remote_identity.uri.user);
+        } else {
+          // Saliente: el tono empieza en cuanto Asterisk avisa que el otro
+          // extremo esta sonando (`progress` = 180 Ringing). Arrancarlo antes
+          // mentiria -- estaria sonando aca sin que suene alla todavia.
+          sesion.on('progress', () => {
+            if (!vivo) return;
+            pararTono();
+            pararTonoRef.current = iniciarTonoDeLlamada();
+          });
         }
 
         // El audio del otro lado llega como pista del RTCPeerConnection.
@@ -279,6 +303,9 @@ export function useSoftphone(): Softphone {
 
         sesion.on('accepted', () => {
           if (!vivo) return;
+          // Lo primero: callar el tono. Si sigue sonando se mezcla con la voz
+          // del otro lado y parece que la linea esta rota.
+          pararTono();
           setEstado('en-llamada');
           setSegundos(0);
           void cerrarRegistro('answered', true);
@@ -289,6 +316,7 @@ export function useSoftphone(): Softphone {
         });
 
         const terminar = (final: string) => {
+          pararTono();
           if (!vivo) return;
           sesionRef.current = null;
           setEstado('libre');
@@ -318,6 +346,7 @@ export function useSoftphone(): Softphone {
 
     return () => {
       vivo = false;
+      pararTono();
       try {
         sesionRef.current?.terminate();
       } catch {
@@ -326,7 +355,7 @@ export function useSoftphone(): Softphone {
       agente?.stop();
       agenteRef.current = null;
     };
-  }, [abrirRegistro, cerrarRegistro]);
+  }, [abrirRegistro, cerrarRegistro, pararTono]);
 
   // Cronometro de la llamada. Vive aparte del agente para no reconstruir el
   // registro SIP cada segundo.
