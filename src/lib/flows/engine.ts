@@ -366,14 +366,34 @@ async function findEntryFlow(
       if (candidates.some((text) => matchesKeywordTrigger(text, cfg))) {
         return flow;
       }
-    } else if (flow.trigger_type === "first_inbound_message" && isFirstInbound) {
-      // Also reachable by a tap now: a broadcast template with a
-      // quick-reply button can genuinely be what prompts a contact's
-      // first-ever inbound. The automations dispatcher has always
-      // treated a tap that way (the webhook pushes
-      // `first_inbound_message` regardless of envelope) — flows were
-      // the inconsistent half.
-      return flow;
+    } else if (flow.trigger_type === "first_inbound_message") {
+      // Reachable by a tap: a broadcast template with a quick-reply
+      // button can genuinely be what prompts a contact's first-ever
+      // inbound. The automations dispatcher has always treated a tap
+      // that way (the webhook pushes `first_inbound_message` regardless
+      // of envelope) — flows were the inconsistent half.
+      if (isFirstInbound) return flow;
+
+      // Segunda puerta: palabras clave sobre un flujo de bienvenida.
+      //
+      // Un flujo de recepción sirve para el primer mensaje Y para cuando
+      // alguien que ya escribió quiere volver al menú. Sin esto, quien ya
+      // es contacto no puede alcanzarlo NUNCA, ni escribiendo "menú": su
+      // primer mensaje ya pasó y no hay forma de repetirlo salvo borrarle
+      // el historial.
+      //
+      // Las palabras son opcionales. Un flujo sin ellas en `trigger_config`
+      // se comporta exactamente igual que antes: solo primer mensaje.
+      const cfg = flow.trigger_config as Partial<KeywordTriggerConfig>;
+      if (
+        Array.isArray(cfg?.keywords) &&
+        cfg.keywords.length > 0 &&
+        candidates.some((text) =>
+          matchesKeywordTrigger(text, cfg as KeywordTriggerConfig),
+        )
+      ) {
+        return flow;
+      }
     }
     // 'manual' triggers do not auto-start from inbound messages.
   }
