@@ -295,8 +295,12 @@ export function BurbujaTelefono() {
         type="button"
         onClick={() => setAbierto((p) => !p)}
         aria-label={abierto ? 'Ocultar el teléfono' : 'Abrir el teléfono'}
+        // Solo el icono. La extensión propia no aporta nada ahí: es un dato
+        // que no cambia y que uno ya sabe; ocupaba ancho y convertía un botón
+        // en una etiqueta. El cronómetro de la llamada vive en la barra de
+        // arriba, así que tampoco hace falta repetirlo acá.
         className={cn(
-          'group relative flex h-10 items-center gap-2 rounded-full px-3.5',
+          'group relative flex size-12 items-center justify-center rounded-full',
           'border backdrop-blur transition-all duration-200',
           'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2',
           enLlamada
@@ -305,29 +309,16 @@ export function BurbujaTelefono() {
               ? 'border-primary/40 bg-primary text-primary-foreground shadow-lg'
               : // En reposo: casi transparente sobre el fondo, con el color de
                 // marca solo en el icono. Al pasar por encima se llena.
-                'border-border bg-card/80 text-primary shadow-md hover:border-primary/40 hover:bg-primary hover:text-primary-foreground hover:shadow-lg hover:shadow-primary/20',
+                'border-border bg-card/85 text-primary shadow-md hover:border-primary/40 hover:bg-primary hover:text-primary-foreground hover:shadow-lg hover:shadow-primary/20',
         )}
       >
         {estado === 'entrante' ? (
-          <PhoneIncoming className="size-4 shrink-0" />
+          <PhoneIncoming className="size-5 shrink-0" />
         ) : enLlamada ? (
-          <PhoneCall className="size-4 shrink-0" />
+          <PhoneCall className="size-5 shrink-0" />
         ) : (
-          <Phone className="size-4 shrink-0" />
+          <Phone className="size-5 shrink-0" />
         )}
-
-        {/* La etiqueta: en llamada, el cronómetro; en reposo, la extensión.
-            En pantallas chicas desaparece y queda solo el icono, porque ahí el
-            ancho es el recurso escaso. */}
-        <span className="hidden text-xs font-medium tabular-nums sm:inline">
-          {estado === 'entrante'
-            ? 'Entrante'
-            : estado === 'llamando'
-              ? 'Llamando…'
-              : estado === 'en-llamada'
-                ? reloj(tel.segundos)
-                : tel.extension}
-        </span>
 
         {/* La llamada entrante pulsa. Es lo unico que se ve si el panel esta
             cerrado y la persona esta mirando otra pestaña del CRM. */}

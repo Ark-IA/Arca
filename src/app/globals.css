@@ -319,32 +319,83 @@ html[data-telefono='1'] .deja-sitio-telefono {
 }
 
 /* ============================================================
-   Superficie de cristal del menú y la cabecera
+   Menú lateral: superficie oscura con reflejo holográfico
    ============================================================
-   Un velo iridiscente muy tenue -- verde de marca virando a cian y violeta --
-   que separa el armazón del contenido sin usar una línea más ni un gris
-   distinto. Va por debajo de todo (`-z-10` en el pseudo-elemento) para no
-   interceptar clics.
+   El menú es oscuro en los DOS modos, no solo en el oscuro. Es una decisión
+   de diseño, no un descuido: separa el armazón del contenido de un vistazo,
+   y en modo claro le da al CRM el contraste que un menú blanco sobre fondo
+   blanco no consigue sin llenarse de líneas.
 
-   Las paradas están al 5-8% de opacidad a propósito: por encima de eso el
-   texto pierde contraste y deja de leerse como una superficie para pasar a
-   ser un fondo de color. */
-.superficie-holografica {
+   Como el fondo pasa a ser oscuro siempre, los tokens de texto y bordes se
+   redefinen DENTRO del menú. Todo lo que hay adentro los usa (`text-foreground`,
+   `text-muted-foreground`, `border-border`, `bg-muted`), así que con
+   redefinirlos acá el contenido se adapta solo: no hay que tocar ni una clase
+   de los enlaces, los contadores ni el pie de usuario. */
+.menu-holografico {
+  --sidebar-tinta: oklch(0.16 0.012 158);
+
+  --foreground: oklch(0.97 0.008 158);
+  --card-foreground: oklch(0.97 0.008 158);
+  --muted-foreground: oklch(0.68 0.014 158);
+  --muted: oklch(0.24 0.012 158);
+  --accent: oklch(0.24 0.012 158);
+  --accent-foreground: oklch(0.97 0.008 158);
+  --border: oklch(0.28 0.014 158);
+  --card: var(--sidebar-tinta);
+  --popover: oklch(0.2 0.012 158);
+  --popover-foreground: oklch(0.97 0.008 158);
+
+  background-color: var(--sidebar-tinta);
   position: relative;
   isolation: isolate;
 }
-.superficie-holografica::before {
+
+/* El reflejo. Dos capas superpuestas:
+
+   - un degradado diagonal que va del verde de marca al cian y al violeta,
+     como la lámina de un holograma vista de canto;
+   - un halo radial arriba a la izquierda, que es de donde parece venir la luz.
+
+   Las dos por debajo del contenido (`z-index: -1`) y sin capturar clics. Las
+   opacidades son bajas a propósito: el efecto tiene que insinuarse, no
+   competir con los iconos. */
+.menu-holografico::before {
   content: '';
   position: absolute;
   inset: 0;
   z-index: -1;
   pointer-events: none;
   background:
+    radial-gradient(
+      120% 80% at 0% 0%,
+      color-mix(in oklab, var(--primary) 14%, transparent) 0%,
+      transparent 55%
+    ),
     linear-gradient(
-      135deg,
-      color-mix(in oklab, var(--primary) 8%, transparent) 0%,
-      color-mix(in oklab, #22d3ee 5%, transparent) 38%,
-      transparent 62%,
-      color-mix(in oklab, #a78bfa 6%, transparent) 100%
+      160deg,
+      color-mix(in oklab, var(--primary) 10%, transparent) 0%,
+      color-mix(in oklab, #22d3ee 7%, transparent) 30%,
+      transparent 55%,
+      color-mix(in oklab, #a78bfa 8%, transparent) 100%
     );
+}
+
+/* Una línea de luz sobre el borde derecho: el canto del cristal. Es lo que
+   hace que el menú se lea como una superficie con volumen y no como un
+   rectángulo pintado. */
+.menu-holografico::after {
+  content: '';
+  position: absolute;
+  inset-block: 0;
+  right: 0;
+  width: 1px;
+  z-index: -1;
+  pointer-events: none;
+  background: linear-gradient(
+    to bottom,
+    transparent 0%,
+    color-mix(in oklab, var(--primary) 40%, transparent) 18%,
+    color-mix(in oklab, #22d3ee 22%, transparent) 50%,
+    transparent 100%
+  );
 }

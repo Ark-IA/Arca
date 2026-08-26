@@ -18,7 +18,6 @@ import {
   LayoutDashboard,
   LogOut,
   MessageSquare,
-  ChevronsLeft,
   Radio,
   Settings,
   Shield,
@@ -217,7 +216,7 @@ export function Sidebar({ open = false, onClose }: SidebarProps) {
       <aside
         className={cn(
           // Mobile: fixed drawer that slides in from the left.
-          "superficie-holografica fixed inset-y-0 left-0 z-40 flex h-full w-64 flex-col border-r border-border bg-card",
+          "menu-holografico fixed inset-y-0 left-0 z-40 flex h-full w-64 flex-col border-r border-border",
           "transition-transform duration-200 ease-out will-change-transform",
           open ? "translate-x-0" : "-translate-x-full",
           // Desktop: static, always visible — reset all the mobile framing.
@@ -244,20 +243,44 @@ export function Sidebar({ open = false, onClose }: SidebarProps) {
           aria-label={plegado ? t("expand") : t("collapse")}
           title={plegado ? t("expand") : t("collapse")}
           className={cn(
-            "absolute -right-3 top-[1.375rem] z-10 hidden size-6 items-center justify-center lg:flex",
-            "rounded-full border border-border bg-card text-muted-foreground shadow-md",
-            "transition-all hover:border-primary/50 hover:bg-primary hover:text-primary-foreground hover:shadow-lg hover:shadow-primary/20",
+            "group/tirador absolute -right-3.5 top-4 z-10 hidden h-7 w-7 items-center justify-center lg:flex",
+            "rounded-lg border border-border/80 bg-card/95 text-muted-foreground backdrop-blur",
+            "shadow-[0_2px_8px_-2px_rgba(0,0,0,0.4)]",
+            "transition-all duration-200",
+            "hover:border-primary/60 hover:text-primary hover:shadow-[0_0_0_3px_color-mix(in_oklab,var(--primary)_15%,transparent)]",
             "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background",
           )}
         >
-          <ChevronsLeft
-            className={cn(
-              "size-3.5 transition-transform duration-200",
-              // Un solo icono que gira, en vez de dos que se intercambian: la
-              // rotacion se anima y deja claro que es el mismo control.
-              plegado && "rotate-180",
+          {/* Un glifo de panel, no una flecha ni una hamburguesa: dibuja
+              literalmente lo que hace el control -- una hoja con su columna
+              lateral -- y se lee igual plegado que desplegado. La columna se
+              rellena cuando el menu esta abierto, asi el estado se ve en el
+              propio icono sin necesidad de cambiarlo por otro. */}
+          <svg
+            viewBox="0 0 16 16"
+            fill="none"
+            aria-hidden="true"
+            className="size-4 transition-transform duration-200 group-hover/tirador:scale-110"
+          >
+            <rect
+              x="1.75"
+              y="2.75"
+              width="12.5"
+              height="10.5"
+              rx="2.25"
+              stroke="currentColor"
+              strokeWidth="1.3"
+            />
+            <path
+              d="M6.25 3v10"
+              stroke="currentColor"
+              strokeWidth="1.3"
+              strokeLinecap="round"
+            />
+            {!plegado && (
+              <rect x="2.4" y="3.4" width="3.2" height="9.2" rx="1.4" fill="currentColor" opacity="0.35" />
             )}
-          />
+          </svg>
         </button>
 
         {/* Logo row. On mobile we put a close button here; on desktop the

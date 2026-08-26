@@ -317,7 +317,10 @@ export function ConversationList({
     }
 
     return result;
-  }, [conversations, filter, search, selectedTagIds, selectedCompany]);
+    // `canal` va en las dependencias: sin él este memo nunca se recalculaba al
+    // cambiar de canal, y el cambio solo se veía al salir del módulo y volver
+    // -- que es lo que remonta el componente y descarta el valor memorizado.
+  }, [conversations, canal, filter, search, selectedTagIds, selectedCompany]);
 
   const toggleTag = useCallback((id: string) => {
     setSelectedTagIds((prev) =>
