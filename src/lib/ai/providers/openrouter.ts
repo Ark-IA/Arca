@@ -34,7 +34,7 @@ export async function generateOpenRouter(args: ProviderArgs): Promise<ProviderRe
     // misma clave.
     cabeceras: {
       'HTTP-Referer': process.env.NEXT_PUBLIC_SITE_URL || 'https://crm.ark-ia.com',
-      'X-Title': 'ARK-IA CRM',
+      'X-Title': 'ARK-IA Enterprise',
     },
   })
 }

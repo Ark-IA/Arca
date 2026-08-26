@@ -108,7 +108,7 @@ function LoginPageInner() {
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
           src="/brand/logo.svg"
-          alt="ARK-IA CRM"
+          alt="ARK-IA Enterprise"
           className="mb-6 h-14 w-auto max-w-[300px]"
         />
 
@@ -221,7 +221,7 @@ function LoginPageInner() {
         </CardContent>
       </Card>
 
-        <p className="mt-8 text-xs text-[#5F7169]">ARK-IA CRM</p>
+        <p className="mt-8 text-xs text-[#5F7169]">ARK-IA Enterprise</p>
       </div>
     </div>
   );

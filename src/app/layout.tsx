@@ -22,8 +22,8 @@ const inter = Inter({
 
 export const metadata: Metadata = {
   title: {
-    default: "ARK-IA CRM",
-    template: "%s — ARK-IA CRM",
+    default: "ARK-IA Enterprise",
+    template: "%s — ARK-IA Enterprise",
   },
   description:
     "CRM de ventas por WhatsApp con inteligencia artificial y automatizaciones.",

@@ -277,7 +277,9 @@ html[data-theme="rose"] {
    Solo se aplica a quien tiene extensión: la burbuja marca el <html> al
    montarse, y sin esa marca las páginas quedan exactamente como antes. */
 :root {
-  --sitio-telefono: 5.5rem;
+  /* El asa del teléfono mide 40px de alto más 16px de separación al borde.
+     3,75rem deja un margen cómodo por encima sin abrir un vacío. */
+  --sitio-telefono: 3.75rem;
 }
 
 html[data-telefono='1'] main {
@@ -293,4 +295,16 @@ html[data-telefono='1'] .pega-al-fondo {
 
 html[data-telefono='1'] .deja-sitio-telefono {
   padding-bottom: var(--sitio-telefono);
+}
+
+/* Hueco LATERAL, para lo que vive pegado al fondo y no puede crecer hacia
+   arriba.
+
+   El redactor de la bandeja es el caso: darle 5,5rem de relleno inferior le
+   abría un vacío enorme debajo del campo de texto y rompía el diseño de toda
+   la pantalla. Lo único que hay que despejar ahí es el botón de enviar, que
+   está a la derecha; con relleno lateral se consigue sin gastar ni un píxel
+   de altura. */
+html[data-telefono='1'] .deja-sitio-telefono-lado {
+  padding-right: 4rem;
 }

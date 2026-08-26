@@ -273,33 +273,61 @@ export function BurbujaTelefono() {
         </div>
       )}
 
-      {/* La burbuja */}
+      {/* El asa del teléfono.
+
+          En reposo es una pastilla de 40px de alto, discreta y traslúcida: es
+          la altura de un botón normal, no la de un círculo de 56 que se comía
+          la esquina de la bandeja. Al pasar por encima y durante una llamada
+          crece y toma color, que es cuando de verdad tiene que llamar la
+          atención. */}
       <button
         type="button"
         onClick={() => setAbierto((p) => !p)}
         aria-label={abierto ? 'Ocultar el teléfono' : 'Abrir el teléfono'}
         className={cn(
-          'relative flex size-14 items-center justify-center rounded-full shadow-xl transition-all',
+          'group relative flex h-10 items-center gap-2 rounded-full px-3.5',
+          'border backdrop-blur transition-all duration-200',
           'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2',
           enLlamada
-            ? 'bg-red-600 text-white hover:bg-red-700'
-            : 'bg-primary text-primary-foreground hover:bg-primary/90',
+            ? 'border-red-500/50 bg-red-600 text-white shadow-lg shadow-red-900/30 hover:bg-red-700'
+            : abierto
+              ? 'border-primary/40 bg-primary text-primary-foreground shadow-lg'
+              : // En reposo: casi transparente sobre el fondo, con el color de
+                // marca solo en el icono. Al pasar por encima se llena.
+                'border-border bg-card/80 text-primary shadow-md hover:border-primary/40 hover:bg-primary hover:text-primary-foreground hover:shadow-lg hover:shadow-primary/20',
         )}
       >
-        {tel.estado === 'entrante' ? (
-          <PhoneIncoming className="size-6" />
+        {estado === 'entrante' ? (
+          <PhoneIncoming className="size-4 shrink-0" />
         ) : enLlamada ? (
-          <PhoneCall className="size-6" />
+          <PhoneCall className="size-4 shrink-0" />
         ) : (
-          <Phone className="size-6" />
+          <Phone className="size-4 shrink-0" />
         )}
+
+        {/* La etiqueta: en llamada, el cronómetro; en reposo, la extensión.
+            En pantallas chicas desaparece y queda solo el icono, porque ahí el
+            ancho es el recurso escaso. */}
+        <span className="hidden text-xs font-medium tabular-nums sm:inline">
+          {estado === 'entrante'
+            ? 'Entrante'
+            : estado === 'llamando'
+              ? 'Llamando…'
+              : estado === 'en-llamada'
+                ? reloj(tel.segundos)
+                : tel.extension}
+        </span>
+
         {/* La llamada entrante pulsa. Es lo unico que se ve si el panel esta
             cerrado y la persona esta mirando otra pestaña del CRM. */}
-        {tel.estado === 'entrante' && (
-          <span className="absolute inset-0 animate-ping rounded-full bg-red-500/60" />
+        {estado === 'entrante' && (
+          <span className="absolute inset-0 animate-ping rounded-full bg-red-500/50" />
         )}
-        {tel.estado === 'sin-conexion' && (
-          <span className="absolute -right-0.5 -top-0.5 size-3.5 rounded-full border-2 border-card bg-amber-400" />
+        {estado === 'sin-conexion' && (
+          <span
+            className="absolute -right-0.5 -top-0.5 size-3 rounded-full border-2 border-card bg-amber-400"
+            aria-label="Sin conexión con la central"
+          />
         )}
       </button>
     </div>
