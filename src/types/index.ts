@@ -172,11 +172,22 @@ export interface ContactNote {
 
 export type ConversationStatus = 'open' | 'pending' | 'closed';
 
+/** Canales por los que puede entrar una conversacion. */
+export const CANALES = ['whatsapp', 'facebook', 'instagram'] as const;
+export type Canal = (typeof CANALES)[number];
+
 export interface Conversation {
   id: string;
   user_id: string;
   contact_id: string;
   status: ConversationStatus;
+  /**
+   * Por donde entro. Las conversaciones anteriores a la migracion 044 son
+   * de WhatsApp por defecto, que es lo unico que existia entonces.
+   */
+  channel?: Canal;
+  /** Cuenta conectada. Null en WhatsApp: su configuracion vive aparte. */
+  connection_id?: string | null;
   assigned_agent_id?: string;
   last_message_text?: string;
   last_message_at?: string;

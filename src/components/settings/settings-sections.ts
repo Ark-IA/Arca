@@ -1,8 +1,10 @@
 import {
+  Camera,
   Coins,
   FileText,
   KeyRound,
   LayoutGrid,
+  MessagesSquare,
   Palette,
   PlugZap,
   Shield,
@@ -27,6 +29,8 @@ export const SETTINGS_SECTIONS = [
   'security',
   'appearance',
   'whatsapp',
+  'facebook',
+  'instagram',
   'templates',
   'quick-replies',
   'fields',
@@ -53,6 +57,11 @@ export const SECTION_META: Record<SettingsSection, SectionMeta> = {
   security: { id: 'security', label: 'Login & security', icon: Shield, group: 'account' },
   appearance: { id: 'appearance', label: 'Appearance', icon: Palette, group: 'account' },
   whatsapp: { id: 'whatsapp', label: 'WhatsApp', icon: PlugZap, group: 'workspace' },
+  // Canales separados y no una sola pantalla de 'Canales': cada uno se
+  // conecta distinto y con credenciales propias, y meterlos juntos
+  // obligaria a elegir el canal antes de ver que pide cada uno.
+  facebook: { id: 'facebook', label: 'Facebook', icon: MessagesSquare, group: 'workspace' },
+  instagram: { id: 'instagram', label: 'Instagram', icon: Camera, group: 'workspace' },
   templates: { id: 'templates', label: 'Templates', icon: FileText, group: 'workspace' },
   'quick-replies': { id: 'quick-replies', label: 'Quick replies', icon: Zap, group: 'workspace' },
   fields: { id: 'fields', label: 'Fields & tags', icon: Tags, group: 'workspace' },

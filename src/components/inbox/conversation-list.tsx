@@ -9,7 +9,86 @@ import {
 } from "@/lib/inbox/conversations";
 import { cn } from "@/lib/utils";
 import type { Conversation, ConversationStatus, Tag } from "@/types";
-import { Search, ChevronDown, X } from "lucide-react";
+import { Search, ChevronDown, X, MessageCircle, Inbox } from "lucide-react";
+
+/*
+ * Lucide quito los iconos de marca por motivos de marca registrada, asi que
+ * los de Facebook e Instagram se dibujan aqui. Son de una sola forma cada
+ * uno: pesan menos que traer una libreria de iconos de marcas entera.
+ */
+function IconoFacebook({ className }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 24 24" fill="currentColor" className={className} aria-hidden="true">
+      <path d="M22 12a10 10 0 1 0-11.56 9.88v-6.99H7.9V12h2.54V9.8c0-2.5 1.49-3.89 3.77-3.89 1.1 0 2.24.2 2.24.2v2.46h-1.26c-1.24 0-1.63.77-1.63 1.56V12h2.78l-.45 2.89h-2.33v6.99A10 10 0 0 0 22 12Z" />
+    </svg>
+  );
+}
+
+function IconoInstagram({ className }: { className?: string }) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className={className}
+      aria-hidden="true"
+    >
+      <rect x="2" y="2" width="20" height="20" rx="5" />
+      <circle cx="12" cy="12" r="4" />
+      <circle cx="17.5" cy="6.5" r="1.2" fill="currentColor" stroke="none" />
+    </svg>
+  );
+}
+
+/**
+ * Bandejas por canal.
+ *
+ * Son pestanas y no un filtro mas del menu desplegable porque la division
+ * por canal es la principal: quien atiende Instagram no quiere ver WhatsApp
+ * mezclado, y las metricas se leen por canal. Un filtro escondido en un
+ * menu no comunica esa separacion.
+ */
+const CANALES_BANDEJA = [
+  { value: "todos", etiqueta: "Todos", icono: Inbox },
+  { value: "whatsapp", etiqueta: "WhatsApp", icono: MessageCircle },
+  { value: "facebook", etiqueta: "Facebook", icono: IconoFacebook },
+  { value: "instagram", etiqueta: "Instagram", icono: IconoInstagram },
+] as const;
+
+type CanalDeBandeja = (typeof CANALES_BANDEJA)[number]["value"];
+
+const CLAVE_CANAL = "wacrm.inbox.canal";
+
+/**
+ * Distintivo del canal, en la esquina del avatar.
+ *
+ * Cada canal lleva su color de marca y no el acento del producto: el punto
+ * es reconocerlo sin leer, y el verde de WhatsApp, el azul de Facebook y el
+ * rosa de Instagram ya estan aprendidos por todo el mundo.
+ */
+function DistintivoDeCanal({ canal }: { canal: string }) {
+  const estilos: Record<string, { fondo: string; Icono: React.ComponentType<{ className?: string }> }> = {
+    whatsapp: { fondo: "bg-[#25D366]", Icono: MessageCircle },
+    facebook: { fondo: "bg-[#1877F2]", Icono: IconoFacebook },
+    instagram: { fondo: "bg-[#E1306C]", Icono: IconoInstagram },
+  };
+  const e = estilos[canal] ?? estilos.whatsapp;
+  const { Icono } = e;
+  return (
+    <span
+      title={canal}
+      className={cn(
+        "absolute -bottom-0.5 -right-0.5 flex h-4 w-4 items-center justify-center rounded-full text-white ring-2 ring-card",
+        e.fondo,
+      )}
+    >
+      <Icono className="h-2.5 w-2.5" />
+    </span>
+  );
+}
 import { formatDistanceToNow } from "date-fns";
 import { useTranslations } from "next-intl";
 import { Input } from "@/components/ui/input";
@@ -65,6 +144,27 @@ export function ConversationList({
 
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState<InboxFilter>("all");
+  // Bandeja por canal. Se guarda en el navegador para que quien atiende
+  // solo Instagram no tenga que volver a elegirlo en cada recarga.
+  const [canal, setCanal] = useState<CanalDeBandeja>("todos");
+
+  useEffect(() => {
+    try {
+      const guardado = localStorage.getItem(CLAVE_CANAL);
+      if (guardado && CANALES_BANDEJA.some((c) => c.value === guardado)) {
+        setCanal(guardado as CanalDeBandeja);
+      }
+    } catch {
+      // Navegacion privada: se queda en "todos".
+    }
+  }, []);
+
+  const elegirCanal = useCallback((c: CanalDeBandeja) => {
+    setCanal(c);
+    try {
+      localStorage.setItem(CLAVE_CANAL, c);
+    } catch {}
+  }, []);
   const [loading, setLoading] = useState(true);
   // Contact-based filters (issue #272). Tags use OR logic (a conversation
   // matches if its contact carries any selected tag), consistent with
@@ -161,6 +261,14 @@ export function ConversationList({
   const filtered = useMemo(() => {
     let result = conversations;
 
+    // El canal se filtra PRIMERO, antes que estado o busqueda: es la
+    // division principal de la bandeja, no un filtro mas. Las
+    // conversaciones anteriores a los canales multiples no tienen el campo
+    // y son de WhatsApp.
+    if (canal !== "todos") {
+      result = result.filter((c) => (c.channel ?? "whatsapp") === canal);
+    }
+
     if (filter === "unread") {
       result = result.filter((c) => c.unread_count > 0);
     } else if (filter !== "all") {
@@ -224,6 +332,53 @@ export function ConversationList({
     // the single pane showing; fixed 320px on desktop where it shares the
     // row with the thread + contact sidebar.
     <div className="flex h-full w-full flex-col border-r border-border bg-card lg:w-80">
+      {/* Bandejas por canal. El contador de cada una sale de las
+          conversaciones ya cargadas, no de una consulta aparte: es el mismo
+          dato y evita un viaje mas al servidor en cada cambio de pestana. */}
+      <div className="flex shrink-0 items-center gap-0.5 border-b border-border px-2 pt-2">
+        {CANALES_BANDEJA.map((c) => {
+          const Icono = c.icono;
+          const activo = canal === c.value;
+          const cuantas =
+            c.value === "todos"
+              ? conversations.length
+              : conversations.filter(
+                  (x) => (x.channel ?? "whatsapp") === c.value,
+                ).length;
+          return (
+            <button
+              key={c.value}
+              type="button"
+              onClick={() => elegirCanal(c.value)}
+              title={c.etiqueta}
+              aria-pressed={activo}
+              className={cn(
+                "flex flex-1 items-center justify-center gap-1.5 rounded-t-md border-b-2 px-2 py-2 text-xs font-medium transition-colors",
+                activo
+                  ? "border-primary text-primary"
+                  : "border-transparent text-muted-foreground hover:bg-muted hover:text-foreground",
+              )}
+            >
+              <Icono className="h-3.5 w-3.5 shrink-0" />
+              {/* La etiqueta se esconde en pantallas angostas: cuatro
+                  nombres completos no entran en 320 px y los iconos ya
+                  identifican cada canal. */}
+              <span className="hidden xl:inline">{c.etiqueta}</span>
+              {cuantas > 0 && (
+                <span
+                  className={cn(
+                    "rounded-full px-1.5 text-[10px] font-semibold tabular-nums",
+                    activo ? "bg-primary/15 text-primary" : "bg-muted text-muted-foreground",
+                  )}
+                >
+                  {cuantas}
+                </span>
+              )}
+            </button>
+          );
+        })}
+      </div>
+
       {/* Search + Filter */}
       <div className="space-y-2 border-b border-border p-3">
         <div className="relative">
@@ -458,17 +613,23 @@ function ConversationItem({
         isActive && "border-l-2 border-primary bg-muted/70"
       )}
     >
-      {/* Avatar */}
-      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-muted text-sm font-medium text-foreground">
-        {contact?.avatar_url ? (
-          <img
-            src={contact.avatar_url}
-            alt={displayName}
-            className="h-10 w-10 rounded-full object-cover"
-          />
-        ) : (
-          initials
-        )}
+      {/* Avatar con distintivo de canal.
+          El distintivo va pegado al avatar y no en una columna aparte: en la
+          vista "Todos" hay que poder identificar el canal de un vistazo sin
+          que cada fila gane ancho. */}
+      <div className="relative shrink-0">
+        <div className="flex h-10 w-10 items-center justify-center rounded-full bg-muted text-sm font-medium text-foreground">
+          {contact?.avatar_url ? (
+            <img
+              src={contact.avatar_url}
+              alt={displayName}
+              className="h-10 w-10 rounded-full object-cover"
+            />
+          ) : (
+            initials
+          )}
+        </div>
+        <DistintivoDeCanal canal={conversation.channel ?? "whatsapp"} />
       </div>
 
       {/* Content */}

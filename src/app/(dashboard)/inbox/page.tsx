@@ -16,6 +16,11 @@ import { ContactSidebar } from "@/components/inbox/contact-sidebar";
 import { toast } from "sonner";
 import { WifiOff } from "lucide-react";
 import { cn } from "@/lib/utils";
+import {
+  avisarMensajeNuevo,
+  prepararAudio,
+  sonidoActivado,
+} from "@/lib/inbox/aviso-sonoro";
 
 // Remembers the agent's show/hide choice for the desktop contact panel
 // across reloads and sessions (device-scoped, like the theme prefs).
@@ -114,11 +119,38 @@ function InboxPageInner() {
    * realtime channel). The ref is kept in sync via the effect below.
    */
   const knownConvIdsRef = useRef<Set<string>>(new Set());
+  /**
+   * Espejo de la lista de conversaciones, para leer el canal de un mensaje
+   * dentro del manejador de tiempo real sin meter `conversations` en sus
+   * dependencias: eso lo recrearia en cada mensaje y reabriria la
+   * suscripcion. Mismo motivo que `knownConvIdsRef`, de arriba.
+   */
+  const conversationsRef = useRef<Conversation[]>([]);
   useEffect(() => {
     const next = new Set<string>();
     for (const c of conversations) next.add(c.id);
     knownConvIdsRef.current = next;
+    conversationsRef.current = conversations;
   }, [conversations]);
+
+  /**
+   * Los navegadores no dejan reproducir audio hasta que la persona
+   * interactua con la pagina. Se prepara en el primer clic o tecla; sin
+   * esto el primer aviso del dia seria mudo y parecerian rotos todos.
+   */
+  useEffect(() => {
+    const alInteractuar = () => {
+      prepararAudio();
+      window.removeEventListener("pointerdown", alInteractuar);
+      window.removeEventListener("keydown", alInteractuar);
+    };
+    window.addEventListener("pointerdown", alInteractuar, { once: true });
+    window.addEventListener("keydown", alInteractuar, { once: true });
+    return () => {
+      window.removeEventListener("pointerdown", alInteractuar);
+      window.removeEventListener("keydown", alInteractuar);
+    };
+  }, []);
 
   // Pull the conversation row with its `contact` joined and merge it
   // into state. Needed because Supabase Realtime payloads only carry the
@@ -218,6 +250,22 @@ function InboxPageInner() {
       const newMsg = event.new;
 
       if (event.eventType === "INSERT") {
+        // Aviso sonoro: solo para lo que ENTRA.
+        //
+        // Se filtra por sender_type porque el evento tambien se dispara con
+        // los mensajes que uno mismo envia, y oir un aviso cada vez que
+        // contestas convierte el sonido en ruido y termina apagado.
+        //
+        // El tono depende del canal, asi se sabe de donde entro el mensaje
+        // sin mirar la pantalla.
+        if (newMsg.sender_type === "customer" && sonidoActivado()) {
+          const canalDelMensaje =
+            conversationsRef.current?.find(
+              (c) => c.id === newMsg.conversation_id,
+            )?.channel ?? "whatsapp";
+          avisarMensajeNuevo(canalDelMensaje);
+        }
+
         // Add to messages if it belongs to active conversation
         if (
           activeConversation &&
