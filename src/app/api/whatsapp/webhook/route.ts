@@ -11,6 +11,7 @@ import { runAutomationsForTrigger } from '@/lib/automations/engine'
 import { dispatchInboundToFlows } from '@/lib/flows/engine'
 import { dispatchInboundToAiReply } from '@/lib/ai/auto-reply'
 import { textoDeAudioEntrante } from '@/lib/ai/audio-entrante'
+import { esMediaDescribible } from '@/lib/ai/context'
 import { dispatchWebhookEvent } from '@/lib/webhooks/deliver'
 import { anotarEnLinea, resumir } from '@/lib/registros/linea-de-tiempo'
 import {
@@ -984,12 +985,24 @@ async function processMessage(
     }).catch((err) => console.error('[automations] dispatch failed:', err))
   }
 
-  // AI auto-reply. Runs only for plain-text inbound the deterministic
-  // flow runner did NOT consume (flows win over the LLM), and only when
-  // the account has enabled it. Awaited inside `after()` (same reason as
-  // the webhook dispatch below); `dispatchInboundToAiReply` owns its
-  // eligibility gates + try/catch and never throws.
-  if (!flowConsumed && !interactiveReplyId && inboundText.trim()) {
+  // AI auto-reply, para todo lo que el motor de flujos NO consumió (los
+  // flujos ganan al modelo) y la cuenta tenga habilitado. Se espera dentro
+  // de after(); `dispatchInboundToAiReply` tiene sus propias compuertas y
+  // su try/catch, y nunca lanza.
+  //
+  // La condición pedía texto no vacío, y ahí se caía todo: una nota de voz
+  // sin transcribir deja el texto vacío, así que el agente ni se despertaba.
+  // Se arregló el contexto del modelo para que viera los audios y no sirvió
+  // de nada, porque el código nunca llegaba hasta ahí.
+  //
+  // Ahora también entra un envío de medios del cliente. Con transcripción, el
+  // audio ya trae su texto y pasa por la primera mitad; sin ella, pasa por la
+  // segunda y el agente contesta que no puede escucharlo. Las dos son mejores
+  // que callarse.
+  const hayAlgoQueResponder =
+    inboundText.trim() !== '' || esMediaDescribible(contentType)
+
+  if (!flowConsumed && !interactiveReplyId && hayAlgoQueResponder) {
     await dispatchInboundToAiReply({
       accountId,
       conversationId: conversation.id,

@@ -24,6 +24,21 @@ const SIN_TEXTO: Record<string, string> = {
 }
 
 /**
+ * ¿Es un envío al que el agente puede contestar algo útil aunque no traiga
+ * texto?
+ *
+ * Lo usan los dos webhooks para decidir si vale la pena despertar al agente.
+ * Vive junto a la tabla de descripciones y no copiado en cada webhook porque
+ * las dos respuestas tienen que ser la misma: si un webhook llamara al agente
+ * por un tipo que el contexto no sabe describir, el agente recibiría una
+ * conversación vacía y no diría nada — silencio otra vez, y esta vez con una
+ * llamada al proveedor pagada de por medio.
+ */
+export function esMediaDescribible(contentType: string | null | undefined): boolean {
+  return Boolean(contentType && contentType in SIN_TEXTO)
+}
+
+/**
  * Fetch the last N messages of a conversation and map them to the
  * provider-neutral chat shape. Customer messages become `user`; agent
  * and bot messages become `assistant`.

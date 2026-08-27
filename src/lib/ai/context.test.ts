@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import type { SupabaseClient } from '@supabase/supabase-js'
-import { buildConversationContext } from './context'
+import { buildConversationContext, esMediaDescribible } from './context'
 
 /** Minimal fake matching the query chain in buildConversationContext:
  *  from().select().eq().eq().order().limit() → { data, error }. */
@@ -124,5 +124,32 @@ describe('buildConversationContext — audios y otros medios', () => {
       'conv-1',
     )
     expect(out).toEqual([])
+  })
+})
+
+describe('esMediaDescribible — a qué vale la pena despertar al agente', () => {
+  // Los dos webhooks lo usan para decidir si llaman al despachador. Era la
+  // pieza que faltaba: se arregló el contexto para que viera los audios y no
+  // sirvió de nada, porque la condición del webhook exigía texto no vacío y
+  // un audio sin transcribir lo deja vacío. El código nunca llegaba al
+  // contexto arreglado.
+  it('acepta lo que el contexto sabe describir', () => {
+    expect(esMediaDescribible('audio')).toBe(true)
+    expect(esMediaDescribible('image')).toBe(true)
+    expect(esMediaDescribible('video')).toBe(true)
+    expect(esMediaDescribible('document')).toBe(true)
+    expect(esMediaDescribible('location')).toBe(true)
+  })
+
+  it('rechaza lo que no sabría describir', () => {
+    // Despertar al agente por algo que el contexto ignora le entregaría una
+    // conversación sin el mensaje nuevo: no diría nada, y encima con una
+    // llamada al proveedor ya pagada.
+    expect(esMediaDescribible('text')).toBe(false)
+    expect(esMediaDescribible('interactive')).toBe(false)
+    expect(esMediaDescribible('template')).toBe(false)
+    expect(esMediaDescribible(null)).toBe(false)
+    expect(esMediaDescribible(undefined)).toBe(false)
+    expect(esMediaDescribible('')).toBe(false)
   })
 })

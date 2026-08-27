@@ -16,6 +16,7 @@ import { supabaseAdmin } from '@/lib/flows/admin-client'
 import { decrypt } from '@/lib/whatsapp/encryption'
 import { dispatchInboundToAiReply } from '@/lib/ai/auto-reply'
 import { textoDeAudioEntrante } from '@/lib/ai/audio-entrante'
+import { esMediaDescribible } from '@/lib/ai/context'
 import { dispatchInboundToFlows } from '@/lib/flows/engine'
 import { runAutomationsForTrigger } from '@/lib/automations/engine'
 import {
@@ -399,7 +400,15 @@ async function procesarEvento(
   // Va sin `await` y con su propio manejo de errores: la respuesta a Meta no
   // puede esperar a un modelo de lenguaje. Meta reintenta el webhook si
   // tarda mas de unos segundos, y cada reintento seria otro mensaje.
-  if (!consumidoPorFlujo && !idOpcion && !adjunto && texto.trim() !== '') {
+  // La condición excluía CUALQUIER adjunto, así que un audio o una imagen
+  // por Messenger nunca despertaban al agente. Ahora entran los tipos que el
+  // contexto sabe describir: con transcripción el audio trae su texto, y sin
+  // ella el agente al menos contesta que no puede escucharlo.
+  const hayAlgoQueResponder =
+    textoParaElMotor.trim() !== '' ||
+    esMediaDescribible(adjunto ? tipoDeContenido(adjunto.type) : null)
+
+  if (!consumidoPorFlujo && !idOpcion && hayAlgoQueResponder) {
     void dispatchInboundToAiReply({
       accountId: conexion.account_id,
       conversationId: conversacion.id,
