@@ -709,6 +709,15 @@ export function ConversationList({
         ) : filtered.length === 0 ? (
           <div className="px-4 py-12 text-center">
             <p className="text-sm text-muted-foreground">{t("noConversations")}</p>
+            {/* Un asesor solo ve lo que se le asignó o lo que espera en una de
+                sus colas. Sin nada de eso, la bandeja está vacía y sin esta
+                línea parece rota: la misma pantalla que ve alguien con
+                trabajo pendiente y alguien a quien no le llegó ninguno. */}
+            {accountRole === "agent" && conversations.length === 0 && (
+              <p className="mx-auto mt-2 max-w-xs text-xs leading-relaxed text-muted-foreground">
+                {t("vacioAsesor")}
+              </p>
+            )}
           </div>
         ) : (
           <div className="flex flex-col">

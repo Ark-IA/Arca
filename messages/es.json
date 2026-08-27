@@ -271,7 +271,8 @@
       "noConversations": "No se encontraron conversaciones",
       "noMessagesYet": "Todavía no hay mensajes",
       "unknown": "Desconocido",
-      "filterMisColas": "Mis colas"
+      "filterMisColas": "Mis colas",
+      "vacioAsesor": "Todavía no tenés conversaciones asignadas. Cuando te asignen una, o llegue una a alguna de tus colas, aparece acá."
     },
     "messageThread": {
       "backToConversations": "Volver a las conversaciones",

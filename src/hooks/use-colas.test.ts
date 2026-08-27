@@ -57,24 +57,25 @@ describe('esMia — qué ve cada asesor', () => {
     expect(esMia({ cola_id: 'ventas', assigned_agent_id: OTRO }, YO, mias)).toBe(false)
   })
 
-  // La regla que más importa. Una conversación sin encolar es la de alguien
-  // que acaba de escribir y a quien ningún flujo derivó todavía: si no la ve
-  // nadie porque no es «de nadie», el cliente nuevo espera en silencio.
-  it('TODOS ven lo que no está en ninguna cola', () => {
-    expect(esMia({ cola_id: null }, YO, mias)).toBe(true)
-    expect(esMia({}, YO, mias)).toBe(true)
-    expect(esMia({ cola_id: null }, OTRO, colasDe(COLAS, OTRO))).toBe(true)
+  // Sin asignación y sin cola, nadie. Es la regla que fija la migración 061
+  // en las políticas de la base, y esta función tiene que decir lo mismo: si
+  // contara de más, el filtro sumaría conversaciones que el servidor nunca
+  // devuelve y los totales de la bandeja no cuadrarían con lo que se ve.
+  it('lo que no está asignado ni encolado no es de nadie', () => {
+    expect(esMia({ cola_id: null }, YO, mias)).toBe(false)
+    expect(esMia({}, YO, mias)).toBe(false)
+    expect(esMia({ cola_id: null }, OTRO, colasDe(COLAS, OTRO))).toBe(false)
   })
 
-  it('sin cola pero asignada a otro, no', () => {
-    // Ya tiene dueño: dejarla visible para todos duplicaría el trabajo.
+  it('sin cola pero asignada a otro, tampoco', () => {
     expect(esMia({ cola_id: null, assigned_agent_id: OTRO }, YO, mias)).toBe(false)
   })
 
-  it('quien no está en ninguna cola sigue viendo lo no encolado', () => {
-    // Un asesor recién creado, todavía sin colas, no puede quedar ciego.
+  it('quien no está en ninguna cola y no tiene nada asignado, no ve nada', () => {
     const sinColas = new Set<string>()
-    expect(esMia({ cola_id: null }, 'nuevo', sinColas)).toBe(true)
+    expect(esMia({ cola_id: null }, 'nuevo', sinColas)).toBe(false)
     expect(esMia({ cola_id: 'ventas' }, 'nuevo', sinColas)).toBe(false)
+    // Salvo lo que se le asigne a él, que es la forma de darle trabajo.
+    expect(esMia({ assigned_agent_id: 'nuevo' }, 'nuevo', sinColas)).toBe(true)
   })
 })

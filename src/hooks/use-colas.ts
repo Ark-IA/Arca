@@ -41,20 +41,18 @@ export function useColas() {
 /**
  * ¿Le corresponde a esta persona esta conversación?
  *
- * Tres casos, y el tercero es el que importa:
+ * Dos casos, y solo dos: está a su nombre, o espera en una cola que atiende.
  *
- *   1. Está a su nombre.
- *   2. Espera en una cola que atiende.
- *   3. NO ESTÁ EN NINGUNA COLA.
+ * Una versión anterior contaba también las que no estaban en ninguna cola,
+ * con el argumento de que «sin dueño quiere decir de todos». El aislamiento
+ * por asignación (migración 061) descartó esa lectura: sin asignación y sin
+ * cola, un asesor no ve nada. La regla vive ahora en las políticas de la
+ * base, y esta función tiene que decir exactamente lo mismo — si dijera de
+ * más, el filtro contaría conversaciones que el servidor nunca devuelve y la
+ * bandeja mostraría totales que no cuadran con lo que se ve.
  *
- * El tercero podría parecer que sobra, y esconderlo sería el error caro: una
- * conversación sin encolar es la de alguien que acaba de escribir y a quien
- * ningún flujo derivó todavía. Si no la ve nadie porque no es «de nadie», el
- * cliente nuevo se queda esperando en silencio. Sin dueño quiere decir de
- * todos, no de ninguno.
- *
- * Lo que sí se oculta: lo que está a nombre de otra persona, y lo que espera
- * en una cola ajena.
+ * Para quien administra sigue siendo un filtro de comodidad: el servidor le
+ * devuelve todo, y esto le separa lo suyo del resto.
  */
 export function esMia(
   conversacion: { cola_id?: string | null; assigned_agent_id?: string | null },
@@ -63,7 +61,7 @@ export function esMia(
 ): boolean {
   if (usuarioId && conversacion.assigned_agent_id === usuarioId) return true
   if (conversacion.assigned_agent_id) return false
-  if (!conversacion.cola_id) return true
+  if (!conversacion.cola_id) return false
   return misColas.has(conversacion.cola_id)
 }
 

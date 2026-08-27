@@ -158,7 +158,8 @@
       "noConversations": "No conversations found",
       "noMessagesYet": "No messages yet",
       "unknown": "Unknown",
-      "filterMisColas": "My queues"
+      "filterMisColas": "My queues",
+      "vacioAsesor": "You don't have any conversations assigned yet. When one is assigned to you, or arrives in one of your queues, it shows up here."
     },
     "messageThread": {
       "backToConversations": "Back to conversations",
