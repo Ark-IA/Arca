@@ -1082,6 +1082,11 @@
     },
     "builder": {
       "triggerTitle": "Trigger",
+      "whenLabel": "When…",
+      "triggerKeywordTitle": "A message contains a keyword",
+      "triggerFirstInboundTitle": "Customer's first ever inbound message",
+      "triggerManualTitle": "Manual only (no auto-trigger)",
+      "keywordsLabel": "Keywords (comma-separated)",
       "keywordsPlaceholder": "support, help, hi",
       "entryNodeTitle": "Entry node:",
       "entryNodePlaceholder": "Pick the first node…",
@@ -1206,35 +1211,7 @@
           "label": "End",
           "blurb": "Ends the flow"
         }
-      },
-      "triggerSubtitle": "Choose when this guided conversation opens on its own.",
-      "disparador": {
-        "first_inbound_message": {
-          "titulo": "Welcome message",
-          "detalle": "When someone writes to you for the first time."
-        },
-        "keyword": {
-          "titulo": "Keyword",
-          "detalle": "When the message contains a word you choose."
-        },
-        "manual": {
-          "titulo": "By hand",
-          "detalle": "Only you open it, from the conversation."
-        }
-      },
-      "palabrasObligatorias": "Words that open it",
-      "palabrasOpcionales": "Also open it if they write (optional)",
-      "palabrasOpcionalesAyuda": "So a customer who has written to you before can come back to the menu whenever they want. Separate them with commas: menu, hi, start.",
-      "resumen": {
-        "first_inbound_message": "When someone writes to you for the first time on {canales}, this guided conversation opens for them.",
-        "keyword": "When someone writes one of those words on {canales}, this guided conversation opens for them.",
-        "manual": "It never opens on its own. You start it from the conversation when you need it."
-      },
-      "resumenY": "and",
-      "resumenSinCanal": "your channels",
-      "resumenSinCanalAviso": "You haven't connected any channel yet, so it won't receive any messages.",
-      "resumenBorrador": "It's still a draft, so it won't open yet.",
-      "activarAhora": "Activate"
+      }
     },
     "validation": {
       "noIssues": "No issues. Ready to activate.",
@@ -1760,61 +1737,6 @@
       "reindex": "Reindex",
       "reindexTooltip": "Re-embed all documents (e.g. after adding an embeddings key)",
       "loading": "Loading…"
-    }
-  },
-  "PuestaEnMarcha": {
-    "titulo": "Getting started",
-    "subtitulo": "Five steps to get your platform answering on its own.",
-    "tituloCompleta": "You're all set",
-    "subtituloCompleta": "Your platform now answers on its own. Come back here any time to review it.",
-    "progreso": "{hechos} of {total}",
-    "ir": "Set up",
-    "revisar": "Review",
-    "pasos": {
-      "canal": {
-        "titulo": "Connect WhatsApp",
-        "porQue": "It's where your customers will write to you. You can also connect Facebook and Instagram — everything lands in the same inbox."
-      },
-      "flujo": {
-        "titulo": "Build your first guided conversation",
-        "porQue": "A menu that answers on its own: the customer taps what they need and gets where they need to go, without waiting for anyone."
-      },
-      "bienvenida": {
-        "titulo": "Set it as your welcome message",
-        "porQue": "That's what makes it open the moment someone writes to you for the first time. Without this, your guided conversation exists but nobody ever sees it.",
-        "avisoBorrador": "You have a guided conversation in draft. A draft greets nobody — it needs to be activated."
-      },
-      "automatizacion": {
-        "titulo": "Add an automation",
-        "porQue": "Things that happen on their own while you talk: tagging the customer, creating the sales opportunity, notifying your team.",
-        "avisoApagadas": "You have automations created but switched off. Switched off, they do nothing."
-      },
-      "ia": {
-        "titulo": "Turn on the assistant",
-        "porQue": "It answers the questions your menu doesn't cover, in your own words. And when it can't, it hands the conversation to you.",
-        "avisoApagado": "The assistant is set up but switched off. Switched off, it never replies."
-      }
-    },
-    "cadena": {
-      "titulo": "Who answers your customer?",
-      "estasAca": "You're here",
-      "explicacion": "When a message arrives it goes through this order, and the FIRST one that can answer does. If the menu takes it, the assistant stays quiet — if both answered, your customer would get two replies to the same question.",
-      "flujos": {
-        "titulo": "Guided menu",
-        "detalle": "Options to tap"
-      },
-      "automatizaciones": {
-        "titulo": "Automations",
-        "detalle": "Tags and deals"
-      },
-      "ia": {
-        "titulo": "Assistant",
-        "detalle": "Open questions"
-      },
-      "humano": {
-        "titulo": "Your team",
-        "detalle": "When they ask"
-      }
     }
   }
 }

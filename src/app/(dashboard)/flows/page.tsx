@@ -33,7 +33,6 @@ import {
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
-import { QuienContestaPrimero } from '@/components/puesta-en-marcha/quien-contesta-primero';
 
 /**
  * Flows list page.
@@ -223,8 +222,6 @@ export default function FlowsPage() {
           {t("newFlow")}
         </GatedButton>
       </header>
-
-      <QuienContestaPrimero actual="flujos" />
 
       {flows.length === 0 ? (
         <EmptyState

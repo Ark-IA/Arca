@@ -21,23 +21,22 @@ import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'rea
 import { useTranslations } from 'next-intl';
 import {
   CircleAlert,
-  CircleCheck,
-  Hand,
-  KeyRound,
-  MessageCircle,
   Plus,
   Trash2,
   ChevronDown,
   ChevronUp,
   CornerDownRight,
 } from 'lucide-react';
-import {
-  canalesConectados,
-  usePuestaEnMarcha,
-} from '@/hooks/use-puesta-en-marcha';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -262,25 +261,6 @@ function KeywordsInput({
 // Trigger panel
 // ============================================================
 
-/**
- * Cuándo se abre este flujo.
- *
- * Antes esto era un desplegable con tres opciones escritas en la jerga del
- * motor: «keyword», «first inbound message», «manual». Un cliente no tiene
- * cómo saber que «first inbound message» es el mensaje de bienvenida, así
- * que la opción más usada de todas era la más escondida.
- *
- * Ahora son tres tarjetas que dicen qué hacen, y debajo una frase que dice
- * qué va a pasar de verdad con la configuración actual — incluido el aviso
- * de que en borrador no se va a activar, que es el fallo silencioso que más
- * tiempo hace perder: todo bien configurado y nada sucede.
- */
-const OPCIONES_DISPARADOR = [
-  { valor: 'first_inbound_message', icono: MessageCircle },
-  { valor: 'keyword', icono: KeyRound },
-  { valor: 'manual', icono: Hand },
-] as const;
-
 function TriggerPanel({
   state,
   setState,
@@ -292,155 +272,63 @@ function TriggerPanel({
   triggerIssues: ValidationIssue[];
   t: ReturnType<typeof useTranslations>;
 }) {
-  const { setStatus, activating, canActivate } = useFlowEditor();
-  const { estado } = usePuestaEnMarcha();
-
-  const palabras = Array.isArray(state.trigger_config.keywords)
-    ? (state.trigger_config.keywords as string[])
-    : [];
-
-  const setPalabras = (keywords: string[]) =>
-    setState((s) => ({
-      ...s,
-      trigger_config: { ...s.trigger_config, keywords },
-    }));
-
-  // Los canales conectados, por nombre. Decir «por WhatsApp y Facebook»
-  // tranquiliza mucho más que «por los canales conectados»: confirma que la
-  // conexión que hizo hace cinco minutos quedó hecha.
-  const canales = canalesConectados(estado);
-  const listaCanales =
-    canales.length === 0
-      ? null
-      : canales.length === 1
-        ? canales[0]
-        : `${canales.slice(0, -1).join(', ')} ${t('resumenY')} ${canales.at(-1)}`;
-
-  const esBorrador = state.status !== 'active';
-
   return (
     <section className="border-border bg-card rounded-lg border p-4">
-      <h2 className="text-foreground text-sm font-semibold">{t('triggerTitle')}</h2>
-      <p className="text-muted-foreground mt-0.5 mb-3 text-xs">
-        {t('triggerSubtitle')}
-      </p>
-
-      <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
-        {OPCIONES_DISPARADOR.map(({ valor, icono: Icono }) => {
-          const elegido = state.trigger_type === valor;
-          return (
-            <button
-              key={valor}
-              type="button"
-              aria-pressed={elegido}
-              onClick={() =>
+      <h2 className="text-foreground mb-3 text-sm font-semibold">{t('triggerTitle')}</h2>
+      <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+        <div>
+          <label className="text-muted-foreground mb-1 block text-xs">
+            {t('whenLabel')}
+          </label>
+          <Select
+            value={state.trigger_type}
+            onValueChange={(v) =>
+              setState((s) => ({
+                ...s,
+                trigger_type: v as BuilderState['trigger_type'],
+                trigger_config:
+                  v === 'keyword' ? { keywords: [] } : v === 'manual' ? {} : {},
+              }))
+            }
+          >
+            <SelectTrigger className="bg-muted">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="keyword">
+                {t('triggerKeywordTitle')}
+              </SelectItem>
+              <SelectItem value="first_inbound_message">
+                {t('triggerFirstInboundTitle')}
+              </SelectItem>
+              <SelectItem value="manual">
+                {t('triggerManualTitle')}
+              </SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+        {state.trigger_type === 'keyword' && (
+          <div>
+            <label className="text-muted-foreground mb-1 block text-xs">
+              {t('keywordsLabel')}
+            </label>
+            <KeywordsInput
+              keywords={
+                Array.isArray(state.trigger_config.keywords)
+                  ? (state.trigger_config.keywords as string[])
+                  : []
+              }
+              onChange={(keywords) =>
                 setState((s) => ({
                   ...s,
-                  trigger_type: valor as BuilderState['trigger_type'],
-                  // Las palabras se CONSERVAN al cambiar entre bienvenida y
-                  // palabra clave: los dos las usan, y borrárselas a quien
-                  // solo estaba comparando las dos opciones es perder trabajo
-                  // ajeno por un clic de curiosidad.
-                  trigger_config:
-                    valor === 'manual' ? {} : { ...s.trigger_config, keywords: palabras },
+                  trigger_config: { ...s.trigger_config, keywords },
                 }))
               }
-              className={cn(
-                'flex flex-col gap-1.5 rounded-lg border p-3 text-left transition-colors',
-                elegido
-                  ? 'border-primary bg-primary/10'
-                  : 'border-border bg-background hover:border-primary/40 hover:bg-muted',
-              )}
-            >
-              <Icono
-                className={cn(
-                  'h-4 w-4',
-                  elegido ? 'text-primary' : 'text-muted-foreground',
-                )}
-              />
-              <span
-                className={cn(
-                  'text-sm font-semibold',
-                  elegido ? 'text-primary' : 'text-foreground',
-                )}
-              >
-                {t(`disparador.${valor}.titulo`)}
-              </span>
-              <span className="text-muted-foreground text-xs leading-relaxed">
-                {t(`disparador.${valor}.detalle`)}
-              </span>
-            </button>
-          );
-        })}
-      </div>
-
-      {state.trigger_type === 'keyword' && (
-        <div className="mt-3">
-          <label className="text-foreground mb-1 block text-xs font-medium">
-            {t('palabrasObligatorias')}
-          </label>
-          <KeywordsInput keywords={palabras} onChange={setPalabras} t={t} />
-        </div>
-      )}
-
-      {/* La segunda puerta. El motor la soporta desde siempre; hasta ahora no
-          había forma de configurarla, porque este campo solo se dibujaba para
-          los flujos de palabra clave. */}
-      {state.trigger_type === 'first_inbound_message' && (
-        <div className="mt-3">
-          <label className="text-foreground mb-1 block text-xs font-medium">
-            {t('palabrasOpcionales')}
-          </label>
-          <KeywordsInput keywords={palabras} onChange={setPalabras} t={t} />
-          <p className="text-muted-foreground mt-1 text-xs leading-relaxed">
-            {t('palabrasOpcionalesAyuda')}
-          </p>
-        </div>
-      )}
-
-      {/* Qué va a pasar de verdad, en una frase. */}
-      <div
-        className={cn(
-          'mt-4 flex items-start gap-2 rounded-md border px-3 py-2.5',
-          esBorrador
-            ? 'border-amber-500/40 bg-amber-500/10'
-            : 'border-emerald-500/30 bg-emerald-500/10',
-        )}
-      >
-        {esBorrador ? (
-          <CircleAlert className="mt-0.5 h-4 w-4 shrink-0 text-amber-400" />
-        ) : (
-          <CircleCheck className="mt-0.5 h-4 w-4 shrink-0 text-emerald-400" />
-        )}
-        <div className="flex-1">
-          <p className="text-foreground text-xs leading-relaxed">
-            {t(`resumen.${state.trigger_type}`, {
-              canales: listaCanales ?? t('resumenSinCanal'),
-            })}
-          </p>
-          {esBorrador && (
-            <p className="mt-1 text-xs font-medium text-amber-400">
-              {t('resumenBorrador')}
-            </p>
-          )}
-          {!esBorrador && !listaCanales && (
-            <p className="mt-1 text-xs font-medium text-amber-400">
-              {t('resumenSinCanalAviso')}
-            </p>
-          )}
-        </div>
-        {esBorrador && (
-          <Button
-            size="sm"
-            disabled={!canActivate || activating}
-            onClick={() => void setStatus('active')}
-            className="shrink-0"
-          >
-            {t('activarAhora')}
-          </Button>
+              t={t}
+            />
+          </div>
         )}
       </div>
-
       {triggerIssues.length > 0 && (
         <div className="mt-3 flex flex-col gap-1">
           {triggerIssues.map((i, ix) => (

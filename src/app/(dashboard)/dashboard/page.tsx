@@ -29,7 +29,6 @@ import type {
 import { MetricCard } from '@/components/dashboard/metric-card'
 import { SkeletonCard } from '@/components/dashboard/skeleton'
 import { QuickActions } from '@/components/dashboard/quick-actions'
-import { ListaPuestaEnMarcha } from '@/components/puesta-en-marcha/lista-puesta-en-marcha'
 import { ConversationsChart } from '@/components/dashboard/conversations-chart'
 import { PipelineDonut } from '@/components/dashboard/pipeline-donut'
 import { ResponseTimeChart } from '@/components/dashboard/response-time-chart'
@@ -131,11 +130,6 @@ export default function DashboardPage() {
           {t('description')}
         </p>
       </div>
-
-      {/* Puesta en marcha. Se dibuja ANTES de las métricas y desaparece sola
-          al completarse: en una cuenta recién creada las métricas son cuatro
-          ceros y esto es lo único accionable de la pantalla. */}
-      <ListaPuestaEnMarcha />
 
       {/* Metric cards */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">

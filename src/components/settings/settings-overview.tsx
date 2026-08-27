@@ -13,8 +13,6 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Card } from '@/components/ui/card';
 import { cn } from '@/lib/utils';
 
-import { ListaPuestaEnMarcha } from '@/components/puesta-en-marcha/lista-puesta-en-marcha';
-
 import { SECTION_META, type SettingsSection } from './settings-sections';
 import { SettingsChip, StatusDot } from './settings-chip';
 import { ROLE_META } from './role-meta';
@@ -284,13 +282,6 @@ export function SettingsOverview({
 
   return (
     <section className="animate-in fade-in-50 duration-200">
-      {/* Puesta en marcha. Aqui va SIEMPRE, aunque este completa: el panel la
-          esconde al terminar, y quien quiere repasar como quedo todo o
-          preparar una cuenta nueva necesita un lugar fijo donde encontrarla. */}
-      <div className="mb-4">
-        <ListaPuestaEnMarcha siempreVisible />
-      </div>
-
       {/* Identity */}
       <Card className="flex-row items-center gap-4 px-5 py-5">
         <Avatar size="lg" className="size-14">

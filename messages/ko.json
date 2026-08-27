@@ -41,9 +41,7 @@
     "defaultAvatar": "아바타",
     "menuProfile": "프로필",
     "menuSettings": "설정",
-    "menuSignOut": "로그아웃",
-    "collapse": "메뉴 접기",
-    "expand": "메뉴 펼치기"
+    "menuSignOut": "로그아웃"
   },
   "Header": {
     "dashboard": "대시보드",
@@ -1082,6 +1080,11 @@
     },
     "builder": {
       "triggerTitle": "트리거",
+      "whenLabel": "조건…",
+      "triggerKeywordTitle": "메시지에 키워드가 포함될 때",
+      "triggerFirstInboundTitle": "고객의 첫 수신 메시지",
+      "triggerManualTitle": "수동 전용 (자동 트리거 없음)",
+      "keywordsLabel": "키워드 (쉼표로 구분)",
       "keywordsPlaceholder": "support, help, hi",
       "entryNodeTitle": "시작 노드:",
       "entryNodePlaceholder": "첫 노드를 선택하세요…",
@@ -1206,35 +1209,7 @@
           "label": "종료",
           "blurb": "플로우를 종료합니다"
         }
-      },
-      "triggerSubtitle": "이 안내 대화가 언제 자동으로 열릴지 선택하세요.",
-      "disparador": {
-        "first_inbound_message": {
-          "titulo": "환영 메시지",
-          "detalle": "누군가 처음 메시지를 보낼 때."
-        },
-        "keyword": {
-          "titulo": "키워드",
-          "detalle": "메시지에 지정한 단어가 포함될 때."
-        },
-        "manual": {
-          "titulo": "수동",
-          "detalle": "대화 화면에서 직접 열 때만."
-        }
-      },
-      "palabrasObligatorias": "이 단어로 열립니다",
-      "palabrasOpcionales": "다음을 입력해도 열기 (선택)",
-      "palabrasOpcionalesAyuda": "이전에 메시지를 보낸 적 있는 고객이 원할 때 다시 메뉴를 열 수 있게 합니다. 쉼표로 구분해 입력하세요: 메뉴, 안녕, 시작.",
-      "resumen": {
-        "first_inbound_message": "{canales}(으)로 누군가 처음 메시지를 보내면 이 안내 대화가 열립니다.",
-        "keyword": "{canales}(으)로 해당 단어를 보내면 이 안내 대화가 열립니다.",
-        "manual": "자동으로 열리지 않습니다. 필요할 때 대화 화면에서 직접 시작합니다."
-      },
-      "resumenY": "및",
-      "resumenSinCanal": "연결된 채널",
-      "resumenSinCanalAviso": "아직 연결된 채널이 없어 메시지를 받을 수 없습니다.",
-      "resumenBorrador": "아직 초안이라 열리지 않습니다.",
-      "activarAhora": "활성화"
+      }
     },
     "validation": {
       "noIssues": "문제가 없습니다. 활성화할 준비가 되었습니다.",
@@ -1760,61 +1735,6 @@
       "reindex": "재색인",
       "reindexTooltip": "모든 문서를 다시 임베딩합니다 (예: 임베딩 키 추가 후)",
       "loading": "불러오는 중…"
-    }
-  },
-  "PuestaEnMarcha": {
-    "titulo": "시작하기",
-    "subtitulo": "다섯 단계면 플랫폼이 스스로 응대하기 시작합니다.",
-    "tituloCompleta": "준비 완료",
-    "subtituloCompleta": "이제 플랫폼이 스스로 응대합니다. 언제든 여기로 돌아와 확인할 수 있습니다.",
-    "progreso": "{total}단계 중 {hechos}단계",
-    "ir": "설정하기",
-    "revisar": "확인하기",
-    "pasos": {
-      "canal": {
-        "titulo": "WhatsApp 연결하기",
-        "porQue": "고객이 메시지를 보내는 통로입니다. Facebook과 Instagram도 연결할 수 있으며, 모두 같은 수신함으로 들어옵니다."
-      },
-      "flujo": {
-        "titulo": "첫 안내 대화 만들기",
-        "porQue": "스스로 응대하는 메뉴입니다. 고객이 필요한 항목을 누르면 기다릴 필요 없이 바로 원하는 곳에 도착합니다."
-      },
-      "bienvenida": {
-        "titulo": "환영 메시지로 연결하기",
-        "porQue": "누군가 처음 메시지를 보내는 순간 자동으로 열리게 만드는 설정입니다. 이것이 없으면 안내 대화를 만들어도 아무도 보지 못합니다.",
-        "avisoBorrador": "초안 상태인 안내 대화가 있습니다. 초안은 아무에게도 인사하지 않으니 활성화해야 합니다."
-      },
-      "automatizacion": {
-        "titulo": "자동화 추가하기",
-        "porQue": "대화하는 동안 저절로 처리되는 일들입니다. 고객 태그 지정, 영업 기회 생성, 팀 알림 등이 있습니다.",
-        "avisoApagadas": "만들어 둔 자동화가 꺼져 있습니다. 꺼진 상태에서는 아무 일도 하지 않습니다."
-      },
-      "ia": {
-        "titulo": "어시스턴트 켜기",
-        "porQue": "메뉴가 다루지 못하는 질문에 자연스러운 말로 답합니다. 답할 수 없을 때는 대화를 담당자에게 넘깁니다.",
-        "avisoApagado": "어시스턴트가 설정되어 있지만 꺼져 있습니다. 꺼진 상태에서는 응답하지 않습니다."
-      }
-    },
-    "cadena": {
-      "titulo": "고객에게 누가 답하나요?",
-      "estasAca": "현재 위치",
-      "explicacion": "메시지가 도착하면 이 순서대로 확인하고, 답할 수 있는 첫 번째가 응답합니다. 메뉴가 처리하면 어시스턴트는 답하지 않습니다. 둘 다 답하면 고객이 같은 질문에 두 개의 답을 받게 되기 때문입니다.",
-      "flujos": {
-        "titulo": "안내 메뉴",
-        "detalle": "누르는 선택지"
-      },
-      "automatizaciones": {
-        "titulo": "자동화",
-        "detalle": "태그와 거래"
-      },
-      "ia": {
-        "titulo": "어시스턴트",
-        "detalle": "자유로운 질문"
-      },
-      "humano": {
-        "titulo": "담당자",
-        "detalle": "요청이 있을 때"
-      }
     }
   }
 }
