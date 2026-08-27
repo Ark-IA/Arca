@@ -182,6 +182,12 @@ export async function POST(request: Request) {
       sip_extension: sipExtension,
     }
 
+    // La credencial SIP no se crea acá a propósito: la crea un disparador de
+    // la base (migración 060) en cuanto `sip_extension` deja de ser nula.
+    // Antes cada camino que asignaba una extensión tenía que acordarse, y el
+    // que se olvidaba dejaba a la persona con extensión y sin teléfono, sin
+    // ningún error que lo explicara.
+
     // `upsert` y no `update`: el disparador traga sus propios errores, así
     // que el perfil puede no existir. Sin esto, ese caso dejaría un usuario
     // capaz de iniciar sesión y sin ninguna cuenta — dentro, y en ninguna
