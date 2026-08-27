@@ -204,6 +204,12 @@ export interface Conversation {
   /** Cuenta conectada. Null en WhatsApp: su configuracion vive aparte. */
   connection_id?: string | null;
   assigned_agent_id?: string;
+  /**
+   * Cola en la que espera, cuando un flujo o una automatización la mandaron
+   * a un equipo en vez de a una persona (migración 057). `null` significa
+   * que nadie la encoló: es de todos hasta que alguien la tome.
+   */
+  cola_id?: string | null;
   last_message_text?: string;
   last_message_at?: string;
   unread_count: number;

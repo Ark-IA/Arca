@@ -157,7 +157,8 @@
       "clearAll": "Clear all",
       "noConversations": "No conversations found",
       "noMessagesYet": "No messages yet",
-      "unknown": "Unknown"
+      "unknown": "Unknown",
+      "filterMisColas": "My queues"
     },
     "messageThread": {
       "backToConversations": "Back to conversations",
@@ -1577,7 +1578,8 @@
       "members": "Team members",
       "agente-ia": "AI agent",
       "blocklist": "Blocklist",
-      "api": "API keys"
+      "api": "API keys",
+      "colas": "Advisor queues"
     },
     "groups": {
       "account": "Account",

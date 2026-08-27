@@ -107,6 +107,8 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { useAuth } from "@/hooks/use-auth";
+import { COLOR_DE_COLA, colasDe, esMia, useColas } from "@/hooks/use-colas";
 
 interface ConversationListProps {
   activeConversationId: string | null;
@@ -130,7 +132,7 @@ const STATUS_COLORS: Record<ConversationStatus, string> = {
 
 
 
-type InboxFilter = ConversationStatus | "all" | "unread";
+type InboxFilter = ConversationStatus | "all" | "unread" | "mis-colas";
 
 export function ConversationList({
   activeConversationId,
@@ -142,6 +144,7 @@ export function ConversationList({
   const t = useTranslations("Inbox.conversationList");
   
   const FILTER_OPTIONS: { label: string; value: InboxFilter }[] = useMemo(() => [
+    { label: t("filterMisColas"), value: "mis-colas" },
     { label: t("filterAll"), value: "all" },
     { label: t("filterUnread"), value: "unread" },
     { label: t("filterOpen"), value: "open" },
@@ -151,6 +154,30 @@ export function ConversationList({
 
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState<InboxFilter>("all");
+
+  // Colas. `esMia` decide qué le toca a cada uno; acá solo se resuelve
+  // quién soy y en qué colas estoy.
+  const { user, accountRole } = useAuth();
+  const { colas } = useColas();
+  const misColas = useMemo(() => colasDe(colas, user?.id), [colas, user?.id]);
+  const nombresDeCola = useMemo(
+    () => new Map(colas.map((c) => [c.id, c])),
+    [colas],
+  );
+
+  /**
+   * Un asesor arranca viendo lo suyo; quien administra, todo.
+   *
+   * Se aplica UNA sola vez y no en cada render: si se forzara siempre, el
+   * asesor no podría cambiar a «Todas» — el filtro se le revertiría solo al
+   * siguiente render y parecería que el desplegable está roto.
+   */
+  const yaSeEligioInicial = useRef(false);
+  useEffect(() => {
+    if (yaSeEligioInicial.current || !accountRole) return;
+    yaSeEligioInicial.current = true;
+    if (accountRole === "agent") setFilter("mis-colas");
+  }, [accountRole]);
   // Bandeja por canal. Se guarda en el navegador para que quien atiende
   // solo Instagram no tenga que volver a elegirlo en cada recarga.
   const [canal, setCanal] = useState<CanalDeBandeja>("todos");
@@ -341,6 +368,8 @@ export function ConversationList({
 
     if (filter === "unread") {
       result = result.filter((c) => c.unread_count > 0);
+    } else if (filter === "mis-colas") {
+      result = result.filter((c) => esMia(c, user?.id, misColas));
     } else if (filter !== "all") {
       result = result.filter((c) => c.status === filter);
     }
@@ -369,7 +398,16 @@ export function ConversationList({
     // `canal` va en las dependencias: sin él este memo nunca se recalculaba al
     // cambiar de canal, y el cambio solo se veía al salir del módulo y volver
     // -- que es lo que remonta el componente y descarta el valor memorizado.
-  }, [conversations, canal, filter, search, selectedTagIds, selectedCompany]);
+  }, [
+    conversations,
+    canal,
+    filter,
+    search,
+    selectedTagIds,
+    selectedCompany,
+    user?.id,
+    misColas,
+  ]);
 
   const toggleTag = useCallback((id: string) => {
     setSelectedTagIds((prev) =>
@@ -678,6 +716,7 @@ export function ConversationList({
               <ConversationItem
                 key={conv.id}
                 conversation={conv}
+                cola={conv.cola_id ? nombresDeCola.get(conv.cola_id) : undefined}
                 isActive={conv.id === activeConversationId}
                 onSelect={handleSelect}
                 t={t}
@@ -692,6 +731,8 @@ export function ConversationList({
 
 interface ConversationItemProps {
   conversation: Conversation;
+  /** Cola en la que espera, ya resuelta a nombre y color. */
+  cola?: { name: string; color: string };
   isActive: boolean;
   onSelect: (conversation: Conversation) => void;
   t: ReturnType<typeof useTranslations>;
@@ -699,6 +740,7 @@ interface ConversationItemProps {
 
 function ConversationItem({
   conversation,
+  cola,
   isActive,
   onSelect,
   t,
@@ -752,6 +794,22 @@ function ConversationItem({
           </span>
           <span className="shrink-0 text-[10px] text-muted-foreground">{timeAgo}</span>
         </div>
+        {/* La cola, cuando la hay.
+            Va en su propia línea y no junto al nombre: en la vista de todas,
+            saber que algo espera en Ventas cambia quién debería abrirlo, y
+            apretado contra el nombre se pierde entre nombres largos. */}
+        {cola && (
+          <span className="mt-0.5 flex items-center gap-1 text-[10px] text-muted-foreground">
+            <span
+              className={cn(
+                "h-1.5 w-1.5 shrink-0 rounded-full",
+                COLOR_DE_COLA[cola.color] ?? COLOR_DE_COLA.slate,
+              )}
+            />
+            <span className="truncate">{cola.name}</span>
+          </span>
+        )}
+
         <div className="mt-0.5 flex items-center justify-between gap-2">
           <p className="truncate text-xs text-muted-foreground">
             {conversation.last_message_text || t("noMessagesYet")}

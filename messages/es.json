@@ -270,7 +270,8 @@
       "clearAll": "Limpiar todo",
       "noConversations": "No se encontraron conversaciones",
       "noMessagesYet": "Todavía no hay mensajes",
-      "unknown": "Desconocido"
+      "unknown": "Desconocido",
+      "filterMisColas": "Mis colas"
     },
     "messageThread": {
       "backToConversations": "Volver a las conversaciones",
@@ -1292,7 +1293,8 @@
       "members": "Equipo",
       "agente-ia": "Agente de IA",
       "blocklist": "Lista de bloqueo",
-      "api": "Claves de API"
+      "api": "Claves de API",
+      "colas": "Colas de atención"
     },
     "security": {
       "title": "Acceso y seguridad",

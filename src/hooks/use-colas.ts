@@ -38,6 +38,46 @@ export function useColas() {
   return { colas, cargando, recargar }
 }
 
+/**
+ * ¿Le corresponde a esta persona esta conversación?
+ *
+ * Tres casos, y el tercero es el que importa:
+ *
+ *   1. Está a su nombre.
+ *   2. Espera en una cola que atiende.
+ *   3. NO ESTÁ EN NINGUNA COLA.
+ *
+ * El tercero podría parecer que sobra, y esconderlo sería el error caro: una
+ * conversación sin encolar es la de alguien que acaba de escribir y a quien
+ * ningún flujo derivó todavía. Si no la ve nadie porque no es «de nadie», el
+ * cliente nuevo se queda esperando en silencio. Sin dueño quiere decir de
+ * todos, no de ninguno.
+ *
+ * Lo que sí se oculta: lo que está a nombre de otra persona, y lo que espera
+ * en una cola ajena.
+ */
+export function esMia(
+  conversacion: { cola_id?: string | null; assigned_agent_id?: string | null },
+  usuarioId: string | null | undefined,
+  misColas: Set<string>,
+): boolean {
+  if (usuarioId && conversacion.assigned_agent_id === usuarioId) return true
+  if (conversacion.assigned_agent_id) return false
+  if (!conversacion.cola_id) return true
+  return misColas.has(conversacion.cola_id)
+}
+
+/** Las colas en las que está esta persona. */
+export function colasDe(
+  colas: ColaConMiembros[],
+  usuarioId: string | null | undefined,
+): Set<string> {
+  if (!usuarioId) return new Set()
+  return new Set(
+    colas.filter((c) => c.miembros.some((m) => m.user_id === usuarioId)).map((c) => c.id),
+  )
+}
+
 /** Clases del punto de color, por nombre de color de la cola. */
 export const COLOR_DE_COLA: Record<string, string> = {
   slate: 'bg-slate-400',

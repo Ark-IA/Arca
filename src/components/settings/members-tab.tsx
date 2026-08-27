@@ -78,6 +78,7 @@ import {
   PresenceDot,
 } from '@/components/presence/presence-dot';
 import { InviteMemberDialog } from './invite-member-dialog';
+import { CrearUsuarioDialog } from './crear-usuario-dialog';
 import { SettingsPanelHead } from './settings-panel-head';
 import { ROLE_META } from './role-meta';
 
@@ -141,6 +142,7 @@ export function MembersTab() {
   const [loading, setLoading] = useState(true);
 
   const [inviteOpen, setInviteOpen] = useState(false);
+  const [crearOpen, setCrearOpen] = useState(false);
   // Extensión que se está editando: user_id del miembro, o null.
   const [editandoExt, setEditandoExt] = useState<string | null>(null);
   const [borradorExt, setBorradorExt] = useState('');
@@ -344,10 +346,16 @@ export function MembersTab() {
         description={t('description')}
         action={
           <RequireRole min="admin">
-            <Button onClick={() => setInviteOpen(true)}>
-              <Plus className="size-4" />
-              {t('inviteMember')}
-            </Button>
+            <div className="flex flex-wrap gap-2">
+              <Button variant="outline" onClick={() => setInviteOpen(true)}>
+                <Plus className="size-4" />
+                {t('inviteMember')}
+              </Button>
+              <Button onClick={() => setCrearOpen(true)}>
+                <Plus className="size-4" />
+                Crear usuario
+              </Button>
+            </div>
           </RequireRole>
         }
       />
@@ -663,6 +671,12 @@ export function MembersTab() {
           )}
         </div>
       </RequireRole>
+
+      <CrearUsuarioDialog
+        open={crearOpen}
+        onOpenChange={setCrearOpen}
+        onCreado={loadEverything}
+      />
 
       <InviteMemberDialog
         open={inviteOpen}
