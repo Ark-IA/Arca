@@ -30,7 +30,7 @@ export async function GET() {
       // `api_key` is selected only to derive `has_key` — it is stripped
       // out below and never returned to the client.
       .select(
-        'provider, model, system_prompt, is_active, auto_reply_enabled, auto_reply_max_per_conversation, auto_reply_channels, handoff_agent_id, api_key, embeddings_api_key',
+        'provider, model, system_prompt, is_active, auto_reply_enabled, auto_reply_max_per_conversation, auto_reply_channels, handoff_agent_id, api_key, embeddings_api_key, transcription_api_key, transcription_model, transcription_base_url',
       )
       .eq('account_id', accountId)
       .maybeSingle()
@@ -46,11 +46,14 @@ export async function GET() {
     if (!data) return NextResponse.json({ configured: false })
     // The keys are selected only to derive the has_* flags; neither is
     // returned to the client.
-    const { api_key, embeddings_api_key, ...safe } = data
+    const { api_key, embeddings_api_key, transcription_api_key, ...safe } = data
     return NextResponse.json({
       configured: true,
       has_key: !!api_key,
       has_embeddings_key: !!embeddings_api_key,
+      // Solo si la hay. La clave nunca vuelve al navegador: lo unico que
+      // el formulario necesita saber es si tiene que pedirla o no.
+      has_transcription_key: !!transcription_api_key,
       ...safe,
     })
   } catch (err) {
@@ -138,6 +141,16 @@ export async function POST(request: Request) {
         ? body.embeddings_api_key.trim()
         : ''
     const clearEmbeddingsKey = body.embeddings_api_key === null
+
+    // Transcripcion de notas de voz. Misma convencion que la de
+    // embeddings: texto = poner o reemplazar, null = borrar, ausente =
+    // dejar como esta. El formulario solo la manda cuando se edita, asi
+    // que guardar cualquier otro ajuste no la pisa.
+    const rawTranscriptionKey =
+      typeof body.transcription_api_key === 'string'
+        ? body.transcription_api_key.trim()
+        : ''
+    const clearTranscriptionKey = body.transcription_api_key === null
 
     // Reuse the stored key when the form didn't send a fresh one.
     const { data: existing } = await supabase
@@ -227,6 +240,20 @@ export async function POST(request: Request) {
       shared.embeddings_api_key = encrypt(rawEmbeddingsKey)
     } else if (clearEmbeddingsKey) {
       shared.embeddings_api_key = null
+    }
+
+    if (rawTranscriptionKey) {
+      shared.transcription_api_key = encrypt(rawTranscriptionKey)
+    } else if (clearTranscriptionKey) {
+      shared.transcription_api_key = null
+    }
+    if (typeof body.transcription_model === 'string' && body.transcription_model.trim()) {
+      shared.transcription_model = body.transcription_model.trim()
+    }
+    if (typeof body.transcription_base_url === 'string' && body.transcription_base_url.trim()) {
+      // Se guarda sin la barra final para que quien construye la URL no
+      // tenga que adivinar si ya la trae.
+      shared.transcription_base_url = body.transcription_base_url.trim().replace(/\/+$/, '')
     }
 
     if (existing) {

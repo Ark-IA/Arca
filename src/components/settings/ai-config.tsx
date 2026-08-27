@@ -121,6 +121,13 @@ export function AiConfig() {
   const [showKey, setShowKey] = useState(false);
   const [hasStoredKey, setHasStoredKey] = useState(false);
   const [embeddingsKey, setEmbeddingsKey] = useState('');
+  const [transcripcionKey, setTranscripcionKey] = useState('');
+  const [transcripcionKeyEdited, setTranscripcionKeyEdited] = useState(false);
+  const [tieneTranscripcionKey, setTieneTranscripcionKey] = useState(false);
+  const [transcripcionModelo, setTranscripcionModelo] = useState('whisper-1');
+  const [transcripcionUrl, setTranscripcionUrl] = useState(
+    'https://api.openai.com/v1',
+  );
   const [embeddingsKeyEdited, setEmbeddingsKeyEdited] = useState(false);
   const [hasStoredEmbeddingsKey, setHasStoredEmbeddingsKey] = useState(false);
   const [systemPrompt, setSystemPrompt] = useState('');
@@ -167,6 +174,10 @@ export function AiConfig() {
         setApiKey(data.has_key ? MASKED_KEY : '');
         setKeyEdited(false);
         setHasStoredEmbeddingsKey(Boolean(data.has_embeddings_key));
+        setTieneTranscripcionKey(Boolean(data.has_transcription_key));
+        setTranscripcionKey(data.has_transcription_key ? MASKED_KEY : '');
+        if (data.transcription_model) setTranscripcionModelo(data.transcription_model);
+        if (data.transcription_base_url) setTranscripcionUrl(data.transcription_base_url);
         setEmbeddingsKey(data.has_embeddings_key ? MASKED_KEY : '');
         setEmbeddingsKeyEdited(false);
       }
@@ -210,6 +221,13 @@ export function AiConfig() {
     model: model.trim(),
     api_key: keyPayload(),
     embeddings_api_key: embeddingsKeyPayload(),
+    // `undefined` cuando no se toco: guardar otro ajuste no puede borrar
+    // una clave que sigue siendo valida.
+    transcription_api_key: transcripcionKeyEdited
+      ? transcripcionKey.trim() || null
+      : undefined,
+    transcription_model: transcripcionModelo.trim() || undefined,
+    transcription_base_url: transcripcionUrl.trim() || undefined,
     system_prompt: systemPrompt.trim() || null,
     is_active: isActive,
     auto_reply_enabled: autoReplyEnabled,
@@ -459,6 +477,81 @@ export function AiConfig() {
                   busca por texto y sigue funcionando.
                 </p>
               )}
+            </div>
+
+            {/* Notas de voz.
+                Va aparte de la clave del agente porque son servicios
+                distintos: OpenRouter conversa pero no transcribe. Obligar a
+                que fuera la misma clave le negaría la función a quien ya
+                eligió proveedor de conversación. */}
+            <div className="space-y-2 rounded-md border border-border p-3">
+              <Label htmlFor="ai-transcripcion-key">
+                Transcripción de notas de voz{' '}
+                <span className="font-normal text-muted-foreground">
+                  (opcional)
+                </span>
+              </Label>
+              <p className="text-xs leading-relaxed text-muted-foreground">
+                Convierte los audios que te mandan en texto, para que tus
+                flujos, automatizaciones y el agente los entiendan igual que
+                un mensaje escrito. Sin esto el agente responde que no puede
+                escuchar el audio y pide que se lo escriban.
+              </p>
+              <Input
+                id="ai-transcripcion-key"
+                type="password"
+                value={transcripcionKey}
+                onChange={(e) => {
+                  setTranscripcionKey(e.target.value);
+                  setTranscripcionKeyEdited(true);
+                }}
+                onFocus={() => {
+                  if (!transcripcionKeyEdited && tieneTranscripcionKey) {
+                    setTranscripcionKey('');
+                    setTranscripcionKeyEdited(true);
+                  }
+                }}
+                placeholder="sk-... (OpenAI) o gsk_... (Groq)"
+                disabled={disabled}
+                autoComplete="off"
+              />
+              <div className="grid gap-2 sm:grid-cols-2">
+                <div>
+                  <Label htmlFor="ai-transcripcion-modelo" className="text-xs">
+                    Modelo
+                  </Label>
+                  <Input
+                    id="ai-transcripcion-modelo"
+                    value={transcripcionModelo}
+                    onChange={(e) => setTranscripcionModelo(e.target.value)}
+                    placeholder="whisper-1"
+                    disabled={disabled}
+                    className="font-mono text-xs"
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="ai-transcripcion-url" className="text-xs">
+                    Dirección del servicio
+                  </Label>
+                  <Input
+                    id="ai-transcripcion-url"
+                    value={transcripcionUrl}
+                    onChange={(e) => setTranscripcionUrl(e.target.value)}
+                    placeholder="https://api.openai.com/v1"
+                    disabled={disabled}
+                    className="font-mono text-xs"
+                  />
+                </div>
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Con OpenAI, dejá los valores por defecto. Con Groq, poné
+                <code className="mx-1 rounded bg-muted px-1">whisper-large-v3</code>
+                y
+                <code className="mx-1 rounded bg-muted px-1">
+                  https://api.groq.com/openai/v1
+                </code>
+                — sale bastante más barato.
+              </p>
             </div>
           </CardContent>
         </Card>

@@ -10,6 +10,7 @@ import { verifyMetaWebhookSignature } from '@/lib/whatsapp/webhook-signature'
 import { runAutomationsForTrigger } from '@/lib/automations/engine'
 import { dispatchInboundToFlows } from '@/lib/flows/engine'
 import { dispatchInboundToAiReply } from '@/lib/ai/auto-reply'
+import { textoDeAudioEntrante } from '@/lib/ai/audio-entrante'
 import { dispatchWebhookEvent } from '@/lib/webhooks/deliver'
 import { anotarEnLinea, resumir } from '@/lib/registros/linea-de-tiempo'
 import {
@@ -859,6 +860,30 @@ async function processMessage(
   await flagBroadcastReplyIfAny(accountId, contactRecord.id)
 
   // ============================================================
+  // Notas de voz: se transcriben ANTES de repartir el mensaje.
+  //
+  // Tiene que ser aquí y no después: los flujos buscan palabras y las
+  // automatizaciones de palabra clave comparan texto. Transcribir más tarde
+  // dejaría al cliente sin respuesta a su audio y con la transcripción
+  // apareciendo en la bandeja un segundo después, para nadie.
+  //
+  // Se espera a que termine, con su propio tope de tiempo dentro. Este
+  // bloque ya corre dentro de after(), así que la respuesta a Meta salió
+  // hace rato: lo que se demora es la contestación al cliente, no el acuse.
+  // ============================================================
+  let textoEntrante = contentText ?? message.text?.body ?? ''
+  const idDelMensaje = (insertedRows[0] as { id: string } | undefined)?.id
+  if (contentType === 'audio' && mediaUrl && idDelMensaje) {
+    textoEntrante = await textoDeAudioEntrante({
+      accountId,
+      messageId: idDelMensaje,
+      mediaUrl,
+      mediaType,
+      textoActual: textoEntrante,
+    })
+  }
+
+  // ============================================================
   // Flow runner dispatch.
   //
   // If the runner consumes the message (it either advanced an active
@@ -887,12 +912,12 @@ async function processMessage(
         ? {
             kind: 'interactive_reply',
             reply_id: interactiveReplyId,
-            reply_title: contentText ?? '',
+            reply_title: textoEntrante,
             meta_message_id: message.id,
           }
         : {
             kind: 'text',
-            text: contentText ?? message.text?.body ?? '',
+            text: textoEntrante,
             meta_message_id: message.id,
           },
     isFirstInboundMessage,
@@ -908,7 +933,7 @@ async function processMessage(
   // message all exist before any step — including send_message — runs.
   // Fire-and-forget: a slow or failing automation must not block the
   // webhook's 200 OK response to Meta.
-  const inboundText = contentText ?? message.text?.body ?? ''
+  const inboundText = textoEntrante
   const automationTriggers: (
     | 'new_contact_created'
     | 'first_inbound_message'

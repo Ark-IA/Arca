@@ -15,6 +15,7 @@ import crypto from 'crypto'
 import { supabaseAdmin } from '@/lib/flows/admin-client'
 import { decrypt } from '@/lib/whatsapp/encryption'
 import { dispatchInboundToAiReply } from '@/lib/ai/auto-reply'
+import { textoDeAudioEntrante } from '@/lib/ai/audio-entrante'
 import { dispatchInboundToFlows } from '@/lib/flows/engine'
 import { runAutomationsForTrigger } from '@/lib/automations/engine'
 import {
@@ -270,6 +271,39 @@ async function procesarEvento(
     return
   }
 
+  // ---- notas de voz ----
+  //
+  // Se transcriben ANTES de repartir el mensaje, igual que en WhatsApp.
+  // Los flujos buscan palabras y las automatizaciones de palabra clave
+  // comparan texto: transcribir después dejaría al cliente sin respuesta.
+  //
+  // Y hay algo propio de este canal. Un adjunto entra con un texto de
+  // relleno —«[Audio]»— que existe para que la bandeja muestre algo en la
+  // vista previa. Ese relleno NO puede llegar al motor: no es nada que el
+  // cliente haya dicho, y una palabra clave que por casualidad coincidiera
+  // con él dispararía un flujo que nadie pidió.
+  let textoParaElMotor = adjunto ? '' : texto
+
+  if (adjunto?.type === 'audio' && adjunto.payload?.url) {
+    const { data: guardado } = await db
+      .from('messages')
+      .select('id')
+      .eq('message_id', evento.message.mid)
+      .maybeSingle()
+    const idGuardado = (guardado as { id: string } | null)?.id
+    if (idGuardado) {
+      textoParaElMotor = await textoDeAudioEntrante({
+        accountId: conexion.account_id,
+        messageId: idGuardado,
+        mediaUrl: adjunto.payload.url,
+        // Meta no dice el tipo exacto del adjunto de voz; se deja que lo
+        // deduzca el propio transcriptor a partir de la extensión.
+        mediaType: null,
+        textoActual: '',
+      })
+    }
+  }
+
   // ---- flujos, automatizaciones y agente de IA ----
   //
   // El MISMO orden que en el webhook de WhatsApp, y no por simetría estética:
@@ -321,12 +355,12 @@ async function procesarEvento(
         ? {
             kind: 'interactive_reply',
             reply_id: idOpcion,
-            reply_title: evento.postback?.title ?? texto,
+            reply_title: evento.postback?.title ?? textoParaElMotor,
             meta_message_id: evento.message?.mid ?? evento.postback?.mid ?? '',
           }
         : {
             kind: 'text',
-            text: texto,
+            text: textoParaElMotor,
             // El identificador del mensaje es lo que hace el motor
             // idempotente: Meta reintenta las entregas, y sin él el mismo
             // mensaje haria avanzar el flujo dos veces.
@@ -347,7 +381,7 @@ async function procesarEvento(
       triggerType: disparador,
       contactId: contacto.id,
       context: {
-        message_text: texto,
+        message_text: textoParaElMotor,
         conversation_id: conversacion.id,
         ...(idOpcion ? { interactive_reply_id: idOpcion } : {}),
       },
