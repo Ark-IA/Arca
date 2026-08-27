@@ -14,7 +14,7 @@
  */
 
 import { NextResponse } from 'next/server'
-import { requireRole, toErrorResponse } from '@/lib/auth/account'
+import { getCurrentAccount, toErrorResponse } from '@/lib/auth/account'
 import { supabaseAdmin } from '@/lib/flows/admin-client'
 import { anotarEnLinea } from '@/lib/registros/linea-de-tiempo'
 
@@ -37,7 +37,14 @@ function esEstado(v: unknown): v is Estado {
 
 export async function POST(request: Request) {
   try {
-    const ctx = await requireRole('agent')
+    // Cualquier miembro, incluido un observador.
+    //
+    // El telefono esta disponible para todos los roles, y este registro no
+    // es contenido que se edite: es la constancia de una llamada que ya
+    // ocurrio. Exigir `agent` dejaba a un observador pudiendo descolgar y
+    // sin poder dejar rastro -- la llamada pasaba y no quedaba en ninguna
+    // parte, que para revisar despues es peor que no haber podido llamar.
+    const ctx = await getCurrentAccount()
     const cuerpo = (await request.json().catch(() => null)) as {
       direction?: unknown
       to_number?: unknown
@@ -76,7 +83,14 @@ export async function POST(request: Request) {
 
 export async function PATCH(request: Request) {
   try {
-    const ctx = await requireRole('agent')
+    // Cualquier miembro, incluido un observador.
+    //
+    // El telefono esta disponible para todos los roles, y este registro no
+    // es contenido que se edite: es la constancia de una llamada que ya
+    // ocurrio. Exigir `agent` dejaba a un observador pudiendo descolgar y
+    // sin poder dejar rastro -- la llamada pasaba y no quedaba en ninguna
+    // parte, que para revisar despues es peor que no haber podido llamar.
+    const ctx = await getCurrentAccount()
     const cuerpo = (await request.json().catch(() => null)) as {
       id?: unknown
       status?: unknown
