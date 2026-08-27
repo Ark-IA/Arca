@@ -8,10 +8,11 @@ import { AiUsageCard } from '@/components/agents/ai-usage';
 import { AiConfig } from '@/components/settings/ai-config';
 import { useAuth } from '@/hooks/use-auth';
 import { canEditSettings } from '@/lib/auth/roles';
+import { SoloAdministradores } from "@/components/auth/solo-administradores";
 
 type Tab = 'playground' | 'setup' | 'usage';
 
-export default function AgentsPage() {
+function AgentsPage() {
   const { accountRole } = useAuth();
   const canViewUsage = accountRole ? canEditSettings(accountRole) : false;
   const [tab, setTab] = useState<Tab>('playground');
@@ -85,5 +86,21 @@ export default function AgentsPage() {
         </Tabs>
       )}
     </div>
+  );
+}
+
+
+/**
+ * Flujos, automatizaciones y agentes definen cómo responde la plataforma a
+ * TODOS los clientes, no a una conversación. Por eso son de administración.
+ *
+ * La puerta de verdad está en las rutas de API; esto solo evita que quien
+ * no tiene permiso vea la pantalla armarse y fallar consulta por consulta.
+ */
+export default function Pagina() {
+  return (
+    <SoloAdministradores modulo="Los agentes de IA">
+      <AgentsPage />
+    </SoloAdministradores>
   );
 }

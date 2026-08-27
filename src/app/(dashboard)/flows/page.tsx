@@ -33,6 +33,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
+import { SoloAdministradores } from "@/components/auth/solo-administradores";
 
 /**
  * Flows list page.
@@ -82,7 +83,7 @@ const TEMPLATE_ICONS = {
   UserPlus,
 } as const;
 
-export default function FlowsPage() {
+function FlowsPage() {
   const router = useRouter();
   const canCreate = useCan("send-messages");
   const t = useTranslations("Flows.list");
@@ -437,4 +438,20 @@ function describeTrigger(flow: FlowRow, t: ReturnType<typeof useTranslations>): 
     return t("triggerFirstInbound");
   }
   return t("triggerManual");
+}
+
+
+/**
+ * Flujos, automatizaciones y agentes definen cómo responde la plataforma a
+ * TODOS los clientes, no a una conversación. Por eso son de administración.
+ *
+ * La puerta de verdad está en las rutas de API; esto solo evita que quien
+ * no tiene permiso vea la pantalla armarse y fallar consulta por consulta.
+ */
+export default function Pagina() {
+  return (
+    <SoloAdministradores modulo="Flujos">
+      <FlowsPage />
+    </SoloAdministradores>
+  );
 }

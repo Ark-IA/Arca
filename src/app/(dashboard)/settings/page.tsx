@@ -23,6 +23,9 @@ import { MembersTab } from '@/components/settings/members-tab';
 import { ColasPanel } from '@/components/settings/colas-panel';
 import { ApiKeysSettings } from '@/components/settings/api-keys-settings';
 import {
+  DEFAULT_SECTION,
+  SECTION_META,
+  puedeVer,
   resolveSection,
   type SettingsSection,
 } from '@/components/settings/settings-sections';
@@ -46,7 +49,7 @@ export default function SettingsPage() {
 function SettingsPageInner() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { defaultCurrency } = useAuth();
+  const { defaultCurrency, accountRole } = useAuth();
   const { mode } = useTheme();
   const t = useTranslations('Settings');
 
@@ -54,7 +57,15 @@ function SettingsPageInner() {
   // section — deep-linkable, and it keeps the existing links in the
   // app sidebar/header working. Legacy tab values (tags, custom-fields)
   // resolve onto their new home; unknown/empty → the Overview landing.
-  const section = resolveSection(searchParams.get('tab'));
+  const pedida = resolveSection(searchParams.get('tab'));
+
+  // Una seccion que este rol no puede ver cae al Resumen.
+  //
+  // El rail ya no la dibuja, pero el rail no es la unica forma de llegar:
+  // basta escribir la direccion, o abrir un enlace que alguien paso por
+  // chat. Sin esta linea, esconder la seccion habria sido decoracion.
+  const section: SettingsSection =
+    puedeVer(SECTION_META[pedida], accountRole) ? pedida : DEFAULT_SECTION;
 
   const go = (next: SettingsSection) => {
     const params = new URLSearchParams(searchParams.toString());

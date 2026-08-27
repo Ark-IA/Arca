@@ -82,11 +82,28 @@ export function canEditSettings(role: AccountRole): boolean {
 
 /**
  * Owner / admin / agent: write operational data — send messages,
- * create contacts, move deals, run broadcasts, edit automations.
+ * create contacts, move deals, run broadcasts.
  * Viewers are read-only.
  */
 export function canSendMessages(role: AccountRole): boolean {
   return hasMinRole(role, "agent");
+}
+
+/**
+ * Owner / admin: configurar CÓMO se comporta el sistema.
+ *
+ * Flujos, automatizaciones y el agente de IA. Es una capacidad aparte de
+ * `canSendMessages` porque la diferencia no es cuánto se puede escribir sino
+ * el alcance de lo escrito: un asesor que manda un mensaje afecta una
+ * conversación; un asesor que edita el flujo de bienvenida cambia lo que le
+ * pasa a TODOS los que escriban a partir de ese momento, y sin que nadie lo
+ * note hasta que un cliente se queja.
+ *
+ * Antes esto exigía `agent`, así que cualquier asesor podía reescribir el
+ * menú de recepción o apagar una automatización.
+ */
+export function canConfigureSystem(role: AccountRole): boolean {
+  return hasMinRole(role, "admin");
 }
 
 /**

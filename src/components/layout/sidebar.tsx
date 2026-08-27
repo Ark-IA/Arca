@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/hooks/use-auth";
+import { canConfigureSystem } from "@/lib/auth/roles";
 import { useTotalUnread } from "@/hooks/use-total-unread";
 import { useUnreadNotifications } from "@/hooks/use-unread-notifications";
 import {
@@ -83,6 +84,15 @@ import {
 
 interface NavItem {
   href: string;
+  /**
+   * Solo para quien administra.
+   *
+   * Esconder la fila es comodidad, no seguridad: la barrera de verdad
+   * son las guardas de las rutas de API, que no dependen de lo que el
+   * navegador decida dibujar. Esto evita que alguien llegue a una
+   * pantalla donde todo le va a fallar.
+   */
+  soloAdmin?: boolean;
   labelKey: string;
   icon: typeof LayoutDashboard;
   /**
@@ -104,9 +114,9 @@ const navItems: NavItem[] = [
   { href: "/tasks", labelKey: "tasks", icon: CheckSquare },
   { href: "/calendar", labelKey: "calendar", icon: CalendarDays },
   { href: "/broadcasts", labelKey: "broadcasts", icon: Radio },
-  { href: "/automations", labelKey: "automations", icon: Zap },
-  { href: "/flows", labelKey: "flows", icon: Workflow, beta: true },
-  { href: "/agents", labelKey: "aiAgents", icon: Bot },
+  { href: "/automations", labelKey: "automations", icon: Zap, soloAdmin: true },
+  { href: "/flows", labelKey: "flows", icon: Workflow, beta: true, soloAdmin: true },
+  { href: "/agents", labelKey: "aiAgents", icon: Bot, soloAdmin: true },
 ];
 
 const bottomNavItems = [
@@ -329,7 +339,16 @@ export function Sidebar({ open = false, onClose }: SidebarProps) {
         {/* Main navigation */}
         <nav className="scroll-invisible flex-1 overflow-y-auto px-3 py-4">
           <ul className="flex flex-col gap-1">
-            {navItems.map((item) => {
+            {navItems
+              .filter(
+                (item) =>
+                  !item.soloAdmin ||
+                  // Mientras el rol no se sabe todavía no se dibuja: mostrar
+                  // las tres filas y quitarlas medio segundo después es un
+                  // parpadeo que se lee como un fallo.
+                  (accountRole ? canConfigureSystem(accountRole) : false),
+              )
+              .map((item) => {
               const isActive =
                 pathname === item.href ||
                 (item.href !== "/dashboard" && pathname.startsWith(item.href));
@@ -403,9 +422,9 @@ export function Sidebar({ open = false, onClose }: SidebarProps) {
                       </span>
                     )}
                   </Link>
-                </li>
-              );
-            })}
+                  </li>
+                );
+              })}
           </ul>
 
           <div className="my-4 border-t border-border" />

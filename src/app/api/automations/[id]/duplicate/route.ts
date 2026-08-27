@@ -10,10 +10,10 @@ export async function POST(
   const { id } = await params
 
   // Duplicating creates a new automation row — a write. Enforce `agent`
-  // (the service-role client below bypasses the agent-gated
+  // (el cliente de servicio de abajo saltea la RLS de
   // automations_insert RLS).
   try {
-    await requireRole('agent')
+    await requireRole('admin')
   } catch (err) {
     return toErrorResponse(err)
   }

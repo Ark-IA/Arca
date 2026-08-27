@@ -43,6 +43,7 @@ import {
 import { AUTOMATION_TEMPLATES, type TemplateSlug } from "@/lib/automations/templates"
 import { triggerMeta, formatRelative } from "@/lib/automations/trigger-meta"
 import { cn } from "@/lib/utils"
+import { SoloAdministradores } from "@/components/auth/solo-administradores";
 
 const TEMPLATE_ORDER: TemplateSlug[] = [
   "welcome_message",
@@ -58,7 +59,7 @@ const TEMPLATE_ICON: Record<TemplateSlug, typeof Zap> = {
   follow_up_reminder: PhoneCall,
 }
 
-export default function AutomationsPage() {
+function AutomationsPage() {
   const router = useRouter()
   const canCreate = useCan("send-messages")
   const t = useTranslations("Automations.list")
@@ -365,4 +366,20 @@ function AutomationCard({
       </div>
     </li>
   )
+}
+
+
+/**
+ * Flujos, automatizaciones y agentes definen cómo responde la plataforma a
+ * TODOS los clientes, no a una conversación. Por eso son de administración.
+ *
+ * La puerta de verdad está en las rutas de API; esto solo evita que quien
+ * no tiene permiso vea la pantalla armarse y fallar consulta por consulta.
+ */
+export default function Pagina() {
+  return (
+    <SoloAdministradores modulo="Automatizaciones">
+      <AutomationsPage />
+    </SoloAdministradores>
+  );
 }

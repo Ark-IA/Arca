@@ -10,10 +10,10 @@ import type { AutomationTriggerType } from '@/types'
  */
 export async function POST(request: Request) {
   // Firing automations sends outbound WhatsApp — a write action. Require
-  // at least `agent`; a viewer must not be able to trigger sends.
+  // `admin`: disparar una automatización a mano manda mensajes reales.
   let accountId: string
   try {
-    const ctx = await requireRole('agent')
+    const ctx = await requireRole('admin')
     accountId = ctx.accountId
   } catch (err) {
     return toErrorResponse(err)
