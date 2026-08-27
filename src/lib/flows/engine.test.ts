@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
 import {
   matchReplyId,
+  flowAtiendeCanal,
   matchReplyText,
   matchesKeywordTrigger,
   isAutoAdvancing,
@@ -374,5 +375,37 @@ describe("evaluateConditionPredicate", () => {
         configValue: "anything",
       }),
     ).toBe(false);
+  });
+});
+
+describe("flowAtiendeCanal — un flujo apagado en un canal no contesta ahí", () => {
+  it("respeta la lista de canales del flujo", () => {
+    const soloWhatsapp = { channels: ["whatsapp"] };
+    expect(flowAtiendeCanal(soloWhatsapp, "whatsapp")).toBe(true);
+    expect(flowAtiendeCanal(soloWhatsapp, "facebook")).toBe(false);
+    expect(flowAtiendeCanal(soloWhatsapp, "instagram")).toBe(false);
+  });
+
+  it("acepta cualquiera de los canales encendidos", () => {
+    const dos = { channels: ["facebook", "instagram"] };
+    expect(flowAtiendeCanal(dos, "facebook")).toBe(true);
+    expect(flowAtiendeCanal(dos, "instagram")).toBe(true);
+    expect(flowAtiendeCanal(dos, "whatsapp")).toBe(false);
+  });
+
+  // Las tres puertas de escape. Cualquiera de ellas silenciaría un flujo que
+  // antes funcionaba, así que las tres tienen que responder que sí: perder
+  // una respuesta al cliente es peor que mandar una de más.
+  it("una fila anterior a la migración 056 sigue atendiendo todo", () => {
+    expect(flowAtiendeCanal({}, "facebook")).toBe(true);
+    expect(flowAtiendeCanal({ channels: null }, "facebook")).toBe(true);
+  });
+
+  it("una lista vacía no apaga el flujo", () => {
+    expect(flowAtiendeCanal({ channels: [] }, "whatsapp")).toBe(true);
+  });
+
+  it("sin canal en el mensaje no se filtra", () => {
+    expect(flowAtiendeCanal({ channels: ["whatsapp"] }, undefined)).toBe(true);
   });
 });

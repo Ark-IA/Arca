@@ -40,6 +40,10 @@ import {
   engineSendText,
 } from "./meta-send";
 import { decideFallback, resolveFallbackPolicy } from "./fallback";
+import {
+  parcheDeEntrega,
+  resolverDestino,
+} from "@/lib/entrega/destino-conversacion";
 import { addContactTagAndDispatch } from "@/lib/contacts/tag-events";
 import { removeContactTag } from "@/lib/contacts/tag-write";
 import {
@@ -389,11 +393,30 @@ async function isDuplicateInbound(
   return (count ?? 0) > 0;
 }
 
+/**
+ * ¿Este flujo atiende el canal por el que entró el mensaje?
+ *
+ * Una fila anterior a la migración 056 no trae la columna, y una lista vacía
+ * no debería poder existir (hay una restricción en la base). En los dos casos
+ * se responde que sí: el comportamiento previo era activarse en todos los
+ * canales, y ante la duda es mejor contestar de más que dejar a un cliente
+ * hablando solo.
+ */
+export function flowAtiendeCanal(
+  flow: { channels?: string[] | null },
+  channel: string | undefined,
+): boolean {
+  if (!channel) return true;
+  if (!Array.isArray(flow.channels) || flow.channels.length === 0) return true;
+  return flow.channels.includes(channel);
+}
+
 async function findEntryFlow(
   db: AdminClient,
   accountId: string,
   message: ParsedInbound,
   isFirstInbound: boolean,
+  channel?: string,
 ): Promise<FlowRow | null> {
   // A tap used to be rejected outright here, on the reasoning that
   // interactive replies are responses to existing prompts. That holds
@@ -416,7 +439,9 @@ async function findEntryFlow(
     .order("created_at", { ascending: true });
   if (error || !flows) return null;
 
-  const typed = flows as FlowRow[];
+  // El filtro por canal va aquí, ANTES de las dos pasadas, para que ninguna
+  // de las dos pueda elegir un flujo que el usuario apagó en este canal.
+  const typed = (flows as FlowRow[]).filter((f) => flowAtiendeCanal(f, channel));
 
   // Two passes, not one — because a `first_inbound_message` flow matches
   // ANY first message, so a single ordered pass would let it swallow a
@@ -558,12 +583,20 @@ async function executeHandoff(
   run: FlowRunRow,
   node: FlowNodeRow,
 ): Promise<void> {
-  const cfg = node.config as { assign_to?: string; note?: string };
-  const convUpdate: Record<string, unknown> = {
-    status: "pending",
-    updated_at: new Date().toISOString(),
+  const cfg = node.config as {
+    destino?: string;
+    assign_to?: string;
+    cola_id?: string;
+    note?: string;
   };
-  if (cfg.assign_to) convUpdate.assigned_agent_id = cfg.assign_to;
+  // Un nodo sin `destino` se lee como antes: con persona es «asesor», sin
+  // persona es «cola». Ningún flujo ya escrito cambia de comportamiento.
+  const destino = resolverDestino(cfg);
+  const convUpdate = parcheDeEntrega(destino, {
+    asesorId: cfg.assign_to,
+    colaId: cfg.cola_id,
+  });
+
   if (run.conversation_id) {
     await db
       .from("conversations")
@@ -572,7 +605,9 @@ async function executeHandoff(
   }
   await logEvent(db, run.id, "handoff", node.node_key, {
     note: cfg.note ?? null,
-    assigned_to: cfg.assign_to ?? null,
+    destino,
+    cola_id: destino === "cola" ? (cfg.cola_id ?? null) : null,
+    assigned_to: destino === "asesor" ? (cfg.assign_to ?? null) : null,
   });
   await endRun(db, run.id, "handed_off", "handoff_node");
 }
@@ -993,6 +1028,7 @@ export async function dispatchInboundToFlows(
       input.accountId,
       input.message,
       input.isFirstInboundMessage,
+      input.channel,
     );
     if (!flow || !flow.entry_node_id) {
       return { consumed: false, outcome: "no_match" };

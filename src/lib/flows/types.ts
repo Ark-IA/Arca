@@ -98,6 +98,16 @@ export interface SendMediaNodeConfig {
 }
 
 export interface HandoffNodeConfig {
+  /**
+   * A quien se entrega la conversacion.
+   *
+   * Sin este campo se deduce del resto, para que los nodos escritos antes
+   * de que existiera sigan comportandose igual: con `assign_to` es
+   * `asesor`, sin el es `cola`.
+   */
+  destino?: 'ia' | 'cola' | 'asesor';
+  /** Cola destino cuando `destino` es `cola`. */
+  cola_id?: string;
   /** Optional internal note written to flow_run_events.payload.note. */
   note?: string;
   /**
@@ -236,6 +246,14 @@ export interface FlowRow {
   status: "draft" | "active" | "archived";
   trigger_type: "keyword" | "first_inbound_message" | "manual";
   trigger_config: KeywordTriggerConfig | FirstInboundTriggerConfig | Record<string, unknown>;
+  /**
+   * Canales en los que este flujo se activa (migración 056).
+   *
+   * Opcional en el tipo porque una fila leída antes de esa migración no la
+   * trae. Cuando falta, el motor la trata como «los tres», que es lo que
+   * hacía antes de que la columna existiera.
+   */
+  channels?: string[] | null;
   entry_node_id: string | null;
   fallback_policy: FlowFallbackPolicy;
   execution_count: number;
@@ -339,6 +357,15 @@ export interface DispatchInboundInput {
   contactId: string;
   conversationId: string;
   message: ParsedInbound;
+  /**
+   * Canal por el que entró el mensaje.
+   *
+   * Un flujo declara en qué canales se activa (`flows.channels`), así que sin
+   * este dato no hay con qué comparar. Es opcional para no romper a quien ya
+   * llamaba a esta función: si no viene, no se filtra por canal y el
+   * comportamiento es el de siempre.
+   */
+  channel?: "whatsapp" | "facebook" | "instagram";
 }
 
 export interface DispatchInboundResult {

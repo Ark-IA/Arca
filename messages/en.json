@@ -1018,7 +1018,21 @@
         "matchWord": "Whole word",
         "matchWordHint": "Matches the keyword only as a standalone word, so \"k\" no longer fires on \"thanks\". Best for short keywords in space-separated languages; use Contains for languages written without spaces.",
         "matchExact": "Exact",
-        "closeConversationHint": "Sets the conversation status to \"closed\". No configuration needed."
+        "closeConversationHint": "Sets the conversation status to \"closed\". No configuration needed.",
+        "destinoLabel": "Who takes the conversation next?"
+      },
+      "seActivaCuando": "It fires when:",
+      "cuando": {
+        "new_message_received": "any message from a contact arrives.",
+        "first_inbound_message": "a contact writes to you for the first time.",
+        "keyword_match": "a message arrives containing {palabras}.",
+        "keyword_matchVacio": "a message arrives with certain words. You haven't written any yet, so it will never fire.",
+        "interactive_reply": "the customer taps the “{id}” option in a menu.",
+        "interactive_replyVacio": "the customer taps a menu option. You haven't picked which one yet.",
+        "new_contact_created": "a new contact is created from an incoming message.",
+        "conversation_assigned": "a conversation is assigned to someone on the team.",
+        "tag_added": "the tag chosen below is added to the contact.",
+        "time_based": "the scheduled time comes around — it repeats on its own."
       }
     }
   },
@@ -1163,7 +1177,10 @@
         "filenamePlaceholder": "invoice.pdf",
         "advanceAfterSending": "After sending, advance to",
         "pickNextNode": "Pick a next node…",
-        "none": "— None —"
+        "none": "— None —",
+        "handoffDestinoLabel": "Who takes the conversation next?",
+        "handoffAsesorLabel": "Which advisor?",
+        "handoffAsesorVacio": "Pick an advisor…"
       },
       "categories": {
         "messaging": "Messaging",
@@ -1211,7 +1228,16 @@
           "label": "End",
           "blurb": "Ends the flow"
         }
-      }
+      },
+      "canalesTitulo": "Channels it works on",
+      "canalesAyuda": "Switch a channel off and this flow won't open there. Useful for testing it on one before turning it loose on all of them.",
+      "canalesUltimo": "At least one channel has to stay on, or the flow would never open.",
+      "notaY": "and",
+      "notaBienvenida": "This flow hooks into the start of the conversation: when someone writes to you for the first time on {canales}, it opens on its own. A customer who has written before can reopen it by typing one of the words you add below.",
+      "notaPalabra": "This flow opens when someone writes {palabras} on {canales}, at any point in the conversation.",
+      "notaPalabraSinPalabras": "You haven't written the words that open this flow yet. Without at least one, it will never open.",
+      "notaManual": "This flow never opens on its own. You start it from the conversation when you need it.",
+      "notaBorrador": "It's still a draft, so it doesn't open yet. Activate it when you're ready."
     },
     "validation": {
       "noIssues": "No issues. Ready to activate.",

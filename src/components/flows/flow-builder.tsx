@@ -21,6 +21,7 @@ import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'rea
 import { useTranslations } from 'next-intl';
 import {
   CircleAlert,
+  Info,
   Plus,
   Trash2,
   ChevronDown,
@@ -28,6 +29,7 @@ import {
   CornerDownRight,
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
+import { Switch } from '@/components/ui/switch';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import {
@@ -329,6 +331,10 @@ function TriggerPanel({
           </div>
         )}
       </div>
+
+      <CanalesDelFlujo state={state} setState={setState} t={t} />
+      <NotaDeActivacion state={state} t={t} />
+
       {triggerIssues.length > 0 && (
         <div className="mt-3 flex flex-col gap-1">
           {triggerIssues.map((i, ix) => (
@@ -337,6 +343,168 @@ function TriggerPanel({
         </div>
       )}
     </section>
+  );
+}
+
+export const CANALES = [
+  { id: 'whatsapp', etiqueta: 'WhatsApp' },
+  { id: 'facebook', etiqueta: 'Facebook' },
+  { id: 'instagram', etiqueta: 'Instagram' },
+] as const;
+
+/**
+ * Un interruptor por canal.
+ *
+ * Antes un flujo activo se activaba en todos los canales conectados y no
+ * había forma de decir lo contrario: para tener un menú distinto en
+ * Instagram había que duplicar el flujo entero, y para probar sin molestar
+ * a los clientes de WhatsApp, no había forma.
+ *
+ * No se puede apagar el último: un flujo sin ningún canal está activo y no
+ * se dispara nunca, y eso desde la pantalla se ve como «lo activé y no hace
+ * nada». El interruptor que quedaría solo se deshabilita y explica por qué.
+ */
+function CanalesDelFlujo({
+  state,
+  setState,
+  t,
+}: {
+  state: BuilderState;
+  setState: React.Dispatch<React.SetStateAction<BuilderState>>;
+  t: ReturnType<typeof useTranslations>;
+}) {
+  const encendidos = state.channels ?? [];
+  const esElUltimo = encendidos.length === 1;
+
+  const alternar = (id: string, encender: boolean) =>
+    setState((s) => {
+      const previos = s.channels ?? [];
+      const siguientes = encender
+        ? [...new Set([...previos, id])]
+        : previos.filter((c) => c !== id);
+      if (siguientes.length === 0) return s; // nunca dejar cero
+      // Se guardan en el orden fijo de CANALES y no en el de los clics, para
+      // que la lista no cambie de orden sola al apagar y volver a encender.
+      return { ...s, channels: CANALES.map((c) => c.id).filter((c) => siguientes.includes(c)) };
+    });
+
+  return (
+    <div className="border-border mt-4 border-t pt-4">
+      <p className="text-foreground text-xs font-medium">{t('canalesTitulo')}</p>
+      <p className="text-muted-foreground mt-0.5 text-xs">{t('canalesAyuda')}</p>
+
+      {/* flex-wrap y no una rejilla de ancho fijo: con tres nombres de largo
+          distinto, una rejilla fija desborda en pantallas angostas. */}
+      <div className="mt-3 flex flex-wrap gap-2">
+        {CANALES.map((canal) => {
+          const activo = encendidos.includes(canal.id);
+          const bloqueado = activo && esElUltimo;
+          return (
+            <label
+              key={canal.id}
+              title={bloqueado ? t('canalesUltimo') : undefined}
+              className={cn(
+                'flex items-center gap-2.5 rounded-lg border px-3 py-2 transition-colors',
+                activo
+                  ? 'border-primary/50 bg-primary/10'
+                  : 'border-border bg-background',
+                bloqueado ? 'cursor-not-allowed opacity-70' : 'cursor-pointer',
+              )}
+            >
+              <Switch
+                checked={activo}
+                disabled={bloqueado}
+                onCheckedChange={(v) => alternar(canal.id, v)}
+                aria-label={canal.etiqueta}
+              />
+              <span
+                className={cn(
+                  'text-sm font-medium',
+                  activo ? 'text-foreground' : 'text-muted-foreground',
+                )}
+              >
+                {canal.etiqueta}
+              </span>
+            </label>
+          );
+        })}
+      </div>
+
+      {esElUltimo && (
+        <p className="text-muted-foreground mt-2 text-xs">{t('canalesUltimo')}</p>
+      )}
+    </div>
+  );
+}
+
+/**
+ * Qué va a pasar, dicho en una frase.
+ *
+ * Se arma con la configuración real —el momento, los canales encendidos, las
+ * palabras escritas— y no con un texto fijo, porque un texto fijo deja de
+ * ser cierto en cuanto alguien cambia algo y nadie se entera.
+ */
+function NotaDeActivacion({
+  state,
+  t,
+}: {
+  state: BuilderState;
+  t: ReturnType<typeof useTranslations>;
+}) {
+  const encendidos = state.channels ?? [];
+  const nombres = CANALES.filter((c) => encendidos.includes(c.id)).map(
+    (c) => c.etiqueta,
+  );
+  const canales =
+    nombres.length <= 1
+      ? (nombres[0] ?? '')
+      : `${nombres.slice(0, -1).join(', ')} ${t('notaY')} ${nombres.at(-1)}`;
+
+  const palabras = Array.isArray(state.trigger_config.keywords)
+    ? (state.trigger_config.keywords as string[])
+    : [];
+
+  const esBorrador = state.status !== 'active';
+
+  let frase: string;
+  if (state.trigger_type === 'first_inbound_message') {
+    frase = t('notaBienvenida', { canales });
+  } else if (state.trigger_type === 'keyword') {
+    frase =
+      palabras.length > 0
+        ? t('notaPalabra', {
+            canales,
+            palabras: palabras.map((p) => `«${p}»`).join(', '),
+          })
+        : t('notaPalabraSinPalabras');
+  } else {
+    frase = t('notaManual');
+  }
+
+  return (
+    <div
+      className={cn(
+        'mt-4 flex items-start gap-2 rounded-md border px-3 py-2.5',
+        esBorrador
+          ? 'border-amber-500/40 bg-amber-500/10'
+          : 'border-emerald-500/30 bg-emerald-500/10',
+      )}
+    >
+      <Info
+        className={cn(
+          'mt-0.5 h-4 w-4 shrink-0',
+          esBorrador ? 'text-amber-400' : 'text-emerald-400',
+        )}
+      />
+      <div className="min-w-0">
+        <p className="text-foreground text-xs leading-relaxed">{frase}</p>
+        {esBorrador && (
+          <p className="mt-1 text-xs font-medium text-amber-400">
+            {t('notaBorrador')}
+          </p>
+        )}
+      </div>
+    </div>
   );
 }
 

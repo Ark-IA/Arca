@@ -515,6 +515,45 @@ export function AiConfig() {
               />
             </div>
 
+            {/* En qué momento entra el agente.
+                Es la pregunta que más se repite («configuré el agente, ¿por
+                qué no responde?») y la respuesta no estaba escrita en ninguna
+                pantalla: el orden flujo → automatización → agente vivía solo
+                en el código. */}
+            <div className="rounded-md border border-border bg-muted/40 p-3">
+              <p className="text-sm font-medium text-foreground">
+                ¿En qué momento entra el agente?
+              </p>
+              <ol className="mt-2 space-y-1.5 text-xs leading-relaxed text-muted-foreground">
+                <li>
+                  <span className="font-medium text-foreground">1.</span> Llega un
+                  mensaje y primero se prueban tus flujos. Si el mensaje toca un
+                  botón del menú o coincide con una palabra que abre un flujo, lo
+                  atiende el flujo y el agente no responde.
+                </li>
+                <li>
+                  <span className="font-medium text-foreground">2.</span> Después
+                  corren tus automatizaciones, que etiquetan, crean negocios y
+                  avisan al equipo. Esas no contestan al cliente.
+                </li>
+                <li>
+                  <span className="font-medium text-foreground">3.</span>{' '}
+                  <span className="text-foreground">Ahí entra el agente</span>: si
+                  ningún flujo se hizo cargo, él responde la pregunta con tus
+                  propias palabras.
+                </li>
+                <li>
+                  <span className="font-medium text-foreground">4.</span> Y cuando
+                  el agente no puede responder, deja de contestar solo, resume la
+                  conversación y se la pasa a un asesor.
+                </li>
+              </ol>
+              <p className="mt-2.5 text-xs leading-relaxed text-muted-foreground">
+                El agente tampoco responde si un asesor ya tomó la conversación:
+                mientras haya una persona a cargo, el thread es suyo.
+              </p>
+            </div>
+
             {/* En qué canales contesta.
                 Encender la IA de golpe en los tres sería decidir por quien
                 atiende: por WhatsApp entran consultas repetidas que el agente

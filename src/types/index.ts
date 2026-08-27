@@ -594,6 +594,19 @@ export interface TagStepConfig {
 }
 
 export interface AssignConversationStepConfig {
+  /**
+   * A quién se le entrega la conversación.
+   *
+   * - `ia`     devuelve el hilo al agente automático
+   * - `cola`   lo deja pendiente y sin dueño, para quien esté libre
+   * - `asesor` lo pone a nombre de una persona (`mode` + `agent_id`)
+   *
+   * Opcional por compatibilidad: una configuración anterior a este campo no
+   * lo trae, y se lee como `asesor`, que es lo único que sabía hacer.
+   */
+  destino?: 'ia' | 'cola' | 'asesor';
+  /** Cola destino cuando `destino` es `cola`. */
+  cola_id?: string;
   mode: 'specific' | 'round_robin';
   agent_id?: string;
 }

@@ -3,6 +3,7 @@ import {
   Camera,
   Coins,
   FileText,
+  Inbox,
   KeyRound,
   LayoutGrid,
   MessagesSquare,
@@ -38,6 +39,7 @@ export const SETTINGS_SECTIONS = [
   'fields',
   'deals',
   'members',
+  'colas',
   'agente-ia',
   'blocklist',
   'api',
@@ -71,6 +73,9 @@ export const SECTION_META: Record<SettingsSection, SectionMeta> = {
   fields: { id: 'fields', label: 'Fields & tags', icon: Tags, group: 'workspace' },
   deals: { id: 'deals', label: 'Deals & currency', icon: Coins, group: 'workspace' },
   members: { id: 'members', label: 'Team members', icon: UsersRound, group: 'workspace' },
+  // Va pegada a Team members porque es la misma decision vista de otro
+  // lado: quien esta en el equipo, y que atiende cada uno.
+  colas: { id: 'colas', label: 'Colas de asesores', icon: Inbox, group: 'workspace' },
   // Asignar el agente a cada bandeja. Va en Configuracion, junto a los
   // canales, porque es una decision sobre COMO se atiende cada bandeja; el
   // ajuste del modelo y la clave sigue viviendo en Agentes IA.

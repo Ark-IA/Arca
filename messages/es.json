@@ -1018,7 +1018,21 @@
         "matchWord": "Palabra completa",
         "matchWordHint": "Compara la palabra clave solo como palabra suelta, así \"k\" deja de dispararse dentro de \"gracias\". Ideal para palabras cortas en idiomas con espacios; usá Contiene en idiomas que se escriben sin separar.",
         "matchExact": "Exacta",
-        "closeConversationHint": "Pone la conversación en estado \"cerrada\". No necesita configuración."
+        "closeConversationHint": "Pone la conversación en estado \"cerrada\". No necesita configuración.",
+        "destinoLabel": "¿Quién sigue con la conversación?"
+      },
+      "seActivaCuando": "Se activa cuando:",
+      "cuando": {
+        "new_message_received": "llegue cualquier mensaje de un contacto.",
+        "first_inbound_message": "un contacto te escriba por primera vez.",
+        "keyword_match": "llegue un mensaje que contenga {palabras}.",
+        "keyword_matchVacio": "llegue un mensaje con ciertas palabras. Todavía no escribiste ninguna, así que no se va a activar.",
+        "interactive_reply": "el cliente toque la opción «{id}» de un menú.",
+        "interactive_replyVacio": "el cliente toque una opción de un menú. Todavía no elegiste cuál.",
+        "new_contact_created": "se cree un contacto nuevo a partir de un mensaje entrante.",
+        "conversation_assigned": "una conversación se le asigne a alguien del equipo.",
+        "tag_added": "se le agregue al contacto la etiqueta elegida abajo.",
+        "time_based": "llegue la hora programada, se repite sola."
       }
     }
   },
@@ -1163,7 +1177,10 @@
         "filenamePlaceholder": "factura.pdf",
         "advanceAfterSending": "Después de enviar, avanzar a",
         "pickNextNode": "Elegí el nodo siguiente…",
-        "none": "— Ninguno —"
+        "none": "— Ninguno —",
+        "handoffDestinoLabel": "¿Quién sigue con la conversación?",
+        "handoffAsesorLabel": "¿Qué asesor?",
+        "handoffAsesorVacio": "Elegí un asesor…"
       },
       "categories": {
         "messaging": "Mensajería",
@@ -1211,7 +1228,16 @@
           "label": "Fin",
           "blurb": "Termina el flujo"
         }
-      }
+      },
+      "canalesTitulo": "Canales donde funciona",
+      "canalesAyuda": "Apagá un canal para que este flujo no se abra ahí. Sirve para probarlo en uno solo antes de soltarlo en todos.",
+      "canalesUltimo": "Tiene que quedar al menos un canal encendido, o el flujo no se abriría nunca.",
+      "notaY": "y",
+      "notaBienvenida": "Este flujo se conecta al inicio de la conversación: cuando alguien te escriba por primera vez por {canales}, se le abre solo. Un cliente que ya te escribió antes puede volver a abrirlo escribiendo una de las palabras que agregues abajo.",
+      "notaPalabra": "Este flujo se abre cuando alguien escriba {palabras} por {canales}, en cualquier momento de la conversación.",
+      "notaPalabraSinPalabras": "Falta escribir las palabras que abren este flujo. Sin al menos una, no se va a abrir nunca.",
+      "notaManual": "Este flujo no se abre solo. Lo lanzás vos desde la conversación cuando haga falta.",
+      "notaBorrador": "Está en borrador, así que todavía no se abre. Activalo cuando lo tengas listo."
     },
     "validation": {
       "noIssues": "Sin problemas. Listo para activar.",

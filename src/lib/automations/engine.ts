@@ -24,6 +24,7 @@ import { MAX_TAG_CHAIN_DEPTH, getTagChainDepth } from '@/lib/contacts/tag-chain'
 import { engineSendText, engineSendTemplate, engineSendInteractive } from './meta-send'
 import { validateInteractivePayload } from '@/lib/whatsapp/interactive'
 import { isDeliverableUrl } from '@/lib/webhooks/ssrf'
+import { parcheDeEntrega, resolverDestino } from '@/lib/entrega/destino-conversacion'
 
 // ------------------------------------------------------------
 // Public API
@@ -483,6 +484,21 @@ async function runStep(step: AutomationStep, args: ExecuteArgs): Promise<string>
     case 'assign_conversation': {
       const cfg = step.step_config as AssignConversationStepConfig
       if (!args.contactId) throw new Error('assign_conversation needs a contact')
+
+      // Los dos destinos que no son una persona se resuelven aquí y salen:
+      // no hay agente que buscar, y el reparto por turnos no aplica.
+      const destino = resolverDestino(cfg)
+      if (destino === 'ia' || destino === 'cola') {
+        await db
+          .from('conversations')
+          .update(parcheDeEntrega(destino, { colaId: cfg.cola_id }))
+          .eq('account_id', args.automation.account_id)
+          .eq('contact_id', args.contactId)
+        return destino === 'ia'
+          ? 'entregada al agente de IA'
+          : `enviada a la cola ${cfg.cola_id ?? '(sin cola)'}`
+      }
+
       let agentId = cfg.agent_id
       if (cfg.mode === 'round_robin') {
         // Pick any member of the account. The existing implementation
@@ -496,9 +512,12 @@ async function runStep(step: AutomationStep, args: ExecuteArgs): Promise<string>
         agentId = profiles?.[0]?.user_id
       }
       if (!agentId) return 'no agent resolved'
+      // Pasa por el mismo parche que los otros destinos, así asignar a una
+      // persona también apaga la autorespuesta. Antes solo escribía el
+      // asignado, y el agente de IA seguía contestando por encima del asesor.
       await db
         .from('conversations')
-        .update({ assigned_agent_id: agentId })
+        .update(parcheDeEntrega('asesor', { asesorId: agentId }))
         .eq('account_id', args.automation.account_id)
         .eq('contact_id', args.contactId)
       return `assigned to ${agentId}`

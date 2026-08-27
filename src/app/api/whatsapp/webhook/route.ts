@@ -896,6 +896,10 @@ async function processMessage(
             meta_message_id: message.id,
           },
     isFirstInboundMessage,
+    // Este webhook solo atiende WhatsApp, así que el canal es constante.
+    // Va explícito de todos modos: el motor descarta los flujos que el
+    // usuario apagó para este canal, y omitirlo los activaría a todos.
+    channel: 'whatsapp',
   })
   const flowConsumed = flowResult.consumed
 

@@ -314,6 +314,9 @@ async function procesarEvento(
       contactId: contacto.id,
       conversationId: conversacion.id,
       isFirstInboundMessage: (mensajesDelCliente ?? 0) <= 1,
+      // Facebook o Instagram según el `object` del webhook. El motor lo usa
+      // para descartar los flujos que el usuario apagó en este canal.
+      channel: canal,
       message: idOpcion
         ? {
             kind: 'interactive_reply',

@@ -39,6 +39,8 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { Switch } from "@/components/ui/switch"
+import { SelectorDeDestino } from '@/components/entrega/selector-de-destino'
+import { resolverDestino } from '@/lib/entrega/destino-conversacion'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -790,6 +792,49 @@ export function AutomationBuilder({ initial }: { initial: BuilderInitial }) {
 // Trigger card
 // ------------------------------------------------------------
 
+/**
+ * Cuándo entra esta automatización, en una frase y con sus valores reales.
+ *
+ * La diferencia entre «coincide una palabra clave» y «cuando llegue un
+ * mensaje que contenga "costos" o "precio"» es toda: la primera describe una
+ * función del sistema, la segunda describe lo que le va a pasar al cliente.
+ *
+ * Si falta el dato que la haría concreta —palabras sin escribir, etiqueta sin
+ * elegir— se dice eso mismo, que es información útil: significa que la
+ * automatización todavía no está terminada.
+ */
+function describirCuando(
+  type: AutomationTriggerType,
+  config: Record<string, unknown>,
+  t: ReturnType<typeof useTranslations>,
+): string {
+  const entrecomillar = (xs: string[]) => xs.map((x) => `«${x}»`).join(", ");
+
+  if (type === "keyword_match") {
+    const palabras = Array.isArray(config.keywords)
+      ? (config.keywords as string[]).filter(Boolean)
+      : [];
+    return palabras.length
+      ? t("cuando.keyword_match", { palabras: entrecomillar(palabras) })
+      : t("cuando.keyword_matchVacio");
+  }
+
+  if (type === "interactive_reply") {
+    const id = typeof config.reply_id === "string" ? config.reply_id.trim() : "";
+    return id
+      ? t("cuando.interactive_reply", { id })
+      : t("cuando.interactive_replyVacio");
+  }
+
+  if (type === "tag_added") {
+    // El identificador de la etiqueta no le dice nada a nadie, asi que la
+    // frase habla de «una etiqueta» y el selector de abajo muestra cual.
+    return t("cuando.tag_added");
+  }
+
+  return t(`cuando.${type}`);
+}
+
 function TriggerCard({
   type,
   config,
@@ -827,6 +872,19 @@ function TriggerCard({
             className={cn("h-4 w-4 text-muted-foreground transition-transform", open && "rotate-180")}
           />
         </button>
+
+        {/* Cuando entra, siempre a la vista.
+            Estaba escrito pero dentro del panel plegado, asi que solo lo leia
+            quien ya habia abierto a configurar — justo el que no lo necesita.
+            Y se arma con los valores REALES: decir «cuando llegue un mensaje
+            que contenga "costos"» es otra cosa que decir «coincide una
+            palabra clave». */}
+        <div className="border-t border-border px-4 py-2.5">
+          <p className="text-[11px] leading-relaxed text-muted-foreground">
+            <span className="font-medium text-foreground">{t("seActivaCuando")}</span>{" "}
+            {describirCuando(type, config, t)}
+          </p>
+        </div>
         {open && (
           <div className="space-y-3 border-t border-border px-4 py-3">
             <div>
@@ -1347,28 +1405,46 @@ function StepEditor({
         </FieldBlock>
       )
     case "assign_conversation":
+      // El mismo control que el nodo de entrega de un flujo. La pregunta es
+      // idéntica en los dos sitios, así que también lo es el componente.
       return (
-        <>
-          <FieldBlock label={t("config.modeLabel")}>
-            <select
-              value={(cfg.mode as string) ?? "round_robin"}
-              onChange={(e) => set({ mode: e.target.value })}
-              className="w-full rounded-md border border-border bg-muted px-2 py-1.5 text-sm text-foreground"
-            >
-              <option value="round_robin">{t("config.modes.round_robin")}</option>
-              <option value="specific">{t("config.modes.specific")}</option>
-            </select>
-          </FieldBlock>
-          {cfg.mode === "specific" && (
-            <FieldBlock label={t("config.agentLabel")}>
-              <AgentSelect
-                value={(cfg.agent_id as string) ?? ""}
-                onChange={(v) => set({ agent_id: v })}
-                t={t}
-              />
-            </FieldBlock>
-          )}
-        </>
+        <FieldBlock label={t("config.destinoLabel")}>
+          <SelectorDeDestino
+            destino={resolverDestino(cfg as { destino?: string; agent_id?: string })}
+            colaId={cfg.cola_id as string | undefined}
+            onCambiarDestino={(d) => set({ destino: d })}
+            onCambiarCola={(id) => set({ cola_id: id })}
+            selectorDeAsesor={
+              <div className="space-y-2">
+                <div>
+                  <label className="mb-1 block text-xs font-medium text-foreground">
+                    {t("config.modeLabel")}
+                  </label>
+                  <select
+                    value={(cfg.mode as string) ?? "round_robin"}
+                    onChange={(e) => set({ mode: e.target.value })}
+                    className="w-full rounded-md border border-border bg-muted px-2 py-1.5 text-sm text-foreground"
+                  >
+                    <option value="round_robin">{t("config.modes.round_robin")}</option>
+                    <option value="specific">{t("config.modes.specific")}</option>
+                  </select>
+                </div>
+                {cfg.mode === "specific" && (
+                  <div>
+                    <label className="mb-1 block text-xs font-medium text-foreground">
+                      {t("config.agentLabel")}
+                    </label>
+                    <AgentSelect
+                      value={(cfg.agent_id as string) ?? ""}
+                      onChange={(v) => set({ agent_id: v })}
+                      t={t}
+                    />
+                  </div>
+                )}
+              </div>
+            }
+          />
+        </FieldBlock>
       )
     case "update_contact_field":
       return (

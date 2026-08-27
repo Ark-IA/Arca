@@ -76,6 +76,8 @@ interface PutBody {
   description?: string | null
   trigger_type?: 'keyword' | 'first_inbound_message' | 'manual'
   trigger_config?: Record<string, unknown>
+  /** Canales en los que este flujo se activa (migración 056). */
+  channels?: string[]
   entry_node_id?: string | null
   fallback_policy?: Record<string, unknown>
   nodes?: Array<{
@@ -130,6 +132,23 @@ export async function PUT(
   if (body.trigger_type !== undefined) flowPatch.trigger_type = body.trigger_type
   if (body.trigger_config !== undefined)
     flowPatch.trigger_config = body.trigger_config
+  // Se validan aquí y no solo en la base. La restricción de Postgres devuelve
+  // un 500 con un mensaje que nombra la restricción, y el editor mostraría
+  // «no se pudo guardar» sin decir por qué: apagar los tres interruptores es
+  // un error del usuario, no del sistema, y merece explicarse.
+  if (body.channels !== undefined) {
+    const validos = ['whatsapp', 'facebook', 'instagram']
+    const canales = [
+      ...new Set(body.channels.filter((c) => validos.includes(c))),
+    ]
+    if (canales.length === 0) {
+      return NextResponse.json(
+        { error: 'El flujo tiene que estar encendido en al menos un canal.' },
+        { status: 400 },
+      )
+    }
+    flowPatch.channels = canales
+  }
   if (body.entry_node_id !== undefined)
     flowPatch.entry_node_id = body.entry_node_id
   if (body.fallback_policy !== undefined)

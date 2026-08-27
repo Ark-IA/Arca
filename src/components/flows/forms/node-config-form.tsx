@@ -49,6 +49,11 @@ import { cn } from "@/lib/utils";
 import { uploadAccountMedia, MEDIA_MAX_BYTES } from "@/lib/storage/upload-media";
 import { slugify, type BuilderNode } from "../shared";
 import { NextNodeRow, NodeKeySelect, TextRow } from "./fields";
+import { SelectorDeDestino } from "@/components/entrega/selector-de-destino";
+import {
+  resolverDestino,
+  type DestinoConversacion,
+} from "@/lib/entrega/destino-conversacion";
 
 interface NodeConfigFormProps {
   node: BuilderNode;
@@ -197,11 +202,10 @@ export function NodeConfigForm({
 
     case "handoff":
       return (
-        <TextRow
-          label={t("internalNote")}
-          value={(cfg as { note?: string }).note ?? ""}
-          onChange={(v) => onUpdateConfig({ note: v })}
-          rows={2}
+        <HandoffForm
+          cfg={cfg as HandoffCfg}
+          onUpdateConfig={onUpdateConfig}
+          t={t}
         />
       );
 
@@ -1061,4 +1065,107 @@ function SendMediaForm({
       />
     </>
   );
+}
+
+// ============================================================
+// handoff — a quién se le entrega la conversación
+// ============================================================
+
+interface HandoffCfg {
+  destino?: DestinoConversacion;
+  cola_id?: string;
+  assign_to?: string;
+  note?: string;
+}
+
+/**
+ * Antes este formulario tenía un solo campo: una nota interna. El nodo
+ * siempre entregaba a una persona, y a cuál se decidía escribiendo un
+ * identificador a mano en el JSON.
+ *
+ * Ahora se elige el destino de verdad, con el mismo control que usa el paso
+ * equivalente de una automatización.
+ */
+function HandoffForm({
+  cfg,
+  onUpdateConfig,
+  t,
+}: {
+  cfg: HandoffCfg;
+  onUpdateConfig: (patch: Record<string, unknown>) => void;
+  t: ReturnType<typeof useTranslations>;
+}) {
+  const miembros = useAccountMembers();
+  // Un nodo escrito antes de que existiera `destino` se lee como siempre:
+  // con persona es «asesor», sin persona es «cola».
+  const destino = resolverDestino(cfg);
+
+  return (
+    <div className="flex flex-col gap-3">
+      <div>
+        <label className="mb-1.5 block text-xs text-muted-foreground">
+          {t("handoffDestinoLabel")}
+        </label>
+        <SelectorDeDestino
+          destino={destino}
+          colaId={cfg.cola_id}
+          onCambiarDestino={(d) => onUpdateConfig({ destino: d })}
+          onCambiarCola={(id) => onUpdateConfig({ cola_id: id })}
+          selectorDeAsesor={
+            <div>
+              <label className="mb-1 block text-xs font-medium text-foreground">
+                {t("handoffAsesorLabel")}
+              </label>
+              <select
+                value={cfg.assign_to ?? ""}
+                onChange={(e) => onUpdateConfig({ assign_to: e.target.value })}
+                className="w-full rounded-md border border-border bg-muted px-2 py-1.5 text-sm text-foreground focus:border-primary focus:outline-none"
+              >
+                <option value="">{t("handoffAsesorVacio")}</option>
+                {miembros.map((m) => (
+                  <option key={m.user_id} value={m.user_id}>
+                    {m.full_name || m.email || m.user_id}
+                  </option>
+                ))}
+              </select>
+            </div>
+          }
+        />
+      </div>
+
+      <TextRow
+        label={t("internalNote")}
+        value={cfg.note ?? ""}
+        onChange={(v) => onUpdateConfig({ note: v })}
+        rows={2}
+      />
+    </div>
+  );
+}
+
+/** Los miembros de la cuenta, para el selector de asesor. */
+function useAccountMembers() {
+  const [miembros, setMiembros] = useState<
+    { user_id: string; full_name: string | null; email: string | null }[]
+  >([]);
+  useEffect(() => {
+    let cancelado = false;
+    (async () => {
+      try {
+        const r = await fetch("/api/account/members", { cache: "no-store" });
+        if (!r.ok) return;
+        const json = (await r.json()) as {
+          members?: { user_id: string; full_name: string | null; email: string | null }[];
+        };
+        if (!cancelado) setMiembros(json.members ?? []);
+      } catch {
+        // Sin la lista, el selector queda vacío y el resto del formulario
+        // sigue sirviendo. No es motivo para romper la pantalla.
+      }
+    })();
+    return () => {
+      cancelado = true;
+    };
+  }, []);
+  return miembros;
 }

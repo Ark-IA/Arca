@@ -63,6 +63,8 @@ export interface BuilderState {
   description: string;
   trigger_type: "keyword" | "first_inbound_message" | "manual";
   trigger_config: Record<string, unknown>;
+  /** Canales en los que se activa. Al menos uno (migracion 056). */
+  channels: string[];
   entry_node_id: string | null;
   status: FlowRow["status"];
   nodes: BuilderNode[];
@@ -245,6 +247,11 @@ export function FlowEditorProvider({
     description: initialFlow.description ?? "",
     trigger_type: initialFlow.trigger_type,
     trigger_config: initialFlow.trigger_config as Record<string, unknown>,
+    // Una fila anterior a la migracion 056 no trae la columna. Se asumen
+    // los tres, que es como se comportaba antes de que existiera.
+    channels: initialFlow.channels?.length
+      ? initialFlow.channels
+      : ["whatsapp", "facebook", "instagram"],
     entry_node_id: initialFlow.entry_node_id,
     status: initialFlow.status,
     nodes: initialNodes.map((n) => ({
@@ -340,6 +347,7 @@ export function FlowEditorProvider({
           description: state.description || null,
           trigger_type: state.trigger_type,
           trigger_config: state.trigger_config,
+          channels: state.channels,
           entry_node_id: state.entry_node_id,
           nodes: state.nodes,
         }),

@@ -41,7 +41,9 @@
     "defaultAvatar": "아바타",
     "menuProfile": "프로필",
     "menuSettings": "설정",
-    "menuSignOut": "로그아웃"
+    "menuSignOut": "로그아웃",
+    "collapse": "메뉴 접기",
+    "expand": "메뉴 펼치기"
   },
   "Header": {
     "dashboard": "대시보드",
@@ -1016,7 +1018,21 @@
         "matchWord": "단어 단위 일치",
         "matchWordHint": "키워드가 독립된 단어일 때만 일치하므로 \"k\"가 \"thanks\"에서 실행되지 않습니다. 공백으로 단어를 구분하는 언어의 짧은 키워드에 적합하며, 공백 없이 표기하는 언어에는 \"포함\"을 사용하세요.",
         "matchExact": "정확히 일치",
-        "closeConversationHint": "대화 상태를 \"닫힘\"으로 설정합니다. 추가 설정이 필요 없습니다."
+        "closeConversationHint": "대화 상태를 \"닫힘\"으로 설정합니다. 추가 설정이 필요 없습니다.",
+        "destinoLabel": "다음으로 누가 대화를 맡나요?"
+      },
+      "seActivaCuando": "실행 시점:",
+      "cuando": {
+        "new_message_received": "연락처로부터 메시지가 도착할 때.",
+        "first_inbound_message": "연락처가 처음으로 메시지를 보낼 때.",
+        "keyword_match": "{palabras}(이)가 포함된 메시지가 도착할 때.",
+        "keyword_matchVacio": "특정 단어가 포함된 메시지가 도착할 때. 아직 단어를 입력하지 않아 실행되지 않습니다.",
+        "interactive_reply": "고객이 메뉴에서 “{id}” 항목을 누를 때.",
+        "interactive_replyVacio": "고객이 메뉴 항목을 누를 때. 아직 어떤 항목인지 정하지 않았습니다.",
+        "new_contact_created": "수신 메시지로 새 연락처가 생성될 때.",
+        "conversation_assigned": "대화가 팀원에게 배정될 때.",
+        "tag_added": "아래에서 선택한 태그가 연락처에 추가될 때.",
+        "time_based": "예약한 시각이 되면 자동으로 반복됩니다."
       }
     }
   },
@@ -1161,7 +1177,10 @@
         "filenamePlaceholder": "invoice.pdf",
         "advanceAfterSending": "전송 후 다음 진행",
         "pickNextNode": "다음 노드를 선택하세요…",
-        "none": "— 없음 —"
+        "none": "— 없음 —",
+        "handoffDestinoLabel": "다음으로 누가 대화를 맡나요?",
+        "handoffAsesorLabel": "어느 상담원인가요?",
+        "handoffAsesorVacio": "상담원을 선택하세요…"
       },
       "categories": {
         "messaging": "메시징",
@@ -1209,7 +1228,16 @@
           "label": "종료",
           "blurb": "플로우를 종료합니다"
         }
-      }
+      },
+      "canalesTitulo": "작동하는 채널",
+      "canalesAyuda": "채널을 끄면 해당 채널에서는 이 흐름이 열리지 않습니다. 모든 채널에 적용하기 전에 하나에서만 시험해 볼 때 유용합니다.",
+      "canalesUltimo": "채널을 최소 하나는 켜 두어야 합니다. 그러지 않으면 흐름이 열리지 않습니다.",
+      "notaY": "및",
+      "notaBienvenida": "이 흐름은 대화의 시작에 연결됩니다. {canales}(으)로 누군가 처음 메시지를 보내면 자동으로 열립니다. 이전에 메시지를 보낸 적 있는 고객은 아래에 추가한 단어를 입력해 다시 열 수 있습니다.",
+      "notaPalabra": "{canales}(으)로 {palabras}(을)를 입력하면 대화 중 언제든 이 흐름이 열립니다.",
+      "notaPalabraSinPalabras": "이 흐름을 여는 단어를 아직 입력하지 않았습니다. 하나 이상 없으면 절대 열리지 않습니다.",
+      "notaManual": "이 흐름은 자동으로 열리지 않습니다. 필요할 때 대화 화면에서 직접 시작합니다.",
+      "notaBorrador": "아직 초안이라 열리지 않습니다. 준비되면 활성화하세요."
     },
     "validation": {
       "noIssues": "문제가 없습니다. 활성화할 준비가 되었습니다.",
