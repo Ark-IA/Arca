@@ -8,6 +8,7 @@ import { AiUsageCard } from '@/components/agents/ai-usage';
 import { AiConfig } from '@/components/settings/ai-config';
 import { useAuth } from '@/hooks/use-auth';
 import { canEditSettings } from '@/lib/auth/roles';
+import { QuienContestaPrimero } from '@/components/puesta-en-marcha/quien-contesta-primero';
 
 type Tab = 'playground' | 'setup' | 'usage';
 
@@ -48,6 +49,8 @@ export default function AgentsPage() {
         Your bring-your-own-key AI agent — set it up, then test it in the
         playground before it replies to customers in the inbox.
       </p>
+
+      <QuienContestaPrimero actual="ia" className="mt-5" />
 
       {decided && (
         <Tabs

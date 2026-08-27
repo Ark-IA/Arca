@@ -1082,11 +1082,6 @@
     },
     "builder": {
       "triggerTitle": "Disparador",
-      "whenLabel": "Cuando…",
-      "triggerKeywordTitle": "Un mensaje contiene una palabra clave",
-      "triggerFirstInboundTitle": "El primer mensaje que envía el cliente",
-      "triggerManualTitle": "Solo manual (sin disparo automático)",
-      "keywordsLabel": "Palabras clave (separadas por coma)",
       "keywordsPlaceholder": "soporte, ayuda, hola",
       "entryNodeTitle": "Nodo de entrada:",
       "entryNodePlaceholder": "Elegí el primer nodo…",
@@ -1211,7 +1206,35 @@
           "label": "Fin",
           "blurb": "Termina el flujo"
         }
-      }
+      },
+      "triggerSubtitle": "Elegí en qué momento esta conversación guiada se abre sola.",
+      "disparador": {
+        "first_inbound_message": {
+          "titulo": "Mensaje de bienvenida",
+          "detalle": "Cuando alguien te escribe por primera vez."
+        },
+        "keyword": {
+          "titulo": "Palabra clave",
+          "detalle": "Cuando el mensaje contiene una palabra que vos elegís."
+        },
+        "manual": {
+          "titulo": "A mano",
+          "detalle": "Solo lo abrís vos, desde la conversación."
+        }
+      },
+      "palabrasObligatorias": "Palabras que lo abren",
+      "palabrasOpcionales": "También abrirlo si escriben (opcional)",
+      "palabrasOpcionalesAyuda": "Para que un cliente que ya te escribió antes pueda volver al menú cuando quiera. Escribilas separadas por comas: menu, hola, inicio.",
+      "resumen": {
+        "first_inbound_message": "Cuando alguien te escriba por primera vez por {canales}, se le abre esta conversación guiada.",
+        "keyword": "Cuando alguien escriba una de esas palabras por {canales}, se le abre esta conversación guiada.",
+        "manual": "No se abre solo. Lo lanzás vos desde la conversación cuando haga falta."
+      },
+      "resumenY": "y",
+      "resumenSinCanal": "tus canales",
+      "resumenSinCanalAviso": "Todavía no tenés ningún canal conectado, así que no va a recibir mensajes.",
+      "resumenBorrador": "Está en borrador, así que todavía no se va a abrir.",
+      "activarAhora": "Activar"
     },
     "validation": {
       "noIssues": "Sin problemas. Listo para activar.",
@@ -1737,6 +1760,61 @@
       "toastImageTooLarge": "La imagen pesa {size} MB — el límite de Meta es 5 MB.",
       "toastUploadSuccess": "Imagen subida.",
       "toastUploadFailed": "No se pudo subir."
+    }
+  },
+  "PuestaEnMarcha": {
+    "titulo": "Primeros pasos",
+    "subtitulo": "Cinco pasos para que tu plataforma empiece a atender sola.",
+    "tituloCompleta": "Todo listo",
+    "subtituloCompleta": "Tu plataforma ya atiende sola. Podés volver acá cuando quieras revisarlo.",
+    "progreso": "{hechos} de {total}",
+    "ir": "Configurar",
+    "revisar": "Revisar",
+    "pasos": {
+      "canal": {
+        "titulo": "Conectá WhatsApp",
+        "porQue": "Es por donde te van a escribir tus clientes. También podés conectar Facebook e Instagram: todo llega a la misma bandeja."
+      },
+      "flujo": {
+        "titulo": "Armá tu primera conversación guiada",
+        "porQue": "Un menú de opciones que atiende solo: el cliente toca lo que necesita y llega a donde tiene que llegar, sin esperar a nadie."
+      },
+      "bienvenida": {
+        "titulo": "Ponelo como mensaje de bienvenida",
+        "porQue": "Así se abre solo apenas alguien te escribe por primera vez. Sin esto, tu conversación guiada existe pero no la usa nadie.",
+        "avisoBorrador": "Tenés una conversación guiada en borrador. En borrador no saluda a nadie: hay que activarla."
+      },
+      "automatizacion": {
+        "titulo": "Sumá una automatización",
+        "porQue": "Cosas que pasan solas mientras hablás: etiquetar al cliente, crear la oportunidad de venta, avisarle al equipo.",
+        "avisoApagadas": "Tenés automatizaciones creadas pero apagadas. Apagadas no hacen nada."
+      },
+      "ia": {
+        "titulo": "Activá el asistente",
+        "porQue": "Responde las preguntas que el menú no cubre, con tus propias palabras. Y cuando no puede, te pasa la conversación.",
+        "avisoApagado": "El asistente está configurado pero apagado. Apagado no responde."
+      }
+    },
+    "cadena": {
+      "titulo": "¿Quién le contesta a tu cliente?",
+      "estasAca": "Estás acá",
+      "explicacion": "Cuando llega un mensaje se prueba en este orden y contesta el PRIMERO que puede. Si el menú se hace cargo, el asistente no responde: si contestaran los dos, tu cliente recibiría dos respuestas a la misma pregunta.",
+      "flujos": {
+        "titulo": "Menú guiado",
+        "detalle": "Opciones para tocar"
+      },
+      "automatizaciones": {
+        "titulo": "Automatizaciones",
+        "detalle": "Etiquetas y ventas"
+      },
+      "ia": {
+        "titulo": "Asistente",
+        "detalle": "Preguntas abiertas"
+      },
+      "humano": {
+        "titulo": "Tu equipo",
+        "detalle": "Cuando lo piden"
+      }
     }
   }
 }

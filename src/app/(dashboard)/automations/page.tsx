@@ -43,6 +43,7 @@ import {
 import { AUTOMATION_TEMPLATES, type TemplateSlug } from "@/lib/automations/templates"
 import { triggerMeta, formatRelative } from "@/lib/automations/trigger-meta"
 import { cn } from "@/lib/utils"
+import { QuienContestaPrimero } from '@/components/puesta-en-marcha/quien-contesta-primero';
 
 const TEMPLATE_ORDER: TemplateSlug[] = [
   "welcome_message",
@@ -177,6 +178,8 @@ export default function AutomationsPage() {
           {t("create")}
         </GatedButton>
       </div>
+
+      <QuienContestaPrimero actual="automatizaciones" />
 
       {showTemplates && (
         <section>
