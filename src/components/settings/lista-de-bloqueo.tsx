@@ -131,7 +131,7 @@ export function ListaDeBloqueo() {
     <section className="animate-in fade-in-50 space-y-6 duration-200">
       <SettingsPanelHead
         title="Lista de bloqueo"
-        description="Quien esté acá no recibe mensajes: ni respuestas de la bandeja, ni masivos, ni automatizaciones. El bloqueo se aplica en el envío, así que no hay forma de esquivarlo."
+        description="Quien esté aquí no recibe mensajes: ni respuestas de la bandeja, ni masivos, ni automatizaciones. El bloqueo se aplica en el envío, así que no hay forma de esquivarlo."
       />
 
       {puedeAgregar && (
@@ -202,7 +202,7 @@ export function ListaDeBloqueo() {
             <ShieldBan className="size-7 text-muted-foreground" />
             <p className="text-sm font-medium text-foreground">La lista está vacía</p>
             <p className="max-w-sm text-xs text-muted-foreground">
-              Cuando alguien pida no recibir más mensajes, agregalo acá y el CRM
+              Cuando alguien pida no recibir más mensajes, agregalo aquí y el CRM
               deja de escribirle por todos los canales.
             </p>
           </CardContent>

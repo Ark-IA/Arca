@@ -89,8 +89,8 @@ export function ColasPanel() {
           Colas de asesores
         </h2>
         <p className="text-muted-foreground mt-1 text-sm leading-relaxed">
-          Agrupá a tu equipo por lo que atiende. Después, en un flujo o en una
-          automatización, podés mandar la conversación a la cola en vez de a
+          Agrupa a tu equipo por lo que atiende. Después, en un flujo o en una
+          automatización, puedes mandar la conversación a la cola en vez de a
           una persona: la toma quien esté disponible ese día.
         </p>
       </div>
@@ -124,7 +124,7 @@ export function ColasPanel() {
 
       {colas.length === 0 ? (
         <div className="border-border text-muted-foreground rounded-lg border border-dashed p-8 text-center text-sm">
-          Todavía no hay colas. Creá la primera arriba — por ejemplo «Ventas».
+          Todavía no hay colas. Crea la primera arriba — por ejemplo «Ventas».
         </div>
       ) : (
         <ul className="space-y-3">
@@ -271,7 +271,7 @@ function FilaDeCola({
           <Users className="h-3.5 w-3.5" />
           {cola.miembros.length === 0
             ? // Lo más útil que se puede decir de una cola vacía: que no sirve.
-              'Sin asesores. Nadie va a ver las conversaciones que caigan acá.'
+              'Sin asesores. Nadie va a ver las conversaciones que caigan aquí.'
             : `${cola.miembros.length} ${cola.miembros.length === 1 ? 'asesor' : 'asesores'}`}
         </p>
 

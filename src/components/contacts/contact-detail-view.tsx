@@ -480,7 +480,7 @@ export function ContactDetailView({
                     {/* El teléfono LLAMA, no copia.
                         Copiar el número era un paso intermedio inútil: nadie
                         lo quiere en el portapapeles, lo quiere marcado. Un
-                        clic acá inicia la llamada en el softphone y abre la
+                        clic aquí inicia la llamada en el softphone y abre la
                         burbuja sola, sin un segundo clic.
                         Quien no tiene extensión sigue viendo "copiar", que es
                         lo único que puede hacer con ese número. */}
@@ -742,7 +742,7 @@ export function ContactDetailView({
               </TabsContent>
 
               {/* Próxima gestión: qué sigue con este cliente y cuándo. Lo que
-                  se agenda acá es un evento de calendario de verdad, así que
+                  se agenda aquí es un evento de calendario de verdad, así que
                   aparece en la agenda del equipo y no solo en esta ficha. */}
               <TabsContent value="next" className="flex-1 min-h-0 overflow-y-auto px-5 py-4">
                 {contactId && (

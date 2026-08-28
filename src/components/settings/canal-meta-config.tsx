@@ -41,36 +41,36 @@ const TEXTOS: Record<Canal, {
   facebook: {
     titulo: "Facebook Messenger",
     descripcion:
-      "Conectá tu página de Facebook para recibir y responder mensajes de Messenger en la bandeja.",
+      "Conecta tu página de Facebook para recibir y responder mensajes de Messenger en la bandeja.",
     etiquetaId: "ID de la página",
     ayudaId:
       "Está en tu página → Configuración → Información de la página, al final. Son solo números.",
     ejemploId: "102938475610293",
     pasos: [
-      "Entrá a developers.facebook.com/apps y abrí tu app (o creá una de tipo Empresa).",
-      "En el menú de la izquierda, agregá el producto «Messenger».",
-      "Bajá a «Tokens de acceso», pulsá «Agregar o quitar páginas» y elegí tu página.",
+      "Entra a developers.facebook.com/apps y abre tu app (o crea una de tipo Empresa).",
+      "En el menú de la izquierda, agrega el producto «Messenger».",
+      "Baja a «Tokens de acceso», pulsa «Agregar o quitar páginas» y elige tu página.",
       "Al lado de la página aparece «Generar token». Copialo: empieza por EAA y es largo. Ese es el token de acceso que va abajo.",
-      "En «Webhooks», pulsá «Editar suscripción» y pegá la URL y el token de verificación de la tarjeta de arriba.",
-      "Suscribí la página a los campos messages y messaging_postbacks.",
-      "Volvé acá, pegá el ID de la página y el token, y guardá.",
+      "En «Webhooks», pulsa «Editar suscripción» y pega la URL y el token de verificación de la tarjeta de arriba.",
+      "Suscribe la página a los campos messages y messaging_postbacks.",
+      "Vuelve aquí, pega el ID de la página y el token, y guarda.",
     ],
   },
   instagram: {
     titulo: "Instagram",
     descripcion:
-      "Conectá tu cuenta profesional de Instagram para recibir y responder mensajes directos en la bandeja.",
+      "Conecta tu cuenta profesional de Instagram para recibir y responder mensajes directos en la bandeja.",
     etiquetaId: "ID de la cuenta profesional",
     ayudaId:
       "Es el ID de tu cuenta de Instagram vinculada a la página de Facebook, no tu nombre de usuario.",
     ejemploId: "17841400000000000",
     pasos: [
       "Tu cuenta de Instagram tiene que ser Profesional y estar vinculada a una página de Facebook.",
-      "En la app de Instagram, activá «Permitir acceso a mensajes» en Configuración → Privacidad → Mensajes.",
-      "En developers.facebook.com, agregá el producto «Instagram» a tu app.",
-      "En «Tokens de acceso», generá uno para la página vinculada. Empieza por EAA.",
-      "En «Webhooks», pegá la URL y el token de verificación de la tarjeta de arriba, y suscribí el campo messages.",
-      "Volvé acá, pegá el ID de la cuenta profesional y el token, y guardá.",
+      "En la app de Instagram, activa «Permitir acceso a mensajes» en Configuración → Privacidad → Mensajes.",
+      "En developers.facebook.com, agrega el producto «Instagram» a tu app.",
+      "En «Tokens de acceso», genera uno para la página vinculada. Empieza por EAA.",
+      "En «Webhooks», pega la URL y el token de verificación de la tarjeta de arriba, y suscribe el campo messages.",
+      "Vuelve aquí, pega el ID de la cuenta profesional y el token, y guarda.",
     ],
   },
 };
@@ -268,7 +268,7 @@ export function CanalMetaConfig({ canal }: { canal: Canal }) {
           <p className="mt-0.5 text-xs text-muted-foreground">
             {conectado
               ? `${conexion?.name ?? "Cuenta"} · ${conexion?.external_id}`
-              : "Completá los datos de abajo para empezar a recibir mensajes."}
+              : "Completa los datos de abajo para empezar a recibir mensajes."}
           </p>
           {conexion?.last_error && (
             <p className="mt-1 text-xs text-red-400">{conexion.last_error}</p>
@@ -308,7 +308,7 @@ export function CanalMetaConfig({ canal }: { canal: Canal }) {
               id="nombre"
               value={nombre}
               onChange={(e) => setNombre(e.target.value)}
-              placeholder="Cómo querés verla en el CRM"
+              placeholder="Cómo quieres verla en el CRM"
             />
           </div>
 
@@ -319,7 +319,7 @@ export function CanalMetaConfig({ canal }: { canal: Canal }) {
               type="password"
               value={token}
               onChange={(e) => setToken(e.target.value)}
-              placeholder={conectado ? "Guardado — escribí uno nuevo para reemplazarlo" : "EAAG…"}
+              placeholder={conectado ? "Guardado — escribe uno nuevo para reemplazarlo" : "EAAG…"}
             />
           </div>
 
@@ -344,7 +344,7 @@ export function CanalMetaConfig({ canal }: { canal: Canal }) {
         <CardHeader>
           <CardTitle className="text-base">Webhook</CardTitle>
           <CardDescription>
-            Meta pide DOS datos en el mismo formulario. Copiá los dos de acá.
+            Meta pide DOS datos en el mismo formulario. Copia los dos de aquí.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">

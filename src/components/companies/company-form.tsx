@@ -233,7 +233,7 @@ export function CompanyForm({
           </div>
 
           {/* Cliente ideal: es el filtro con el que se decide a quién llamar
-              primero, así que se marca acá y no en un menú escondido. */}
+              primero, así que se marca aquí y no en un menú escondido. */}
           <button
             type="button"
             onClick={() => campo('is_ideal_customer', !datos.is_ideal_customer)}

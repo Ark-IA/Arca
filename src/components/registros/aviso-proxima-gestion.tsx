@@ -87,7 +87,7 @@ export function AvisoProximaGestion({
             Sin próxima gestión
           </span>
           <span className="block text-xs text-muted-foreground">
-            Agendá qué sigue con este contacto.
+            Agenda qué sigue con este contacto.
           </span>
         </span>
         <ChevronRight className="size-4 shrink-0 text-muted-foreground" />

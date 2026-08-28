@@ -226,7 +226,7 @@ export default function PaginaEmpresas() {
             <p className="max-w-sm text-xs text-muted-foreground">
               {empresas.length === 0
                 ? 'Las empresas agrupan a tus contactos y te dejan ver por cliente, no solo por persona.'
-                : 'Probá con otro término, o quitá el filtro de cliente ideal.'}
+                : 'Prueba con otro término, o quita el filtro de cliente ideal.'}
             </p>
           </CardContent>
         </Card>

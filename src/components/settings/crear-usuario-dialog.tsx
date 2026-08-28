@@ -143,7 +143,7 @@ export function CrearUsuarioDialog({
             Crear usuario
           </DialogTitle>
           <DialogDescription className="text-muted-foreground">
-            Le creás el acceso vos y se lo entregás. Si preferís que elija su
+            Le creas el acceso tú y se lo entregas. Si prefieres que elija su
             propia contraseña, usá una invitación en vez de esto.
           </DialogDescription>
         </DialogHeader>

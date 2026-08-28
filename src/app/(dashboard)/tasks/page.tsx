@@ -202,7 +202,7 @@ export default function PaginaTareas() {
           alcance === 'vencidas'
             ? 'Nada vencido. Al día.'
             : alcance === 'mias'
-              ? 'No tenés tareas asignadas.'
+              ? 'No tienes tareas asignadas.'
               : 'Todavía no hay tareas.'
         }
       />

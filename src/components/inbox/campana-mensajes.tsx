@@ -27,7 +27,7 @@ import { cn } from '@/lib/utils';
 import type { Canal } from '@/types';
 
 /* Lucide quitó los iconos de marca, así que Facebook e Instagram se dibujan
-   acá. Una forma cada uno: pesan menos que traer una librería entera. */
+   aquí. Una forma cada uno: pesan menos que traer una librería entera. */
 function IconoFacebook(props: React.SVGProps<SVGSVGElement>) {
   return (
     <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" {...props}>

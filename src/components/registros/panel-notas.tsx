@@ -106,7 +106,7 @@ export function PanelNotas({
       // dejarla suelta: una nota que nadie va a encontrar nunca es peor que
       // no haberla guardado, porque quien la escribió cree que está.
       await supabase.from('notes').delete().eq('id', (data as Note).id);
-      toast.error('No se pudo vincular la nota. Volvé a intentarlo.');
+      toast.error('No se pudo vincular la nota. Vuelve a intentarlo.');
       return;
     }
 
@@ -138,7 +138,7 @@ export function PanelNotas({
           <Textarea
             value={cuerpo}
             onChange={(e) => setCuerpo(e.target.value)}
-            placeholder="Escribí una nota…"
+            placeholder="Escribe una nota…"
             rows={3}
             className="text-sm"
           />

@@ -175,7 +175,7 @@ export function BarraDeVistas({
           />
           <PopoverContent className="w-64 space-y-2 p-3">
             <p className="text-xs text-muted-foreground">
-              Guarda los filtros que tenés puestos ahora. El equipo la va a ver.
+              Guarda los filtros que tienes puestos ahora. El equipo la va a ver.
             </p>
             <Input
               autoFocus

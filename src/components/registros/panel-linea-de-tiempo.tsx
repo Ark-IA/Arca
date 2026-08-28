@@ -97,7 +97,7 @@ export function PanelLineaDeTiempo({
     return (
       <div className="flex flex-col items-center gap-1.5 py-8 text-center">
         <CircleDot className="size-6 text-muted-foreground" />
-        <p className="text-sm text-muted-foreground">Todavía no pasó nada acá.</p>
+        <p className="text-sm text-muted-foreground">Todavía no pasó nada aquí.</p>
         <p className="max-w-xs text-xs text-muted-foreground">
           Se va llenando sola con los mensajes, las llamadas y los cambios de
           estado.

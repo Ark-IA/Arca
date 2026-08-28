@@ -197,11 +197,11 @@ export function AgenteIaBandejas() {
     <section className="animate-in fade-in-50 space-y-5 duration-200">
       <SettingsPanelHead
         title="Agente de IA por bandeja"
-        description="Elegí en qué bandejas contesta solo el agente. Las que no marques quedan para atención humana."
+        description="Elige en qué bandejas contesta solo el agente. Las que no marques quedan para atención humana."
       />
 
       {/* Si el agente está apagado, los interruptores de abajo no hacen nada.
-          Decirlo acá evita que alguien marque casillas y espere respuestas que
+          Decirlo aquí evita que alguien marque casillas y espere respuestas que
           nunca van a llegar. */}
       {sinAgente && (
         <div className="flex items-start gap-2.5 rounded-lg border border-amber-500/40 bg-amber-500/10 p-3">

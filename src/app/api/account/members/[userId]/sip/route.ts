@@ -116,7 +116,7 @@ export async function PUT(
       if (errCred) {
         console.error('[sip] no se pudo crear la clave:', errCred.message)
         return NextResponse.json(
-          { error: 'Se guardó la extensión pero no la clave. Volvé a intentarlo.' },
+          { error: 'Se guardó la extensión pero no la clave. Vuelve a intentarlo.' },
           { status: 500 },
         )
       }

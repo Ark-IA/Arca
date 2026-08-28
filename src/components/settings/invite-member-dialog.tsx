@@ -355,7 +355,7 @@ export function InviteMemberDialog({
                 />
                 <p className="text-xs text-muted-foreground">
                   De 3 a 6 dígitos. Queda reservada hasta que la persona entre; ahí
-                  se le habilita el teléfono del CRM. Dejalo vacío si no atiende
+                  se le habilita el teléfono del CRM. Déjalo vacío si no atiende
                   llamadas.
                 </p>
               </div>

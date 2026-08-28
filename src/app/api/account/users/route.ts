@@ -67,7 +67,7 @@ export async function POST(request: Request) {
       typeof cuerpo.email === 'string' ? cuerpo.email.trim().toLowerCase() : ''
     if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
       return NextResponse.json(
-        { error: 'Escribí un correo válido: es con lo que va a iniciar sesión.' },
+        { error: 'Escribe un correo válido: es con lo que va a iniciar sesión.' },
         { status: 400 },
       )
     }

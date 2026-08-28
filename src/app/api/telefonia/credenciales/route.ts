@@ -47,7 +47,7 @@ export async function GET(request: Request) {
       console.warn('[telefonia] extension sin clave para', ctx.userId)
       return NextResponse.json({
         habilitado: false,
-        motivo: 'Tenés una extensión asignada pero le falta la clave. Pedile a un administrador que te la vuelva a asignar.',
+        motivo: 'Tienes una extensión asignada pero le falta la clave. Pedile a un administrador que te la vuelva a asignar.',
       })
     }
 

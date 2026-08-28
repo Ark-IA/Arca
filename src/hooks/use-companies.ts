@@ -52,10 +52,10 @@ function explicar(mensaje: string, codigo?: string): string {
     return 'Ya existe una empresa con ese dominio en tu cuenta.';
   }
   if (codigo === '23514') {
-    return 'Algún dato no es válido: revisá el nombre, los empleados y la facturación.';
+    return 'Algún dato no es válido: revisa el nombre, los empleados y la facturación.';
   }
   if (codigo === '42501') {
-    return 'No tenés permiso para hacer eso.';
+    return 'No tienes permiso para hacer eso.';
   }
   return mensaje;
 }

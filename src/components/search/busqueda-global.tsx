@@ -206,7 +206,7 @@ export function BusquedaGlobal() {
         <div className="max-h-[52vh] overflow-y-auto">
           {termino.trim().length < MINIMO ? (
             <p className="px-4 py-8 text-center text-sm text-muted-foreground">
-              Escribí al menos {MINIMO} letras.
+              Escribe al menos {MINIMO} letras.
             </p>
           ) : resultados.length === 0 && !buscando ? (
             <p className="px-4 py-8 text-center text-sm text-muted-foreground">

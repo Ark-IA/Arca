@@ -49,7 +49,7 @@ export function SoloAdministradores({
           {modulo} lo configura un administrador
         </h1>
         <p className="text-muted-foreground mt-2 text-sm leading-relaxed">
-          Acá se define cómo responde la plataforma a todos los clientes, así
+          Aquí se define cómo responde la plataforma a todos los clientes, así
           que solo pueden entrar los administradores de la cuenta. Tu trabajo
           del día a día está en Conversaciones.
         </p>

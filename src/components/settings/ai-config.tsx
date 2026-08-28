@@ -100,7 +100,7 @@ const PROVIDER_AYUDA: Record<AiProvider, string> = {
   openai: 'Tu clave de platform.openai.com. Se factura directamente a OpenAI.',
   anthropic: 'Tu clave de console.anthropic.com. Se factura directamente a Anthropic.',
   openrouter:
-    'Una sola clave para los modelos de OpenAI, Anthropic, Google, Meta y más. Sacala en openrouter.ai/keys y cambiá de modelo escribiendo su nombre, sin abrir otra cuenta.',
+    'Una sola clave para los modelos de OpenAI, Anthropic, Google, Meta y más. Sácala en openrouter.ai/keys y cambia de modelo escribiendo su nombre, sin abrir otra cuenta.',
 };
 
 export function AiConfig() {
@@ -140,10 +140,10 @@ export function AiConfig() {
   // Empty string = leave unassigned (shared queue).
   const [handoffAgentId, setHandoffAgentId] = useState('');
   const [respuestaMedios, setRespuestaMedios] = useState(
-    '¡Gracias por tu mensaje! 🙌 Para poder ayudarte ya mismo, ¿me contás por texto qué necesitás? Así te respondo al instante.',
+    '¡Gracias por comunicarte con ARK-IA! 🙌 Para poder ayudarte ya mismo, ¿escribenos por texto todo lo qué necesitás? Así te respondo al instante.',
   );
   const [avisoEscalada, setAvisoEscalada] = useState(
-    'Dejame consultarlo con un compañero del equipo y te respondemos por acá. 🙌',
+    'Dejame consultarlo con un compañero del equipo y te respondemos por aquí. 🙌',
   );
   const [members, setMembers] = useState<AccountMember[]>([]);
 
@@ -490,7 +490,7 @@ export function AiConfig() {
                 // preguntara algo.
                 <p className="text-xs text-amber-400">
                   OpenRouter no genera embeddings. Para búsqueda semántica hace
-                  falta una clave de OpenAI acá; sin ella la base de conocimiento
+                  falta una clave de OpenAI aquí; sin ella la base de conocimiento
                   busca por texto y sigue funcionando.
                 </p>
               )}
@@ -561,7 +561,7 @@ export function AiConfig() {
                 </div>
               </div>
               <p className="text-xs text-muted-foreground">
-                Con OpenAI, dejá los valores por defecto. Con Groq, poné
+                Con OpenAI, deja los valores por defecto. Con Groq, pon
                 <code className="mx-1 rounded bg-muted px-1">whisper-large-v3</code>
                 y
                 <code className="mx-1 rounded bg-muted px-1">
@@ -791,7 +791,7 @@ export function AiConfig() {
                 Se manda una sola vez, justo cuando el agente entrega la
                 conversación. Conviene no prometer un tiempo que no se pueda
                 cumplir: alcanza con confirmar que el mensaje llegó y que
-                viene alguien. Dejalo vacío si preferís que no se avise.
+                viene alguien. Déjalo vacío si prefieres que no se avise.
               </p>
             </div>
 

@@ -132,7 +132,7 @@ export function SelectorDeDestino({
                 onChange={(e) => onCambiarCola(e.target.value)}
                 className="border-border bg-muted text-foreground focus:border-primary w-full rounded-md border px-2 py-1.5 text-sm focus:outline-none"
               >
-                <option value="">Elegí una cola…</option>
+                <option value="">Elige una cola…</option>
                 {activas.map((c) => (
                   <option key={c.id} value={c.id}>
                     {c.name}

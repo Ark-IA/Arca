@@ -75,7 +75,7 @@ export async function enviarPorCanal(
   if (envio.message_type === 'template' || envio.message_type === 'interactive') {
     return {
       ok: false,
-      error: `Las plantillas y los mensajes con botones son de WhatsApp; ${NOMBRE_CANAL[canal]} no los admite. Escribí un mensaje normal.`,
+      error: `Las plantillas y los mensajes con botones son de WhatsApp; ${NOMBRE_CANAL[canal]} no los admite. Escribe un mensaje normal.`,
     }
   }
 
