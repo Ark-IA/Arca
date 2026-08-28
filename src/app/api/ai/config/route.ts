@@ -30,7 +30,7 @@ export async function GET() {
       // `api_key` is selected only to derive `has_key` — it is stripped
       // out below and never returned to the client.
       .select(
-        'provider, model, system_prompt, is_active, auto_reply_enabled, auto_reply_max_per_conversation, auto_reply_channels, handoff_agent_id, handoff_message, api_key, embeddings_api_key, transcription_api_key, transcription_model, transcription_base_url',
+        'provider, model, system_prompt, is_active, auto_reply_enabled, auto_reply_max_per_conversation, auto_reply_channels, handoff_agent_id, handoff_message, unsupported_media_message, api_key, embeddings_api_key, transcription_api_key, transcription_model, transcription_base_url',
       )
       .eq('account_id', accountId)
       .maybeSingle()
@@ -246,6 +246,9 @@ export async function POST(request: Request) {
     // comportaba antes: el cliente se quedaba esperando sin senal.
     if (typeof body.handoff_message === 'string') {
       shared.handoff_message = body.handoff_message.trim()
+    }
+    if (typeof body.unsupported_media_message === 'string') {
+      shared.unsupported_media_message = body.unsupported_media_message.trim()
     }
 
     if (rawTranscriptionKey) {

@@ -139,6 +139,9 @@ export function AiConfig() {
   const [canalesIa, setCanalesIa] = useState<CanalIa[]>(['whatsapp']);
   // Empty string = leave unassigned (shared queue).
   const [handoffAgentId, setHandoffAgentId] = useState('');
+  const [respuestaMedios, setRespuestaMedios] = useState(
+    '¡Gracias por tu mensaje! 🙌 Para poder ayudarte ya mismo, ¿me contás por texto qué necesitás? Así te respondo al instante.',
+  );
   const [avisoEscalada, setAvisoEscalada] = useState(
     'Dejame consultarlo con un compañero del equipo y te respondemos por acá. 🙌',
   );
@@ -176,6 +179,9 @@ export function AiConfig() {
         // Cadena vacía es una elección válida (no avisar), así que se
         // distingue de «no vino el campo» en vez de caer al texto por
         // defecto y reactivar un aviso que alguien apagó a propósito.
+        if (typeof data.unsupported_media_message === 'string') {
+          setRespuestaMedios(data.unsupported_media_message);
+        }
         if (typeof data.handoff_message === 'string') {
           setAvisoEscalada(data.handoff_message);
         }
@@ -244,6 +250,7 @@ export function AiConfig() {
     auto_reply_channels: canalesIa,
     handoff_agent_id: handoffAgentId || null,
     handoff_message: avisoEscalada,
+    unsupported_media_message: respuestaMedios,
   });
 
   const handleTest = async () => {
@@ -785,6 +792,33 @@ export function AiConfig() {
                 conversación. Conviene no prometer un tiempo que no se pueda
                 cumplir: alcanza con confirmar que el mensaje llegó y que
                 viene alguien. Dejalo vacío si preferís que no se avise.
+              </p>
+            </div>
+
+            {/* Qué contestar a una nota de voz o una imagen.
+                No pasa por el modelo: la situación tiene una sola respuesta
+                correcta, y preguntársela costaba dinero, segundos y —con la
+                base de conocimiento activa— la respuesta equivocada, porque
+                el modelo escalaba a un humano por un audio. */}
+            <div className="space-y-2">
+              <Label htmlFor="ai-respuesta-medios">
+                Qué se le contesta a un audio o una imagen
+              </Label>
+              <Textarea
+                id="ai-respuesta-medios"
+                value={respuestaMedios}
+                onChange={(e) => setRespuestaMedios(e.target.value)}
+                rows={3}
+                disabled={disabled}
+                placeholder="Vacío = no se contesta nada"
+              />
+              <p className="text-xs leading-relaxed text-muted-foreground">
+                El asistente no puede escuchar audios ni ver imágenes, pero
+                <strong className="text-foreground"> un asesor sí</strong>: el
+                archivo queda guardado en la conversación. Por eso conviene
+                pedir texto para poder responder al momento, y no decir que no
+                se puede ver — quien mandó la foto de una factura entendería
+                que fue inútil mandarla.
               </p>
             </div>
           </CardContent>

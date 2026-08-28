@@ -85,11 +85,20 @@ export function buildSystemPrompt(args: {
   //
   // Es la diferencia entre que el cliente espere sin saber cuánto y que en
   // dos segundos sepa exactamente qué hacer para que lo atiendan.
+  // El texto anterior le pedía al modelo que dijera «no puedo escuchar /
+  // ver esto». Es falso sobre la plataforma: el archivo queda guardado en la
+  // conversación y un asesor humano lo abre y lo escucha sin problema. Que el
+  // asistente hable en nombre del equipo cierra una puerta que está abierta,
+  // y peor: quien mandó la foto de una factura entiende que fue inútil.
+  //
+  // La instrucción ahora pide texto para poder responder EN ESE MOMENTO, que
+  // es lo único cierto, sin negar nada de lo que el equipo sí puede hacer.
   parts.push(
     'Some messages appear as a bracketed description instead of text — for example "[el cliente envió una nota de voz]" or "[el cliente envió una imagen]". ' +
-      'These are system descriptions, not something the customer wrote: they mean the customer sent a voice note, image or file that you cannot see or hear. ' +
+      'These are system descriptions, not something the customer wrote: they mean the customer sent a voice note, image or file that you have no access to. ' +
       'Do NOT treat this as missing information that requires a human. ' +
-      'Reply briefly, in the customer\'s language, saying you cannot listen to / view it and asking them to write what they need — and, if you can tell from earlier messages what they were asking about, offer to continue with that. ' +
+      'Reply briefly and warmly in the customer\'s language, thanking them and asking them to type what they need so you can help right away — and, if earlier messages show what they were asking about, offer to continue with that. ' +
+      'Do NOT say the business cannot listen to audio or view images: the file is saved in the conversation and a human agent can open it. Speak only for yourself, and never say or imply that sending it was pointless. ' +
       'Never claim to have heard or seen the content, and never invent what it might have said.',
   )
 
