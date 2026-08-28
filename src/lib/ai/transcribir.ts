@@ -26,7 +26,21 @@ const TIEMPO_LIMITE_MS = 25_000
  */
 const MAXIMO_BYTES = 24 * 1024 * 1024
 
+/**
+ * Los dos protocolos que se hablan.
+ *
+ *   openai      POST {base}/audio/transcriptions   con clave, campo `model`
+ *   whispercpp  POST {base}/inference              sin clave, modelo ya cargado
+ *
+ * Se guarda cuál en la configuración en vez de deducirlo de la dirección.
+ * Adivinar por la URL funciona hoy y se rompe el día que alguien ponga el
+ * servicio local detrás de un nombre de dominio.
+ */
+export type ProtocoloTranscripcion = 'openai' | 'whispercpp'
+
 export interface ConfigTranscripcion {
+  protocolo: ProtocoloTranscripcion
+  /** Vacía cuando el servicio es local: no autentica nada. */
   apiKey: string
   model: string
   baseUrl: string
@@ -35,23 +49,34 @@ export interface ConfigTranscripcion {
 /**
  * Lee la configuración de transcripción de una cuenta.
  *
- * Devuelve `null` cuando no hay clave, que es el caso normal hasta que
- * alguien la configura. Quien llama tiene que saber seguir sin ella.
+ * Devuelve `null` cuando no está configurada. Quien llama tiene que saber
+ * seguir sin ella: sin transcripción el sistema no se rompe, solo responde
+ * peor.
  */
 export function configDeTranscripcion(fila: {
+  transcription_kind?: string | null
   transcription_api_key?: string | null
   transcription_model?: string | null
   transcription_base_url?: string | null
 } | null): ConfigTranscripcion | null {
-  const apiKey = fila?.transcription_api_key?.trim()
-  if (!apiKey) return null
+  const protocolo: ProtocoloTranscripcion =
+    fila?.transcription_kind === 'whispercpp' ? 'whispercpp' : 'openai'
+
+  const apiKey = fila?.transcription_api_key?.trim() ?? ''
+
+  // Con el servicio local NO se exige clave. Exigirla obligaría a inventar
+  // un valor de relleno, y como las claves se guardan cifradas ese relleno
+  // fallaría al descifrarse y apagaría la transcripción sin explicar nada.
+  if (protocolo === 'openai' && !apiKey) return null
+
+  const base = fila?.transcription_base_url?.trim()
+  if (protocolo === 'whispercpp' && !base) return null
+
   return {
+    protocolo,
     apiKey,
     model: fila?.transcription_model?.trim() || 'whisper-1',
-    baseUrl: (fila?.transcription_base_url?.trim() || 'https://api.openai.com/v1').replace(
-      /\/+$/,
-      '',
-    ),
+    baseUrl: (base || 'https://api.openai.com/v1').replace(/\/+$/, ''),
   }
 }
 
@@ -123,23 +148,33 @@ export async function transcribirAudio(args: {
       return null
     }
 
+    const esLocal = config.protocolo === 'whispercpp'
+
     const formulario = new FormData()
     formulario.append(
       'file',
       new Blob([datos], { type: mime || 'audio/ogg' }),
       nombreSegunTipo(mime),
     )
-    formulario.append('model', config.model)
+    // whisper.cpp carga UN modelo al arrancar y rechaza el campo; OpenAI lo
+    // exige. Es la única diferencia real entre los dos, además de la ruta.
+    if (!esLocal) formulario.append('model', config.model)
     // Texto plano: no hacen falta marcas de tiempo ni segmentos, y el JSON
     // completo obligaría a navegar una estructura para sacar lo mismo.
     formulario.append('response_format', 'text')
 
-    const respuesta = await fetch(`${config.baseUrl}/audio/transcriptions`, {
-      method: 'POST',
-      headers: { Authorization: `Bearer ${config.apiKey}` },
-      body: formulario,
-      signal: corte,
-    })
+    const respuesta = await fetch(
+      `${config.baseUrl}${esLocal ? '/inference' : '/audio/transcriptions'}`,
+      {
+        method: 'POST',
+        // Sin cabecera de autorización cuando es local: mandar «Bearer »
+        // vacío hace que algunos servidores devuelvan 401 por una credencial
+        // malformada, que es lo contrario de no mandar ninguna.
+        headers: esLocal ? {} : { Authorization: `Bearer ${config.apiKey}` },
+        body: formulario,
+        signal: corte,
+      },
+    )
 
     if (!respuesta.ok) {
       const detalle = await respuesta.text().catch(() => '')

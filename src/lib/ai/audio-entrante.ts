@@ -49,7 +49,7 @@ export async function textoDeAudioEntrante(
 
   const { data: fila } = await db
     .from('ai_configs')
-    .select('transcription_api_key, transcription_model, transcription_base_url')
+    .select('transcription_kind, transcription_api_key, transcription_model, transcription_base_url')
     .eq('account_id', accountId)
     .maybeSingle()
 
@@ -57,6 +57,7 @@ export async function textoDeAudioEntrante(
   // mandaría el texto cifrado como credencial y el proveedor devolvería un
   // 401 que parecería «la clave está mal» cuando en realidad está bien.
   let cfg = fila as {
+    transcription_kind?: string | null
     transcription_api_key?: string | null
     transcription_model?: string | null
     transcription_base_url?: string | null
