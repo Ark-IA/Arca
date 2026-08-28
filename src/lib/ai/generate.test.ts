@@ -13,6 +13,7 @@ function config(overrides: Partial<AiConfig> = {}): AiConfig {
     autoReplyMaxPerConversation: 3,
     autoReplyChannels: ['whatsapp', 'facebook', 'instagram'],
     handoffAgentId: null,
+    handoffMessage: null,
     embeddingsApiKey: null,
     ...overrides,
   }

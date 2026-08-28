@@ -40,6 +40,11 @@ export interface AiConfig {
    *  agent's `auth.users.id`, or null to leave it unassigned (drop into
    *  the shared queue). */
   handoffAgentId: string | null
+  /**
+   * Lo que se le manda al cliente al entregar la conversacion a una
+   * persona. Vacio = no se manda nada.
+   */
+  handoffMessage: string | null
   /** Optional OpenAI-compatible key for embeddings. When set, the
    *  knowledge base is embedded and semantic retrieval turns on; when
    *  null, retrieval falls back to lexical full-text search. */

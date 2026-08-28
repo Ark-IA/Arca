@@ -139,6 +139,9 @@ export function AiConfig() {
   const [canalesIa, setCanalesIa] = useState<CanalIa[]>(['whatsapp']);
   // Empty string = leave unassigned (shared queue).
   const [handoffAgentId, setHandoffAgentId] = useState('');
+  const [avisoEscalada, setAvisoEscalada] = useState(
+    'Dejame consultarlo con un compañero del equipo y te respondemos por acá. 🙌',
+  );
   const [members, setMembers] = useState<AccountMember[]>([]);
 
   // Guard keyed on the account (not a bare boolean) so an in-place
@@ -170,6 +173,12 @@ export function AiConfig() {
             : ['whatsapp'],
         );
         setHandoffAgentId(data.handoff_agent_id ?? '');
+        // Cadena vacía es una elección válida (no avisar), así que se
+        // distingue de «no vino el campo» en vez de caer al texto por
+        // defecto y reactivar un aviso que alguien apagó a propósito.
+        if (typeof data.handoff_message === 'string') {
+          setAvisoEscalada(data.handoff_message);
+        }
         setHasStoredKey(Boolean(data.has_key));
         setApiKey(data.has_key ? MASKED_KEY : '');
         setKeyEdited(false);
@@ -234,6 +243,7 @@ export function AiConfig() {
     auto_reply_max_per_conversation: maxPerConversation,
     auto_reply_channels: canalesIa,
     handoff_agent_id: handoffAgentId || null,
+    handoff_message: avisoEscalada,
   });
 
   const handleTest = async () => {
@@ -751,6 +761,31 @@ export function AiConfig() {
                   ))}
                 </SelectContent>
               </Select>
+            </div>
+
+            {/* Lo que se le dice al cliente al escalar.
+                Antes no se le decía nada: el agente pausaba, avisaba al
+                equipo y el cliente se quedaba mirando el teléfono sin
+                saber si lo habían leído. El silencio no informa y encima
+                parece una falla. */}
+            <div className="space-y-2">
+              <Label htmlFor="ai-aviso-escalada">
+                Qué se le dice al cliente al pasar a una persona
+              </Label>
+              <Textarea
+                id="ai-aviso-escalada"
+                value={avisoEscalada}
+                onChange={(e) => setAvisoEscalada(e.target.value)}
+                rows={2}
+                disabled={disabled}
+                placeholder="Vacío = no se le avisa nada"
+              />
+              <p className="text-xs leading-relaxed text-muted-foreground">
+                Se manda una sola vez, justo cuando el agente entrega la
+                conversación. Conviene no prometer un tiempo que no se pueda
+                cumplir: alcanza con confirmar que el mensaje llegó y que
+                viene alguien. Dejalo vacío si preferís que no se avise.
+              </p>
             </div>
           </CardContent>
         </Card>

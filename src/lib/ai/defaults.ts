@@ -76,6 +76,23 @@ export function buildSystemPrompt(args: {
     )
   }
 
+  // Los mensajes de medios llegan descritos entre corchetes cuando no traen
+  // texto — «[el cliente envió una nota de voz]» — porque el modelo no puede
+  // percibirlos. Sin esta instrucción el modelo lee «no tengo la información
+  // que necesito» y escala, que es una lectura razonable de la regla de
+  // arriba y la respuesta equivocada: despertar a una persona porque alguien
+  // mandó un audio es carísimo comparado con pedirle que lo escriba.
+  //
+  // Es la diferencia entre que el cliente espere sin saber cuánto y que en
+  // dos segundos sepa exactamente qué hacer para que lo atiendan.
+  parts.push(
+    'Some messages appear as a bracketed description instead of text — for example "[el cliente envió una nota de voz]" or "[el cliente envió una imagen]". ' +
+      'These are system descriptions, not something the customer wrote: they mean the customer sent a voice note, image or file that you cannot see or hear. ' +
+      'Do NOT treat this as missing information that requires a human. ' +
+      'Reply briefly, in the customer\'s language, saying you cannot listen to / view it and asking them to write what they need — and, if you can tell from earlier messages what they were asking about, offer to continue with that. ' +
+      'Never claim to have heard or seen the content, and never invent what it might have said.',
+  )
+
   if (userPrompt && userPrompt.trim()) {
     parts.push(`Business context and instructions:\n${userPrompt.trim()}`)
   }

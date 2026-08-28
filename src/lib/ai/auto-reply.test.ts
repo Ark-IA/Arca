@@ -77,6 +77,7 @@ function aiConfig(overrides: Partial<AiConfig> = {}): AiConfig {
     autoReplyMaxPerConversation: 3,
     autoReplyChannels: ['whatsapp', 'facebook', 'instagram'],
     handoffAgentId: null,
+    handoffMessage: null,
     embeddingsApiKey: null,
     ...overrides,
   }
@@ -199,6 +200,25 @@ describe('dispatchInboundToAiReply — handoff', () => {
     )
     // No handoff target configured → conversation left unassigned.
     expect(h.state.updatePayload).not.toHaveProperty('assigned_agent_id')
+  })
+
+  it('le avisa al cliente cuando hay mensaje de escalada configurado', async () => {
+    // El fallo que habia: esta rama pausaba el bot, dejaba el resumen para
+    // el equipo y devolvia sin mandarle NADA al cliente. Desde su lado eso
+    // es indistinguible de que el sistema este roto.
+    h.loadAiConfig.mockResolvedValue(
+      aiConfig({ handoffMessage: 'Ya te contacta una persona.' }),
+    )
+    h.generateReply.mockResolvedValue({ text: '', handoff: true })
+    await dispatchInboundToAiReply(ARGS)
+
+    expect(h.engineSendText).toHaveBeenCalledWith(
+      expect.objectContaining({ text: 'Ya te contacta una persona.' }),
+    )
+    // El aviso NO gasta una respuesta del tope: no es una respuesta del
+    // agente, es un acuse de que la conversacion cambio de manos.
+    expect(h.state.rpcCalls).toHaveLength(0)
+    expect(h.state.updatePayload).toMatchObject({ ai_autoreply_disabled: true })
   })
 
   it('routes to the configured handoff agent on handoff', async () => {

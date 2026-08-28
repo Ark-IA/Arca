@@ -163,6 +163,39 @@ export async function dispatchInboundToAiReply(
         update.assigned_agent_id = config.handoffAgentId
       }
       await db.from('conversations').update(update).eq('id', conversationId)
+
+      // Y se le avisa al cliente.
+      //
+      // Antes esta rama no le mandaba nada: pausaba el bot, dejaba el resumen
+      // y devolvía. Desde el lado de quien escribió eso es indistinguible de
+      // que el sistema esté roto — mandó un mensaje y no pasó nada — y el
+      // humano puede tardar minutos u horas en aparecer.
+      //
+      // Se manda exactamente UNA vez por escalada: más arriba está la
+      // compuerta `if (conv.ai_autoreply_disabled) return`, así que llegar
+      // hasta acá significa que la conversación NO estaba pausada todavía.
+      // Es la transición, no el estado. Si el cliente sigue escribiendo
+      // mientras espera, esos mensajes salen por la compuerta y no repiten
+      // el aviso.
+      const aviso = config.handoffMessage?.trim()
+      if (aviso) {
+        try {
+          await responderPorCanal({
+            db,
+            accountId,
+            configOwnerUserId,
+            conversationId,
+            contactId,
+            canal,
+            texto: aviso,
+          })
+        } catch (e) {
+          // Que no se pueda avisar no puede deshacer la escalada: la
+          // conversación ya está en manos de una persona, que es lo que
+          // importa. Se registra y se sigue.
+          console.error('[ai auto-reply] no se pudo avisar de la escalada:', e)
+        }
+      }
       return
     }
 
