@@ -45,6 +45,8 @@ export interface AiConfig {
    * persona. Vacio = no se manda nada.
    */
   handoffMessage: string | null
+  /** Respuesta fija a un audio o imagen que no se puede percibir. */
+  unsupportedMediaMessage: string | null
   /** Optional OpenAI-compatible key for embeddings. When set, the
    *  knowledge base is embedded and semantic retrieval turns on; when
    *  null, retrieval falls back to lexical full-text search. */

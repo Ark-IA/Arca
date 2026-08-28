@@ -14,6 +14,7 @@ function config(overrides: Partial<AiConfig> = {}): AiConfig {
     autoReplyChannels: ['whatsapp', 'facebook', 'instagram'],
     handoffAgentId: null,
     handoffMessage: null,
+    unsupportedMediaMessage: null,
     embeddingsApiKey: null,
     ...overrides,
   }

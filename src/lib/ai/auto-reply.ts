@@ -1,6 +1,6 @@
 import { supabaseAdmin } from './admin-client'
 import { loadAiConfig } from './config'
-import { buildConversationContext } from './context'
+import { buildConversationContext, esDescripcionDeMedios } from './context'
 import { retrieveKnowledge } from './knowledge'
 import { generateReply } from './generate'
 import { buildSystemPrompt } from './defaults'
@@ -107,12 +107,51 @@ export async function dispatchInboundToAiReply(
       return
     }
 
+    // ------------------------------------------------------------
+    // Nota de voz que no se pudo transcribir: se contesta sin modelo.
+    // ------------------------------------------------------------
+    //
+    // La situación tiene UNA sola respuesta correcta —decir que no se puede
+    // escuchar y pedir que lo escriban— así que preguntársela a un modelo es
+    // gastar dinero, segundos y fiabilidad en una decisión ya tomada.
+    //
+    // Y decidía mal. Con base de conocimiento activa, el último bloque del
+    // prompt dice «si no cubren la pregunta, no adivines: escalá», y una
+    // descripción de audio no está cubierta por ninguna documentación: el
+    // modelo escalaba a un humano porque el cliente había hablado en vez de
+    // escribir. Se vio en producción, con su fila de consumo y todo.
+    const ultimoDelCliente = latestUserMessage(messages)
+    if (esDescripcionDeMedios(ultimoDelCliente)) {
+      const respuesta = config.unsupportedMediaMessage?.trim()
+      if (!respuesta) return
+
+      // Sí gasta una respuesta del tope: es una respuesta al cliente como
+      // cualquier otra, y sin contarla alguien que mande audios en cadena
+      // recibiría respuestas sin límite.
+      const { data: claimed } = await db.rpc('claim_ai_reply_slot', {
+        conversation_id: conversationId,
+        max_replies: config.autoReplyMaxPerConversation,
+      })
+      if (claimed !== true) return
+
+      await responderPorCanal({
+        db,
+        accountId,
+        configOwnerUserId,
+        conversationId,
+        contactId,
+        canal,
+        texto: respuesta,
+      })
+      return
+    }
+
     // Ground the reply in the account's knowledge base (best-effort).
     const knowledge = await retrieveKnowledge(
       db,
       accountId,
       config,
-      latestUserMessage(messages),
+      ultimoDelCliente,
     )
 
     const systemPrompt = buildSystemPrompt({

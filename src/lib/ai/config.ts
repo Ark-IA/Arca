@@ -13,11 +13,12 @@ interface AiConfigRow {
   auto_reply_channels: string[] | null
   handoff_agent_id: string | null
   handoff_message: string | null
+  unsupported_media_message: string | null
   embeddings_api_key: string | null
 }
 
 const CONFIG_COLUMNS =
-  'provider, model, api_key, system_prompt, is_active, auto_reply_enabled, auto_reply_max_per_conversation, auto_reply_channels, handoff_agent_id, handoff_message, embeddings_api_key'
+  'provider, model, api_key, system_prompt, is_active, auto_reply_enabled, auto_reply_max_per_conversation, auto_reply_channels, handoff_agent_id, handoff_message, unsupported_media_message, embeddings_api_key'
 
 /**
  * Load and decrypt the account's AI config for *use* (draft or
@@ -88,6 +89,7 @@ export async function loadAiConfig(
       : ['whatsapp']) as AiConfig['autoReplyChannels'],
     handoffAgentId: row.handoff_agent_id,
     handoffMessage: row.handoff_message ?? null,
+    unsupportedMediaMessage: row.unsupported_media_message ?? null,
     embeddingsApiKey,
   }
 }

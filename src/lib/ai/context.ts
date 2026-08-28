@@ -39,6 +39,26 @@ export function esMediaDescribible(contentType: string | null | undefined): bool
 }
 
 /**
+ * ¿El último mensaje del cliente es una de estas descripciones?
+ *
+ * Sirve para no molestar al modelo con una decisión que ya está tomada. Si
+ * mandó una nota de voz que no se pudo transcribir, la respuesta correcta es
+ * una sola —decirle que no se puede escuchar y pedirle que la escriba— y no
+ * hay nada que un modelo pueda aportar ahí.
+ *
+ * Preguntárselo salía caro en las tres monedas: dinero (una llamada al
+ * proveedor), tiempo (segundos de espera) y fiabilidad. Y de hecho decidía
+ * mal: con la base de conocimiento activa, el último bloque del prompt le
+ * dice «si no cubren la pregunta, no adivines: escalá», y una descripción de
+ * audio no está cubierta por ninguna documentación. El modelo escalaba a un
+ * humano porque alguien mandó un audio.
+ */
+export function esDescripcionDeMedios(texto: string | null | undefined): boolean {
+  if (!texto) return false
+  return Object.values(SIN_TEXTO).includes(texto.trim())
+}
+
+/**
  * Fetch the last N messages of a conversation and map them to the
  * provider-neutral chat shape. Customer messages become `user`; agent
  * and bot messages become `assistant`.

@@ -18,7 +18,16 @@ const h = vi.hoisted(() => ({
 }))
 
 vi.mock('./config', () => ({ loadAiConfig: h.loadAiConfig }))
-vi.mock('./context', () => ({ buildConversationContext: h.buildConversationContext }))
+// El mock reemplaza el modulo ENTERO, asi que hay que reexportar todo lo
+// que el despachador use de el. Con solo buildConversationContext,
+// esDescripcionDeMedios quedaba undefined, la llamada lanzaba, y el
+// try/catch exterior se lo tragaba: seis pruebas fallando por un mock
+// incompleto y ni un mensaje que lo dijera.
+vi.mock('./context', () => ({
+  buildConversationContext: h.buildConversationContext,
+  esDescripcionDeMedios: (t: string | null | undefined) =>
+    typeof t === 'string' && t.startsWith('[el cliente envió'),
+}))
 vi.mock('./knowledge', () => ({ retrieveKnowledge: h.retrieveKnowledge }))
 vi.mock('./generate', () => ({ generateReply: h.generateReply }))
 vi.mock('@/lib/flows/meta-send', () => ({ engineSendText: h.engineSendText }))
@@ -78,6 +87,7 @@ function aiConfig(overrides: Partial<AiConfig> = {}): AiConfig {
     autoReplyChannels: ['whatsapp', 'facebook', 'instagram'],
     handoffAgentId: null,
     handoffMessage: null,
+    unsupportedMediaMessage: null,
     embeddingsApiKey: null,
     ...overrides,
   }
@@ -229,5 +239,54 @@ describe('dispatchInboundToAiReply — handoff', () => {
       ai_autoreply_disabled: true,
       assigned_agent_id: 'agent-7',
     })
+  })
+})
+
+describe('dispatchInboundToAiReply — audio que no se puede escuchar', () => {
+  it('contesta sin llamar al modelo', async () => {
+    // Se vio en produccion: con base de conocimiento activa, el ultimo bloque
+    // del prompt dice «si no cubren la pregunta, no adivines: escala», y una
+    // descripcion de audio no esta cubierta por ninguna documentacion. El
+    // modelo escalaba a un humano porque el cliente habia hablado en vez de
+    // escribir — con su fila de consumo pagada y todo.
+    h.loadAiConfig.mockResolvedValue(
+      aiConfig({ unsupportedMediaMessage: 'No puedo escuchar audios.' }),
+    )
+    h.buildConversationContext.mockResolvedValue([
+      { role: 'user', content: '[el cliente envió una nota de voz]' },
+    ])
+
+    await dispatchInboundToAiReply(ARGS)
+
+    expect(h.generateReply).not.toHaveBeenCalled()
+    expect(h.retrieveKnowledge).not.toHaveBeenCalled()
+    expect(h.engineSendText).toHaveBeenCalledWith(
+      expect.objectContaining({ text: 'No puedo escuchar audios.' }),
+    )
+    // Gasta una respuesta del tope: es una respuesta al cliente como
+    // cualquier otra, y sin contarla alguien que mande audios en cadena
+    // recibiria respuestas sin limite.
+    expect(h.state.rpcCalls).toHaveLength(1)
+  })
+
+  it('no manda nada si el texto se dejo vacio', async () => {
+    h.loadAiConfig.mockResolvedValue(aiConfig({ unsupportedMediaMessage: '' }))
+    h.buildConversationContext.mockResolvedValue([
+      { role: 'user', content: '[el cliente envió una nota de voz]' },
+    ])
+    await dispatchInboundToAiReply(ARGS)
+    expect(h.engineSendText).not.toHaveBeenCalled()
+    expect(h.generateReply).not.toHaveBeenCalled()
+  })
+
+  it('un mensaje escrito normal sigue yendo al modelo', async () => {
+    h.loadAiConfig.mockResolvedValue(
+      aiConfig({ unsupportedMediaMessage: 'No puedo escuchar audios.' }),
+    )
+    h.buildConversationContext.mockResolvedValue([
+      { role: 'user', content: 'hola, cuanto cuesta?' },
+    ])
+    await dispatchInboundToAiReply(ARGS)
+    expect(h.generateReply).toHaveBeenCalled()
   })
 })

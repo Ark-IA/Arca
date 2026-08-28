@@ -588,6 +588,17 @@ async function executeHandoff(
     assign_to?: string;
     cola_id?: string;
     note?: string;
+    /**
+     * Lo que se le dice al CLIENTE al entregar la conversación.
+     *
+     * Distinto de `note`, que es la nota interna para quien la reciba. Sin
+     * este mensaje, el cliente toca «Sí, quiero que me contacte un
+     * especialista» y no pasa absolutamente nada: hizo justo lo que el menú
+     * le pidió y se queda mirando el teléfono. El estado de la conversación
+     * cambia, el equipo se entera, y la única persona que no se entera es la
+     * que preguntó.
+     */
+    mensaje?: string;
   };
   // Un nodo sin `destino` se lee como antes: con persona es «asesor», sin
   // persona es «cola». Ningún flujo ya escrito cambia de comportamiento.
@@ -596,6 +607,32 @@ async function executeHandoff(
     asesorId: cfg.assign_to,
     colaId: cfg.cola_id,
   });
+
+  // El mensaje al cliente va ANTES de tocar la conversación.
+  //
+  // Entregar a un asesor apaga la autorespuesta del agente, y el envío pasa
+  // por el mismo despachador de canal. Hacerlo después funcionaría igual hoy,
+  // pero deja el orden a merced de que nadie añada mañana una comprobación de
+  // «¿está la IA encendida?» en el camino de salida.
+  const aviso = cfg.mensaje?.trim();
+  if (aviso && run.conversation_id && run.contact_id) {
+    try {
+      await engineSendText({
+        accountId: run.account_id,
+        userId: run.user_id,
+        conversationId: run.conversation_id,
+        contactId: run.contact_id,
+        // Se interpolan las variables del recorrido, igual que en cualquier
+        // otro envío: un aviso puede querer decir «sobre tu consulta de
+        // {{vars.detalle}}» y sonar mucho menos automático.
+        text: interpolateVars(aviso, run.vars ?? {}),
+      });
+    } catch (e) {
+      // Que no se pueda avisar no deshace la entrega: la conversación ya
+      // está en manos de quien corresponde, que es lo que importa.
+      console.error("[flows] no se pudo avisar de la entrega:", e);
+    }
+  }
 
   if (run.conversation_id) {
     await db
