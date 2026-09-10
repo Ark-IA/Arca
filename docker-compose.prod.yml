@@ -1,0 +1,55 @@
+# ---------------------------------------------------------------
+# Arca — despliegue en el VPS
+#
+# Superposición sobre docker-compose.yml: reemplaza la publicación de
+# puertos al host por rutas en Traefik con TLS de Let's Encrypt.
+#
+#   docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build
+#
+# Arca usa Supabase Cloud como base de datos, así que no lleva
+# contenedor de Postgres: sólo necesita salida a internet.
+# ---------------------------------------------------------------
+
+services:
+  app:
+    # En producción el puerto no se publica al host: Traefik alcanza el
+    # contenedor por la red interna.
+    #
+    # Hace falta `!override` (Compose 2.24+): las listas de `ports` se
+    # FUSIONAN entre archivos, así que un `ports: []` a secas no anula
+    # nada y la aplicación quedaría igualmente expuesta en el host,
+    # sin TLS y esquivando el proxy.
+    ports: !override []
+
+    labels:
+      - traefik.enable=true
+      - traefik.docker.network=${TRAEFIK_NETWORK:-root_default}
+      - traefik.http.routers.arca.rule=Host(`${ARCA_HOST:?falta ARCA_HOST}`)
+      - traefik.http.routers.arca.entrypoints=web,websecure
+      - traefik.http.routers.arca.tls=true
+      - traefik.http.routers.arca.tls.certresolver=mytlschallenge
+      - traefik.http.services.arca.loadbalancer.server.port=3000
+      - traefik.http.middlewares.arca.headers.SSLRedirect=true
+      - traefik.http.middlewares.arca.headers.STSSeconds=31536000
+      - traefik.http.middlewares.arca.headers.STSIncludeSubdomains=true
+      - traefik.http.middlewares.arca.headers.forceSTSHeader=true
+      - traefik.http.middlewares.arca.headers.contentTypeNosniff=true
+      - traefik.http.middlewares.arca.headers.browserXSSFilter=true
+      - traefik.http.routers.arca.middlewares=arca@docker
+
+    networks: [traefik]
+
+    # 2 vCPU / 8 GB compartidos con Traefik, n8n, email y MySQL.
+    # Sin este techo, un pico de Next.js puede disparar el OOM killer
+    # y llevarse por delante a los demás contenedores.
+    deploy:
+      resources:
+        limits:
+          memory: 1g
+
+networks:
+  # Red existente donde vive Traefik.
+  #   docker network ls | grep -i traefik
+  traefik:
+    external: true
+    name: ${TRAEFIK_NETWORK:-root_default}
