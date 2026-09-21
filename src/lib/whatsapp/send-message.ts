@@ -43,6 +43,7 @@ import {
   isRecipientNotAllowedError,
 } from '@/lib/whatsapp/phone-utils';
 import { estaBloqueado, MENSAJE_BLOQUEADO } from '@/lib/whatsapp/bloqueo';
+import { configDeWhatsApp } from '@/lib/whatsapp/credenciales';
 import { anotarEnLinea, resumir } from '@/lib/registros/linea-de-tiempo';
 import type { MessageTemplate } from '@/types';
 import {
@@ -294,14 +295,16 @@ export async function sendMessageToConversation(
   // tocar una docena de sitios, pero ahora puede llevar un identificador.
   const sanitizedPhone = destino;
 
-  // WhatsApp config, account-scoped.
-  const { data: config, error: configError } = await db
-    .from('whatsapp_config')
-    .select('*')
-    .eq('account_id', accountId)
-    .single();
+  // Las credenciales de LA LINEA por la que entro esta conversacion. Ver
+  // src/lib/whatsapp/credenciales.ts: con varias lineas dadas de alta, la
+  // consulta por cuenta que habia aqui dejaba de devolver una sola fila y el
+  // envio moria diciendo que WhatsApp no estaba configurado.
+  const config = await configDeWhatsApp(db, accountId, {
+    connectionId: (conversation as { connection_id?: string | null }).connection_id,
+    conversationId,
+  });
 
-  if (configError || !config) {
+  if (!config) {
     throw new SendMessageError(
       'whatsapp_not_configured',
       'WhatsApp not configured. Please set up your WhatsApp integration first.',

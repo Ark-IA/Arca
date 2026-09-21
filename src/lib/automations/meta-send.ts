@@ -5,6 +5,7 @@ import {
   engineSendInteractiveList,
 } from '@/lib/flows/meta-send'
 import { decrypt } from '@/lib/whatsapp/encryption'
+import { configDeWhatsApp } from '@/lib/whatsapp/credenciales'
 import {
   sanitizePhoneForMeta,
   isValidE164,
@@ -135,12 +136,11 @@ async function sendViaMeta(input: SendInput): Promise<{ whatsapp_message_id: str
     throw new Error(`contact phone invalid: ${contact.phone}`)
   }
 
-  const { data: config, error: configErr } = await db
-    .from('whatsapp_config')
-    .select('*')
-    .eq('account_id', input.accountId)
-    .single()
-  if (configErr || !config) {
+  // La linea por la que entro la conversacion. Ver credenciales.ts.
+  const config = await configDeWhatsApp(db, input.accountId, {
+    conversationId: input.conversationId,
+  })
+  if (!config) {
     throw new Error('WhatsApp not configured for this account')
   }
 

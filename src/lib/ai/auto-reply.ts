@@ -1,6 +1,7 @@
 import { supabaseAdmin } from './admin-client'
 import { loadAiConfig } from './config'
 import { buildConversationContext, esDescripcionDeMedios } from './context'
+import { ajustesDeConexion, promptEfectivo } from './conexion'
 import { retrieveKnowledge } from './knowledge'
 import { generateReply } from './generate'
 import { buildSystemPrompt } from './defaults'
@@ -84,6 +85,20 @@ export async function dispatchInboundToAiReply(
     // muda a toda la bandeja historica.
     const canal = (conv.channel ?? 'whatsapp') as Canal
     if (!config.autoReplyChannels.includes(canal)) return
+
+    // ------------------------------------------------------------
+    // De qué conexión vino, y qué impone esa conexión
+    // ------------------------------------------------------------
+    //
+    // Una cuenta puede tener la línea de ventas y la de soporte. El
+    // proveedor y la clave son los mismos; la personalidad, no. Sin esto el
+    // mismo agente contesta igual venga de donde venga — que es justo lo que
+    // hace que se confunda.
+    const conexion = await ajustesDeConexion(db, conversationId)
+
+    // Interruptor de la conexión, que se suma al de la cuenta. Apagar una
+    // línea concreta tiene que poder hacerse sin apagar el agente entero.
+    if (conexion && !conexion.aiEnabled) return
     // Cheap early-out; the authoritative cap check is the atomic claim
     // below (this read can race a concurrent inbound).
     if (conv.ai_reply_count >= config.autoReplyMaxPerConversation) return
@@ -152,10 +167,15 @@ export async function dispatchInboundToAiReply(
       accountId,
       config,
       ultimoDelCliente,
+      // Los documentos de esta conexion mas los compartidos. Sin esto,
+      // el agente comercial citaria los manuales de soporte en mitad de
+      // una venta.
+      conexion?.id ?? null,
     )
 
     const systemPrompt = buildSystemPrompt({
-      userPrompt: config.systemPrompt,
+      // El de la conexion si lo tiene; el de la cuenta si no.
+      userPrompt: promptEfectivo(conexion?.systemPrompt, config.systemPrompt),
       mode: 'auto_reply',
       knowledge,
     })

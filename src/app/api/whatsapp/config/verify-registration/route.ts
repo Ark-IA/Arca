@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server'
+import { configDeWhatsApp } from '@/lib/whatsapp/credenciales'
 import { createClient } from '@/lib/supabase/server'
 import { decrypt } from '@/lib/whatsapp/encryption'
 import {
@@ -55,11 +56,7 @@ export async function GET() {
     })
   }
 
-  const { data: config } = await supabase
-    .from('whatsapp_config')
-    .select('*')
-    .eq('account_id', accountId)
-    .maybeSingle()
+  const config = await configDeWhatsApp(supabase, accountId)
 
   if (!config) {
     return NextResponse.json({

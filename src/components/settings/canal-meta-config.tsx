@@ -131,7 +131,7 @@ function CampoCopiable({
 
 export function CanalMetaConfig({ canal }: { canal: Canal }) {
   const txt = TEXTOS[canal];
-  const [conexion, setConexion] = useState<Conexion | null>(null);
+  const [conexiones, setConexiones] = useState<Conexion[]>([]);
   const [cargando, setCargando] = useState(true);
   const [guardando, setGuardando] = useState(false);
 
@@ -154,15 +154,25 @@ export function CanalMetaConfig({ canal }: { canal: Canal }) {
 
   const cargar = useCallback(async () => {
     const supabase = createClient();
+    // TODAS las cuentas de este canal. Antes se pedia una sola con
+    // `.maybeSingle()`, que devuelve error -- no la primera fila -- en cuanto
+    // hay dos: la pantalla se quedaria diciendo "Sin conectar" con las dos
+    // paginas funcionando.
     const { data } = await supabase
       .from("channel_connections")
       .select("id, channel, external_id, name, status, last_error, connected_at")
       .eq("channel", canal)
-      .maybeSingle();
-    setConexion(data ?? null);
-    if (data) {
-      setExternalId(data.external_id);
-      setNombre(data.name ?? "");
+      .order("created_at", { ascending: true });
+
+    const lista = (data ?? []) as Conexion[];
+    setConexiones(lista);
+
+    // El formulario queda en blanco cuando ya hay alguna conectada: lo que
+    // se espera al volver a esta pantalla es agregar otra, no editar la
+    // primera por accidente. Para editar se pulsa sobre ella.
+    if (lista.length === 0) {
+      setExternalId("");
+      setNombre("");
     }
     setCargando(false);
   }, [canal]);
@@ -214,14 +224,12 @@ export function CanalMetaConfig({ canal }: { canal: Canal }) {
     }
   };
 
-  const desconectar = async () => {
-    if (!conexion) return;
+  const desconectar = async (id: string) => {
     setGuardando(true);
     try {
-      const r = await fetch(`/api/meta/conexiones?id=${conexion.id}`, { method: "DELETE" });
+      const r = await fetch(`/api/meta/conexiones?id=${id}`, { method: "DELETE" });
       if (!r.ok) throw new Error("No se pudo desconectar");
       toast.success("Cuenta desconectada.");
-      setConexion(null);
       setExternalId("");
       setNombre("");
       await cargar();
@@ -230,6 +238,13 @@ export function CanalMetaConfig({ canal }: { canal: Canal }) {
     } finally {
       setGuardando(false);
     }
+  };
+
+  /** Abrir una ya conectada para cambiarle el token o el nombre. */
+  const editar = (c: Conexion) => {
+    setExternalId(c.external_id);
+    setNombre(c.name ?? "");
+    setToken("");
   };
 
   if (cargando) {
@@ -241,7 +256,11 @@ export function CanalMetaConfig({ canal }: { canal: Canal }) {
     );
   }
 
-  const conectado = conexion?.status === "connected";
+  // Se sigue guardando con el mismo formulario: escribir un identificador
+  // distinto da de alta OTRA cuenta, y repetir uno ya conectado lo actualiza.
+  // Es la misma regla que aplica el servidor, y asi la pantalla no tiene que
+  // decidir entre "crear" y "editar".
+  const yaConectado = conexiones.some((c) => c.external_id === externalId.trim());
 
   return (
     <div className="space-y-5">
@@ -250,37 +269,68 @@ export function CanalMetaConfig({ canal }: { canal: Canal }) {
         <p className="mt-1 text-sm text-muted-foreground">{txt.descripcion}</p>
       </div>
 
-      {/* Estado */}
-      <div
-        className={`flex items-start gap-3 rounded-lg border p-4 ${
-          conectado ? "border-primary/25 bg-primary/5" : "border-border bg-card"
-        }`}
-      >
-        {conectado ? (
-          <CheckCircle2 className="mt-0.5 h-5 w-5 shrink-0 text-primary" />
-        ) : (
+      {/* Lo que ya esta conectado */}
+      {conexiones.length === 0 ? (
+        <div className="flex items-start gap-3 rounded-lg border border-border bg-card p-4">
           <XCircle className="mt-0.5 h-5 w-5 shrink-0 text-muted-foreground" />
-        )}
-        <div className="min-w-0 flex-1">
-          <p className="text-sm font-medium text-foreground">
-            {conectado ? "Conectado" : "Sin conectar"}
-          </p>
-          <p className="mt-0.5 text-xs text-muted-foreground">
-            {conectado
-              ? `${conexion?.name ?? "Cuenta"} · ${conexion?.external_id}`
-              : "Completa los datos de abajo para empezar a recibir mensajes."}
-          </p>
-          {conexion?.last_error && (
-            <p className="mt-1 text-xs text-red-400">{conexion.last_error}</p>
-          )}
+          <div>
+            <p className="text-sm font-medium text-foreground">Sin conectar</p>
+            <p className="mt-0.5 text-xs text-muted-foreground">
+              Completa los datos de abajo para empezar a recibir mensajes.
+            </p>
+          </div>
         </div>
-        {conectado && (
-          <Button variant="ghost" size="sm" onClick={desconectar} disabled={guardando}>
-            <Trash2 className="mr-1.5 h-3.5 w-3.5" />
-            Desconectar
-          </Button>
-        )}
-      </div>
+      ) : (
+        <div className="space-y-2">
+          {conexiones.map((c) => (
+            <div
+              key={c.id}
+              className={`flex items-start gap-3 rounded-lg border p-4 ${
+                c.status === "connected"
+                  ? "border-primary/25 bg-primary/5"
+                  : "border-border bg-card"
+              }`}
+            >
+              {c.status === "connected" ? (
+                <CheckCircle2 className="mt-0.5 h-5 w-5 shrink-0 text-primary" />
+              ) : (
+                <XCircle className="mt-0.5 h-5 w-5 shrink-0 text-muted-foreground" />
+              )}
+              <div className="min-w-0 flex-1">
+                <p className="truncate text-sm font-medium text-foreground">
+                  {c.name ?? "Cuenta"}
+                </p>
+                <p className="mt-0.5 truncate text-xs text-muted-foreground">
+                  {c.external_id}
+                </p>
+                {c.last_error && (
+                  <p className="mt-1 text-xs text-red-400">{c.last_error}</p>
+                )}
+              </div>
+              <div className="flex shrink-0 gap-1">
+                <Button variant="ghost" size="sm" onClick={() => editar(c)}>
+                  Cambiar token
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => void desconectar(c.id)}
+                  disabled={guardando}
+                >
+                  <Trash2 className="mr-1.5 h-3.5 w-3.5" />
+                  Desconectar
+                </Button>
+              </div>
+            </div>
+          ))}
+          <p className="px-1 text-xs text-muted-foreground">
+            Podés conectar varias: escribí abajo el identificador de otra
+            {canal === "facebook" ? " página" : " cuenta"} y se agrega aparte,
+            con sus propias instrucciones para el agente (Configuración →
+            Conexiones).
+          </p>
+        </div>
+      )}
 
       {/* Credenciales */}
       <Card>
@@ -319,7 +369,7 @@ export function CanalMetaConfig({ canal }: { canal: Canal }) {
               type="password"
               value={token}
               onChange={(e) => setToken(e.target.value)}
-              placeholder={conectado ? "Guardado — escribe uno nuevo para reemplazarlo" : "EAAG…"}
+              placeholder={yaConectado ? "Guardado — escribe uno nuevo para reemplazarlo" : "EAAG…"}
             />
           </div>
 
@@ -332,7 +382,7 @@ export function CanalMetaConfig({ canal }: { canal: Canal }) {
             ) : (
               <>
                 <PlugZap className="mr-2 h-4 w-4" />
-                {conectado ? "Actualizar" : "Conectar"}
+                {yaConectado ? "Actualizar" : "Conectar"}
               </>
             )}
           </Button>

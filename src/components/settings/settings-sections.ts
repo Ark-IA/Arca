@@ -2,6 +2,7 @@ import { hasMinRole, type AccountRole } from '@/lib/auth/roles';
 
 import {
   Bot,
+  Cable,
   Camera,
   Coins,
   FileText,
@@ -33,6 +34,7 @@ export const SETTINGS_SECTIONS = [
   'profile',
   'security',
   'appearance',
+  'conexiones',
   'whatsapp',
   'facebook',
   'instagram',
@@ -74,6 +76,12 @@ export const SECTION_META: Record<SettingsSection, SectionMeta> = {
   profile: { id: 'profile', label: 'Your profile', icon: User, group: 'account' },
   security: { id: 'security', label: 'Login & security', icon: Shield, group: 'account' },
   appearance: { id: 'appearance', label: 'Appearance', icon: Palette, group: 'account' },
+  // Va PRIMERO del bloque de canales, antes que WhatsApp / Facebook /
+  // Instagram: es la vista de conjunto -- que lineas y paginas atiende la
+  // cuenta, con que prompt responde cada una -- y las tres de abajo son el
+  // detalle de como se conecta cada canal. Puesta despues, habria que
+  // recorrer los tres canales para descubrir que existe.
+  conexiones: { id: 'conexiones', label: 'Conexiones', icon: Cable, group: 'workspace', minRole: 'admin' },
   whatsapp: { id: 'whatsapp', label: 'WhatsApp', icon: PlugZap, group: 'workspace', minRole: 'admin' },
   // Canales separados y no una sola pantalla de 'Canales': cada uno se
   // conecta distinto y con credenciales propias, y meterlos juntos

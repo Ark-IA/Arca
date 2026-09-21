@@ -20,7 +20,7 @@ export async function GET(_request: Request, { params }: Params) {
     const { id } = await params
     const { data, error } = await supabase
       .from('ai_knowledge_documents')
-      .select('id, title, content, updated_at')
+      .select('id, title, content, updated_at, connection_id')
       .eq('account_id', accountId)
       .eq('id', id)
       .maybeSingle()
@@ -49,7 +49,17 @@ export async function PATCH(request: Request, { params }: Params) {
     const body = await request.json().catch(() => null)
     const title = typeof body?.title === 'string' ? body.title.trim() : undefined
     const content = typeof body?.content === 'string' ? body.content.trim() : undefined
-    if (title === undefined && content === undefined) {
+    // `null` es un valor válido: significa «pasalo a toda la cuenta». Por
+    // eso se distingue «no vino» (undefined) de «vino vacío» (null) en vez
+    // de tratar los dos como ausencia.
+    const conexionPedida =
+      'connection_id' in (body ?? {})
+        ? (typeof body.connection_id === 'string' && body.connection_id.trim()
+            ? body.connection_id.trim()
+            : null)
+        : undefined
+
+    if (title === undefined && content === undefined && conexionPedida === undefined) {
       return NextResponse.json({ error: 'Nothing to update' }, { status: 400 })
     }
     if (title !== undefined && !title) {
@@ -59,9 +69,22 @@ export async function PATCH(request: Request, { params }: Params) {
       return NextResponse.json({ error: 'content cannot be empty' }, { status: 400 })
     }
 
-    const update: Record<string, string> = {}
+    const update: Record<string, string | null> = {}
     if (title !== undefined) update.title = title
     if (content !== undefined) update.content = content
+    if (conexionPedida !== undefined) {
+      if (conexionPedida) {
+        const { data: propia } = await supabase
+          .from('channel_connections')
+          .select('id')
+          .eq('id', conexionPedida)
+          .eq('account_id', accountId)
+          .maybeSingle()
+        update.connection_id = propia ? conexionPedida : null
+      } else {
+        update.connection_id = null
+      }
+    }
 
     const { data: updated, error } = await supabase
       .from('ai_knowledge_documents')
@@ -75,6 +98,19 @@ export async function PATCH(request: Request, { params }: Params) {
       return NextResponse.json({ error: 'Failed to update document' }, { status: 500 })
     }
     if (!updated) return NextResponse.json({ error: 'Not found' }, { status: 404 })
+
+    // Los fragmentos guardan la conexión repetida para que la búsqueda no
+    // tenga que unir tablas. El disparador de la migración 071 solo actúa al
+    // insertar, así que al cambiarla acá hay que arrastrarlos: sin esto, el
+    // documento diría que es de ventas y sus fragmentos seguirían saliendo
+    // en soporte.
+    if (conexionPedida !== undefined) {
+      await supabase
+        .from('ai_knowledge_chunks')
+        .update({ connection_id: update.connection_id })
+        .eq('account_id', accountId)
+        .eq('document_id', id)
+    }
 
     if (content !== undefined) {
       const { key: embeddingsApiKey, corrupt } = await loadEmbeddingsKey(

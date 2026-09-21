@@ -59,6 +59,10 @@ export async function resolveConversationByPhone(
     .from('whatsapp_config')
     .select('id')
     .eq('account_id', accountId)
+    // Ver el comentario de src/lib/api/v1/contacts.ts: aqui solo se
+    // comprueba que la cuenta TENGA WhatsApp, no cual de sus lineas.
+    .order('created_at', { ascending: true, nullsFirst: true })
+    .limit(1)
     .maybeSingle();
   if (!config) {
     throw new SendMessageError(

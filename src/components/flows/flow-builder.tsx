@@ -333,6 +333,7 @@ function TriggerPanel({
       </div>
 
       <CanalesDelFlujo state={state} setState={setState} t={t} />
+      <ConexionesDelFlujo state={state} setState={setState} />
       <NotaDeActivacion state={state} t={t} />
 
       {triggerIssues.length > 0 && (
@@ -433,6 +434,118 @@ function CanalesDelFlujo({
       {esElUltimo && (
         <p className="text-muted-foreground mt-2 text-xs">{t('canalesUltimo')}</p>
       )}
+    </div>
+  );
+}
+
+/**
+ * En qué conexiones concretas se activa.
+ *
+ * Los interruptores de arriba dicen el CANAL —WhatsApp sí, Instagram no—.
+ * Con varias líneas de WhatsApp dadas de alta eso deja de alcanzar: el
+ * flujo de ventas no tiene por qué saltar en la línea de soporte.
+ *
+ * Se muestra solo cuando hay algo que elegir. Con una sola conexión por
+ * canal, esta sección sería un interruptor que no puede estar en otra
+ * posición: ocupa espacio y sugiere una decisión que no existe.
+ *
+ * Ninguna marcada = todas las del canal. Es lo que hacía el flujo antes de
+ * que existieran varias conexiones, así que un flujo viejo que nadie abre
+ * sigue atendiendo exactamente lo mismo.
+ */
+function ConexionesDelFlujo({
+  state,
+  setState,
+}: {
+  state: BuilderState;
+  setState: React.Dispatch<React.SetStateAction<BuilderState>>;
+}) {
+  const [conexiones, setConexiones] = useState<
+    { id: string; channel: string; name: string | null; external_id: string }[]
+  >([]);
+
+  useEffect(() => {
+    void (async () => {
+      try {
+        const r = await fetch('/api/conexiones', { cache: 'no-store' });
+        if (!r.ok) return;
+        const json = await r.json();
+        setConexiones(json.conexiones ?? []);
+      } catch {
+        // Sin la lista, el flujo se guarda sin restringir conexiones, que es
+        // el comportamiento de siempre. Se degrada, no se rompe.
+      }
+    })();
+  }, []);
+
+  // Solo las de los canales que el flujo tiene encendidos: ofrecer una
+  // página de Facebook en un flujo que solo atiende WhatsApp invita a
+  // marcarla y después preguntarse por qué no pasa nada.
+  const candidatas = conexiones.filter((c) => state.channels.includes(c.channel));
+
+  // Nada que elegir mientras no haya, en algún canal encendido, más de una.
+  const hayVarias = state.channels.some(
+    (canal) => candidatas.filter((c) => c.channel === canal).length > 1,
+  );
+  if (!hayVarias) return null;
+
+  const marcadas = state.connection_ids ?? [];
+
+  const alternar = (id: string) =>
+    setState((s) => {
+      const previas = s.connection_ids ?? [];
+      return {
+        ...s,
+        connection_ids: previas.includes(id)
+          ? previas.filter((x) => x !== id)
+          : [...previas, id],
+      };
+    });
+
+  return (
+    <div className="border-border mt-4 border-t pt-4">
+      <p className="text-foreground text-xs font-medium">¿En cuáles?</p>
+      <p className="text-muted-foreground mt-0.5 text-xs">
+        Tenés varias conexiones en los canales que encendiste. Marcá en cuáles
+        se activa este flujo. Si no marcás ninguna, se activa en todas.
+      </p>
+
+      <div className="mt-3 flex flex-wrap gap-2">
+        {candidatas.map((c) => {
+          const activa = marcadas.includes(c.id);
+          return (
+            <button
+              key={c.id}
+              type="button"
+              onClick={() => alternar(c.id)}
+              className={cn(
+                'rounded-lg border px-3 py-2 text-left transition-colors',
+                activa
+                  ? 'border-primary/50 bg-primary/10'
+                  : 'border-border bg-background hover:border-primary/30',
+              )}
+            >
+              <span
+                className={cn(
+                  'block text-sm font-medium',
+                  activa ? 'text-foreground' : 'text-muted-foreground',
+                )}
+              >
+                {c.name ?? c.external_id}
+              </span>
+              <span className="text-muted-foreground block text-[11px]">
+                {c.channel}
+              </span>
+            </button>
+          );
+        })}
+      </div>
+
+      <p className="text-muted-foreground mt-2 text-xs">
+        {marcadas.length === 0
+          ? 'Ninguna marcada: se activa en todas las conexiones de los canales encendidos.'
+          : `Se activa solo en ${marcadas.length} de ${candidatas.length}.`}
+      </p>
     </div>
   );
 }

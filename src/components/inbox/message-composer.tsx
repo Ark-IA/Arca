@@ -731,12 +731,21 @@ export function MessageComposer({
             value={text}
             onChange={handleChange}
             onKeyDown={handleKeyDown}
+            // Cuando se PUEDE escribir, el campo va limpio: una caja de
+            // texto al pie de una conversación, con el botón de enviar al
+            // lado, no necesita que le expliquen para qué es.
+            //
+            // Los otros dos textos SÍ se quedan, y no por descuido: son los
+            // únicos que dicen por qué el campo está apagado. Sin ellos, un
+            // recuadro gris que no acepta lo que se escribe parece una
+            // pantalla rota en vez de la ventana de 24 horas cerrada o un
+            // permiso de solo lectura.
             placeholder={
               readOnly
                 ? t("readOnlyPlaceholder")
                 : sessionExpired
                   ? t("sessionExpiredPlaceholder")
-                  : t("typeMessagePlaceholder")
+                  : ""
             }
             disabled={sessionExpired || readOnly}
             rows={1}

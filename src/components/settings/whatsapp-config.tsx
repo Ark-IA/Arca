@@ -37,6 +37,14 @@ const MASKED_TOKEN = '••••••••••••••••';
 type ConnectionStatus = 'connected' | 'disconnected' | 'unknown';
 type ResetReason = 'token_corrupted' | 'meta_api_error' | null;
 
+/**
+ * Marca de "todavia no existe": el formulario esta en blanco esperando los
+ * datos de una linea nueva. Se distingue de `null` -- que quiere decir "la
+ * que estuviera" -- porque si no, pedir una linea nueva y recargar la lista
+ * volveria a abrir la primera.
+ */
+const NUEVA = '__nueva__';
+
 export function WhatsAppConfig() {
   const t = useTranslations('Settings.whatsapp');
   const supabase = createClient();
@@ -59,6 +67,13 @@ export function WhatsAppConfig() {
   const [resetting, setResetting] = useState(false);
   const [showToken, setShowToken] = useState(false);
   const [config, setConfig] = useState<WhatsAppConfigType | null>(null);
+  // Las lineas de la cuenta y cual se esta editando. Una cuenta puede tener
+  // varias -- ventas y soporte, o una vieja que sigue recibiendo -- y el
+  // formulario atiende UNA a la vez: mostrarlas todas juntas obligaria a
+  // repetir en pantalla el token, el PIN y las comprobaciones de Meta.
+  const [lineas, setLineas] = useState<WhatsAppConfigType[]>([]);
+  const [lineaActiva, setLineaActiva] = useState<string | null>(null);
+  const lineaActivaRef = useRef<string | null>(null);
   const [connectionStatus, setConnectionStatus] = useState<ConnectionStatus>('unknown');
   const [resetReason, setResetReason] = useState<ResetReason>(null);
   const [statusMessage, setStatusMessage] = useState<string>('');
@@ -111,24 +126,38 @@ export function WhatsAppConfig() {
       ? `${window.location.origin}/api/whatsapp/webhook`
       : '';
 
-  const fetchConfig = useCallback(async (acctId: string) => {
+  const fetchConfig = useCallback(async (acctId: string, lineaPedida?: string | null) => {
     setLoading(true);
     try {
-      // Load form values from Supabase (shows what's in DB).
-      // Switched from `user_id` (which would only match the row's
-      // original author) to `account_id` so every member of the
-      // account sees the same saved configuration. UNIQUE(account_id)
-      // on the table guarantees the .maybeSingle() return type
-      // remains accurate.
-      const { data, error } = await supabase
+      // TODAS las lineas de la cuenta, no una. Esta consulta traia una sola
+      // fila con `.maybeSingle()`, que era correcto mientras la tabla tenia
+      // UNIQUE(account_id); al levantarse esa restriccion para admitir varias
+      // lineas, `.maybeSingle()` empezaria a devolver error en vez de fila y
+      // la pantalla se quedaria en blanco diciendo que no hay nada
+      // configurado.
+      const { data: filas, error } = await supabase
         .from('whatsapp_config')
         .select('*')
         .eq('account_id', acctId)
-        .maybeSingle();
+        .order('created_at', { ascending: true });
 
       if (error) {
         console.error('Failed to load config row:', error);
       }
+
+      const lineas = filas ?? [];
+      setLineas(lineas);
+
+      // Cual se muestra: la que se pidio, la que ya estaba abierta, o la
+      // primera. `nueva` es el caso de "conectar otra": no hay fila todavia.
+      const data =
+        lineaPedida === NUEVA
+          ? null
+          : lineas.find((l) => l.id === (lineaPedida ?? lineaActivaRef.current)) ??
+            lineas[0] ??
+            null;
+      lineaActivaRef.current = lineaPedida === NUEVA ? NUEVA : (data?.id ?? null);
+      setLineaActiva(lineaActivaRef.current);
 
       if (data) {
         setConfig(data);
@@ -157,7 +186,10 @@ export function WhatsAppConfig() {
       // Then verify health via the API (decrypts token + pings Meta)
       if (data) {
         try {
-          const res = await fetch('/api/whatsapp/config', { method: 'GET' });
+          const res = await fetch(
+            `/api/whatsapp/config?connection_id=${encodeURIComponent(data.connection_id ?? '')}`,
+            { method: 'GET' },
+          );
           const payload = await res.json();
 
           if (payload.connected) {
@@ -185,6 +217,20 @@ export function WhatsAppConfig() {
       setLoading(false);
     }
   }, [supabase]);
+
+  /** El id de fila de un numero, para volver a abrirlo despues de guardar. */
+  const recargarPorNumero = useCallback(
+    async (acctId: string, numero: string): Promise<string | null> => {
+      const { data } = await supabase
+        .from('whatsapp_config')
+        .select('id')
+        .eq('account_id', acctId)
+        .eq('phone_number_id', numero)
+        .maybeSingle();
+      return (data?.id as string) ?? null;
+    },
+    [supabase],
+  );
 
   useEffect(() => {
     // Need both the auth session (`!authLoading`) AND the profile
@@ -312,7 +358,13 @@ export function WhatsAppConfig() {
         setPin('');
       }
 
-      if (accountId) await fetchConfig(accountId);
+      // Se recarga pidiendo EL NUMERO que se acaba de guardar: si era una
+      // linea nueva, `lineaActiva` valia NUEVA y sin esto la pantalla
+      // volveria a la primera linea, dando la impresion de que no se guardo.
+      if (accountId) {
+        const guardada = await recargarPorNumero(accountId, phoneNumberId);
+        await fetchConfig(accountId, guardada);
+      }
     } catch (err) {
       console.error('Save error:', err);
       toast.error('Failed to save configuration');
@@ -384,7 +436,13 @@ export function WhatsAppConfig() {
 
     try {
       setResetting(true);
-      const res = await fetch('/api/whatsapp/config', { method: 'DELETE' });
+      // Se borra la linea que se esta viendo. Sin el parametro, la ruta
+      // borra la principal, y con dos lineas dadas de alta eso restablece
+      // una que nadie pidio.
+      const res = await fetch(
+        `/api/whatsapp/config?connection_id=${encodeURIComponent(config?.connection_id ?? '')}`,
+        { method: 'DELETE' },
+      );
       const data = await res.json();
 
       if (!res.ok) {
@@ -437,9 +495,63 @@ export function WhatsAppConfig() {
         title={t("title")}
         description={t("description")}
       />
+      {/* Que linea se esta editando.
+          Solo aparece cuando hay mas de una, o cuando se esta dando de alta
+          una segunda: con una sola linea la fila seria ruido -- un selector
+          de un elemento no ayuda a nadie. */}
+      {(lineas.length > 1 || lineaActiva === NUEVA) && (
+        <div className="mb-4 flex flex-wrap items-center gap-2 rounded-lg border border-border bg-muted/30 px-3 py-2">
+          <span className="text-xs font-medium text-muted-foreground">Línea:</span>
+          {lineas.map((l) => (
+            <button
+              key={l.id}
+              type="button"
+              onClick={() => {
+                if (accountId) void fetchConfig(accountId, l.id);
+              }}
+              className={
+                l.id === lineaActiva
+                  ? 'rounded-full bg-primary px-3 py-1 text-xs font-medium text-primary-foreground'
+                  : 'rounded-full border border-border px-3 py-1 text-xs text-muted-foreground transition-colors hover:text-foreground'
+              }
+            >
+              {l.phone_number_id}
+            </button>
+          ))}
+          {lineaActiva === NUEVA && (
+            <span className="rounded-full bg-primary px-3 py-1 text-xs font-medium text-primary-foreground">
+              línea nueva
+            </span>
+          )}
+        </div>
+      )}
+
       <div className="grid gap-6 lg:grid-cols-[1fr_380px]">
       {/* Main config form */}
       <div className="space-y-6">
+        {/* Conectar otra linea.
+            Guardar con un phone_number_id distinto da de alta una linea mas;
+            este boton solo deja el formulario en blanco para escribirlo. Sin
+            el, la unica forma de agregar una segunda linea seria borrar los
+            datos de la primera encima, que es exactamente lo que no se
+            quiere. */}
+        {canEditSettings && lineas.length > 0 && lineaActiva !== NUEVA && (
+          <div className="flex items-center justify-between gap-3 rounded-lg border border-dashed border-border px-4 py-3">
+            <p className="text-xs text-muted-foreground">
+              ¿Tenés otro número de WhatsApp para esta cuenta? Podés conectarlo
+              aparte, con sus propias instrucciones para el agente.
+            </p>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                if (accountId) void fetchConfig(accountId, NUEVA);
+              }}
+            >
+              Conectar otra línea
+            </Button>
+          </div>
+        )}
         {/* Corrupted-token reset banner */}
         {showResetBanner && (
           <Alert className="bg-amber-950/40 border-amber-600/40">

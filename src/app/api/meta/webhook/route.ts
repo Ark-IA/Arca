@@ -352,6 +352,10 @@ async function procesarEvento(
       // Facebook o Instagram según el `object` del webhook. El motor lo usa
       // para descartar los flujos que el usuario apagó en este canal.
       channel: canal,
+      // Y QUÉ página o cuenta concreta lo recibió. Un cliente puede tener
+      // tres páginas de Facebook con tonos distintos: sin este dato, el
+      // mismo flujo y el mismo prompt correrían en las tres.
+      connectionId: conexion.id,
       message: idOpcion
         ? {
             kind: 'interactive_reply',

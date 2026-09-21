@@ -254,6 +254,8 @@ export interface FlowRow {
    * hacía antes de que la columna existiera.
    */
   channels?: string[] | null;
+  /** Conexiones concretas donde corre. Vacio = todas las del canal. */
+  connection_ids?: string[] | null;
   entry_node_id: string | null;
   fallback_policy: FlowFallbackPolicy;
   execution_count: number;
@@ -366,6 +368,11 @@ export interface DispatchInboundInput {
    * comportamiento es el de siempre.
    */
   channel?: "whatsapp" | "facebook" | "instagram";
+  /**
+   * Conexion concreta por la que entro: que linea de WhatsApp, que pagina
+   * de Facebook. Un flujo puede limitarse a algunas.
+   */
+  connectionId?: string | null;
 }
 
 export interface DispatchInboundResult {

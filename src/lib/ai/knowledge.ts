@@ -86,6 +86,12 @@ export async function retrieveKnowledge(
   accountId: string,
   config: Pick<AiConfig, 'embeddingsApiKey'>,
   queryText: string,
+  /**
+   * Conexion por la que entro la conversacion. Se devuelven los
+   * documentos compartidos MAS los de esta conexion. Null = solo los
+   * compartidos, que es lo que ve una conversacion sin conexion.
+   */
+  connectionId: string | null = null,
   k = 5,
 ): Promise<string[]> {
   const query = queryText.trim()
@@ -116,6 +122,7 @@ export async function retrieveKnowledge(
           p_account_id: accountId,
           p_query_embedding: toVectorLiteral(queryEmbedding),
           p_match_count: k,
+          p_connection_id: connectionId,
         })
         if (!error && Array.isArray(data)) {
           for (const row of data as MatchRow[]) picked.set(row.id, row.content)
@@ -133,6 +140,7 @@ export async function retrieveKnowledge(
         p_account_id: accountId,
         p_query: query,
         p_match_count: k,
+        p_connection_id: connectionId,
       })
       if (!error && Array.isArray(data)) {
         for (const row of data as MatchRow[]) {

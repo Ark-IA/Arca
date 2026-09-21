@@ -934,33 +934,6 @@ export function MessageThread({
         </div>
 
         <div className="flex items-center gap-2">
-          {/* Contact-panel toggle — desktop only. The contact sidebar
-              eats a chunk of horizontal width that crowds the thread on
-              smaller laptops; this lets agents reclaim it when they just
-              want to read and reply. Hidden on mobile, where the sidebar
-              never renders as a permanent panel anyway. Issue #258. */}
-          {onToggleContactPanel && (
-            <button
-              type="button"
-              onClick={onToggleContactPanel}
-              aria-label={
-                contactPanelOpen ? t("hideContactPanel") : t("showContactPanel")
-              }
-              title={contactPanelOpen ? t("hideContact") : t("showContact")}
-              aria-pressed={contactPanelOpen}
-              className={cn(
-                "hidden h-7 w-7 items-center justify-center rounded-md transition-colors hover:bg-muted hover:text-foreground lg:inline-flex",
-                contactPanelOpen ? "text-primary" : "text-muted-foreground",
-              )}
-            >
-              {contactPanelOpen ? (
-                <PanelRightClose className="h-4 w-4" />
-              ) : (
-                <PanelRightOpen className="h-4 w-4" />
-              )}
-            </button>
-          )}
-
           {/* Llamar al contacto.
               La burbuja del teléfono no se dibuja en la bandeja -- se ponía
               encima del botón de enviar -- así que este es el único sitio
@@ -1089,6 +1062,40 @@ export function MessageThread({
               )}
             </DropdownMenuContent>
           </DropdownMenu>
+          {/* Ficha del contacto: mostrar u ocultar.
+
+              Va EL ÚLTIMO de la fila, pegado al borde derecho, porque es el
+              borde por el que aparece el panel. Estaba el primero, a la
+              izquierda de los otros botones, y desde ahí no se leía qué
+              hacía: un icono suelto en mitad de una barra parece uno más de
+              la lista. Al final del todo, apuntando hacia afuera, se
+              entiende solo — se pulsa y se abre lo que está justo detrás.
+
+              Solo en escritorio: la barra lateral no existe como panel fijo
+              en el móvil, así que el botón no tendría nada que abrir. */}
+          {onToggleContactPanel && (
+            <button
+              type="button"
+              onClick={onToggleContactPanel}
+              aria-label={
+                contactPanelOpen ? t("hideContactPanel") : t("showContactPanel")
+              }
+              title={contactPanelOpen ? t("hideContact") : t("showContact")}
+              aria-pressed={contactPanelOpen}
+              className={cn(
+                "ml-1 hidden h-7 w-7 items-center justify-center rounded-md border transition-colors lg:inline-flex",
+                contactPanelOpen
+                  ? "border-primary/30 bg-primary/10 text-primary"
+                  : "border-border text-muted-foreground hover:bg-muted hover:text-foreground",
+              )}
+            >
+              {contactPanelOpen ? (
+                <PanelRightClose className="h-4 w-4" />
+              ) : (
+                <PanelRightOpen className="h-4 w-4" />
+              )}
+            </button>
+          )}
         </div>
       </div>
 

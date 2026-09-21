@@ -21,6 +21,7 @@ import { FieldsAndTagsPanel } from '@/components/settings/fields-and-tags-panel'
 import { DealsSettings } from '@/components/settings/deals-settings';
 import { MembersTab } from '@/components/settings/members-tab';
 import { ColasPanel } from '@/components/settings/colas-panel';
+import { ConexionesPanel } from '@/components/settings/conexiones-panel';
 import { ApiKeysSettings } from '@/components/settings/api-keys-settings';
 import {
   DEFAULT_SECTION,
@@ -89,6 +90,7 @@ function SettingsPageInner() {
     profile: <ProfileForm />,
     security: <SecurityPanel />,
     appearance: <AppearancePanel />,
+    conexiones: <ConexionesPanel onIr={go} />,
     whatsapp: <WhatsAppConfig />,
     facebook: <CanalMetaConfig canal="facebook" />,
     instagram: <CanalMetaConfig canal="instagram" />,

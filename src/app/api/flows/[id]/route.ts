@@ -78,6 +78,8 @@ interface PutBody {
   trigger_config?: Record<string, unknown>
   /** Canales en los que este flujo se activa (migración 056). */
   channels?: string[]
+  /** Conexiones concretas; vacío = todas las del canal (migración 070). */
+  connection_ids?: string[]
   entry_node_id?: string | null
   fallback_policy?: Record<string, unknown>
   nodes?: Array<{
@@ -101,8 +103,9 @@ export async function PUT(
   // servicio, que la saltea — así que la barrera real es esta línea.
   // it, but this route mutates via the service-role client which bypasses
   // RLS, so the role must be enforced here (a viewer passes ownership).
+  let accountId: string
   try {
-    await requireRole('admin')
+    ;({ accountId } = await requireRole('admin'))
   } catch (err) {
     return toErrorResponse(err)
   }
@@ -151,6 +154,24 @@ export async function PUT(
       )
     }
     flowPatch.channels = canales
+  }
+  if (body.connection_ids !== undefined) {
+    // Se comprueba que las conexiones sean DE ESTA CUENTA. Sin esto,
+    // mandar el identificador de una conexión ajena dejaría un flujo
+    // apuntando a una línea de otra organización — no la haría responder,
+    // pero sí dejaría de responder en la propia, que es igual de malo y
+    // mucho más difícil de ver.
+    const pedidas = [...new Set(body.connection_ids.filter(Boolean))]
+    if (pedidas.length === 0) {
+      flowPatch.connection_ids = []
+    } else {
+      const { data: propias } = await supabaseAdmin()
+        .from('channel_connections')
+        .select('id')
+        .eq('account_id', accountId)
+        .in('id', pedidas)
+      flowPatch.connection_ids = (propias ?? []).map((c) => c.id)
+    }
   }
   if (body.entry_node_id !== undefined)
     flowPatch.entry_node_id = body.entry_node_id

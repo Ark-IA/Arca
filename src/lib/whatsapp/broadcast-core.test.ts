@@ -61,17 +61,20 @@ function makeDb(rpcResult: { data: unknown; error: unknown }) {
   const database = {
     from(table: string) {
       if (table === 'whatsapp_config') {
-        return {
-          select: () => ({
-            eq: () => ({
-              single: () =>
-                Promise.resolve({
-                  data: { phone_number_id: 'pn-1', access_token: 'enc' },
-                  error: null,
-                }),
+        // La consulta ahora es select→eq→order→limit→maybeSingle: se busca
+        // la linea principal de la cuenta, porque puede haber varias.
+        const linea: Record<string, unknown> = {
+          select: () => linea,
+          eq: () => linea,
+          order: () => linea,
+          limit: () => linea,
+          maybeSingle: () =>
+            Promise.resolve({
+              data: { phone_number_id: 'pn-1', access_token: 'enc' },
+              error: null,
             }),
-          }),
         };
+        return linea;
       }
       if (table === 'message_templates') {
         const chain: Record<string, unknown> = {

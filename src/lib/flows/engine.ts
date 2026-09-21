@@ -411,12 +411,39 @@ export function flowAtiendeCanal(
   return flow.channels.includes(channel);
 }
 
+/**
+ * ¿Este flujo corre en ESTA conexión concreta?
+ *
+ * Un canal puede tener varias conexiones: dos líneas de WhatsApp, tres
+ * páginas de Facebook. Elegir el canal decía «en WhatsApp»; esto permite
+ * decir «en la línea de ventas, no en la de soporte», que es lo que hace
+ * falta cuando cada línea atiende a gente distinta.
+ *
+ * Lista vacía = todas las conexiones del canal. Es lo que hacían los flujos
+ * antes de que existiera esta columna, y por eso ninguno cambia al desplegar.
+ *
+ * Sin conexión en el mensaje también pasa: una conversación anterior a la
+ * migración 070 no tiene con qué comparar, y dejarla sin flujo la volvería
+ * muda por un detalle de configuración interna.
+ */
+export function flowAtiendeConexion(
+  flow: { connection_ids?: string[] | null },
+  connectionId: string | null | undefined,
+): boolean {
+  if (!Array.isArray(flow.connection_ids) || flow.connection_ids.length === 0) {
+    return true;
+  }
+  if (!connectionId) return true;
+  return flow.connection_ids.includes(connectionId);
+}
+
 async function findEntryFlow(
   db: AdminClient,
   accountId: string,
   message: ParsedInbound,
   isFirstInbound: boolean,
   channel?: string,
+  connectionId?: string | null,
 ): Promise<FlowRow | null> {
   // A tap used to be rejected outright here, on the reasoning that
   // interactive replies are responses to existing prompts. That holds
@@ -441,7 +468,9 @@ async function findEntryFlow(
 
   // El filtro por canal va aquí, ANTES de las dos pasadas, para que ninguna
   // de las dos pueda elegir un flujo que el usuario apagó en este canal.
-  const typed = (flows as FlowRow[]).filter((f) => flowAtiendeCanal(f, channel));
+  const typed = (flows as FlowRow[]).filter(
+    (f) => flowAtiendeCanal(f, channel) && flowAtiendeConexion(f, connectionId),
+  );
 
   // Two passes, not one — because a `first_inbound_message` flow matches
   // ANY first message, so a single ordered pass would let it swallow a
@@ -1066,6 +1095,7 @@ export async function dispatchInboundToFlows(
       input.message,
       input.isFirstInboundMessage,
       input.channel,
+      input.connectionId,
     );
     if (!flow || !flow.entry_node_id) {
       return { consumed: false, outcome: "no_match" };

@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback, useRef } from 'react';
+import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 import { toast } from 'sonner';
 import type { Contact, Tag, ContactTag } from '@/types';
@@ -54,7 +55,6 @@ import {
   X,
 } from 'lucide-react';
 import { ContactForm } from '@/components/contacts/contact-form';
-import { ContactDetailView } from '@/components/contacts/contact-detail-view';
 import { ImportModal } from '@/components/contacts/import-modal';
 import { CustomFieldsManager } from '@/components/contacts/custom-fields-manager';
 import { useCan } from '@/hooks/use-can';
@@ -68,6 +68,7 @@ interface ContactWithTags extends Contact {
 }
 
 export default function ContactsPage() {
+  const router = useRouter();
   const t = useTranslations('Contacts.page');
   const supabase = createClient();
   const canEdit = useCan('send-messages');
@@ -89,8 +90,6 @@ export default function ContactsPage() {
   const [formOpen, setFormOpen] = useState(false);
   const [editContact, setEditContact] = useState<Contact | null>(null);
   const [editContactTags, setEditContactTags] = useState<ContactTag[]>([]);
-  const [detailOpen, setDetailOpen] = useState(false);
-  const [detailContactId, setDetailContactId] = useState<string | null>(null);
   const [importOpen, setImportOpen] = useState(false);
   const [customFieldsOpen, setCustomFieldsOpen] = useState(false);
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
@@ -247,14 +246,23 @@ export default function ContactsPage() {
     setFormOpen(true);
   }
 
+  /**
+   * Abrir un contacto lleva a SU pantalla, no a una ventana encima de la
+   * lista.
+   *
+   * Con la ficha en un modal, el contacto no tenía dirección: no se podía
+   * mandar por chat «mirá este cliente», no se abría en otra pestaña para
+   * comparar dos, y el botón de volver del navegador cerraba la lista
+   * entera en vez de la ventana. Un CRM se usa yendo y viniendo entre
+   * fichas, y para eso hacen falta direcciones de verdad.
+   */
   function openDetail(contactId: string) {
-    setDetailContactId(contactId);
-    setDetailOpen(true);
+    router.push(`/contacts/${contactId}`);
   }
 
-  // Contacto al que se llega desde la búsqueda global: se abre su ficha
-  // directamente. Antes el enlace llevaba al listado y había que volver a
-  // buscarlo ahí, con lo cual la búsqueda global no ahorraba nada.
+  // Contacto al que se llega desde la búsqueda global: se va derecho a su
+  // ficha. Antes el enlace llevaba al listado y había que volver a buscarlo
+  // ahí, con lo cual la búsqueda global no ahorraba nada.
   const idBuscado = useIdDeBusqueda();
   useEffect(() => {
     if (idBuscado) openDetail(idBuscado);
@@ -804,14 +812,6 @@ export default function ContactsPage() {
           setFormOpen(false);
           openDetail(id);
         }}
-      />
-
-      {/* Contact Detail Sheet */}
-      <ContactDetailView
-        open={detailOpen}
-        onOpenChange={setDetailOpen}
-        contactId={detailContactId}
-        onUpdated={fetchContacts}
       />
 
       {/* Import Modal */}

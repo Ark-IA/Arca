@@ -7,6 +7,8 @@ import {
   verifyPhoneNumber,
 } from '@/lib/whatsapp/meta-api'
 import { encrypt, decrypt } from '@/lib/whatsapp/encryption'
+import { configDeWhatsApp } from '@/lib/whatsapp/credenciales'
+import { registrarConexionDeWhatsApp } from '@/lib/whatsapp/registro-de-linea'
 
 /**
  * Resolve the caller's account_id from their profile. Inlined here
@@ -60,7 +62,7 @@ function supabaseAdmin() {
  *   { connected: false, reason: 'token_corrupted',  message: '...', needs_reset: true }
  *   { connected: false, reason: 'meta_api_error',   message: '...' }
  */
-export async function GET() {
+export async function GET(request: Request) {
   try {
     const supabase = await createClient()
 
@@ -85,19 +87,13 @@ export async function GET() {
       )
     }
 
-    const { data: config, error: configError } = await supabase
-      .from('whatsapp_config')
-      .select('phone_number_id, access_token, status')
-      .eq('account_id', accountId)
-      .maybeSingle()
-
-    if (configError) {
-      console.error('Error fetching whatsapp_config:', configError)
-      return NextResponse.json(
-        { connected: false, reason: 'db_error', message: 'Failed to fetch configuration' },
-        { status: 200 }
-      )
-    }
+    // Con varias lineas dadas de alta hay que decir CUAL se consulta. Sin
+    // el parametro se responde por la principal, que es lo que hacia esta
+    // ruta cuando solo podia haber una.
+    const config = await configDeWhatsApp(supabase, accountId, {
+      connectionId: new URL(request.url).searchParams.get('connection_id'),
+      columnas: 'phone_number_id, access_token, status',
+    })
 
     if (!config) {
       return NextResponse.json(
@@ -272,15 +268,21 @@ export async function POST(request: Request) {
     // Look up any pre-existing row for this account so we know whether
     // this number is already registered with Meta — if so we can skip
     // /register when the user didn't provide a PIN this time around.
+    // La fila que se va a tocar es la de ESTE numero, no "la de la cuenta".
+    // Buscarla por cuenta era correcto cuando solo podia haber una linea;
+    // ahora sobrescribiria una linea distinta de la que se esta guardando y
+    // dejaria a la otra apuntando a credenciales que no son suyas.
     const { data: existing } = await supabase
       .from('whatsapp_config')
-      .select('id, registered_at, phone_number_id')
+      .select('id, registered_at, phone_number_id, connection_id')
       .eq('account_id', accountId)
+      .eq('phone_number_id', phone_number_id)
       .maybeSingle()
 
-    const sameNumber =
-      existing?.phone_number_id === phone_number_id &&
-      existing?.registered_at != null
+    // `existing` ya se busco POR ESTE numero, asi que si hay fila el numero
+    // coincide por construccion; lo que queda por saber es si ya estaba
+    // registrado en Meta.
+    const sameNumber = existing?.registered_at != null
 
     // Step 1: register the phone number for inbound webhooks.
     //
@@ -366,11 +368,16 @@ export async function POST(request: Request) {
       updated_at: new Date().toISOString(),
     }
 
+    // El identificador de la fila que quede, para engancharle la conexion.
+    let filaId = existing?.id as string | undefined
+
     if (existing) {
       const { error: updateError } = await supabase
         .from('whatsapp_config')
         .update(baseRow)
-        .eq('account_id', accountId)
+        // Por `id`: filtrar por cuenta pisaria TODAS las lineas con las
+        // credenciales de esta.
+        .eq('id', existing.id)
 
       if (updateError) {
         console.error('Error updating whatsapp_config:', updateError)
@@ -384,13 +391,15 @@ export async function POST(request: Request) {
       // (NOT NULL post-017, UNIQUE so duplicates trip the constraint
       // up-front), `user_id` is the audit column identifying which
       // member of the account saved the config.
-      const { error: insertError } = await supabase
+      const { data: creada, error: insertError } = await supabase
         .from('whatsapp_config')
         .insert({
           account_id: accountId,
           user_id: user.id,
           ...baseRow,
         })
+        .select('id')
+        .single()
 
       if (insertError) {
         console.error('Error inserting whatsapp_config:', insertError)
@@ -399,6 +408,25 @@ export async function POST(request: Request) {
           { status: 500 }
         )
       }
+      filaId = creada?.id
+    }
+
+    // La linea queda anotada en el registro de conexiones, que es de donde
+    // salen su nombre, su prompt propio y su cola. Sin este paso la linea
+    // enviaria y recibiria mensajes pero no aparecaria en la pantalla de
+    // Conexiones, y no habria manera de darle un prompt distinto.
+    if (filaId) {
+      await registrarConexionDeWhatsApp({
+        accountId,
+        userId: user.id,
+        filaId,
+        phoneNumberId: phone_number_id,
+        nombreSugerido: typeof body.name === 'string' ? body.name : null,
+        accessTokenCifrado: encryptedAccessToken,
+        verifyTokenCifrado: encryptedVerifyToken,
+        conectada: !registrationError,
+        ultimoError: registrationError,
+      })
     }
 
     if (registrationError) {
@@ -438,7 +466,7 @@ export async function POST(request: Request) {
  * Used by the "Reset Configuration" button to recover from a corrupted
  * encrypted token (mismatched ENCRYPTION_KEY across environments).
  */
-export async function DELETE() {
+export async function DELETE(request: Request) {
   try {
     const supabase = await createClient()
 
@@ -459,9 +487,23 @@ export async function DELETE() {
       )
     }
 
+    // Se borra UNA linea. Sin el parametro se borra la principal, que es lo
+    // que hacia el boton de "Restablecer" cuando solo podia haber una; con
+    // `.eq('account_id')` a secas ahora se llevaria por delante todas las
+    // demas lineas de la cuenta.
+    const conexionId = new URL(request.url).searchParams.get('connection_id')
+    const aBorrar = await configDeWhatsApp(supabase, accountId, {
+      connectionId: conexionId,
+      columnas: 'id',
+    })
+    if (!aBorrar) {
+      return NextResponse.json({ success: true })
+    }
+
     const { error: deleteError } = await supabase
       .from('whatsapp_config')
       .delete()
+      .eq('id', aBorrar.id)
       .eq('account_id', accountId)
 
     if (deleteError) {

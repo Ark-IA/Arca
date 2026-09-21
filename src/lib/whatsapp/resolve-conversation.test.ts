@@ -48,15 +48,23 @@ function makeDb(script: Script): SupabaseClient {
     eq: () => builder,
     order: () => builder,
     limit: () => {
-      // Only the conversation lookup terminates on `.limit(1)`.
+      // `.limit(1)` termina la cadena en la busqueda de conversaciones, pero
+      // en la de `whatsapp_config` le sigue un `.maybeSingle()`. Se devuelve
+      // algo que sirve para las dos formas: encadenable Y esperable.
+      let resultado: { data: unknown; error: unknown } = { data: [], error: null };
       if (table === 'conversations' && mode === 'select') {
         const row = script.existingConversationByCall
           ? (script.existingConversationByCall[convLookupCalls] ?? null)
           : (script.existingConversation ?? null);
         convLookupCalls++;
-        return Promise.resolve({ data: row ? [row] : [], error: null });
+        resultado = { data: row ? [row] : [], error: null };
       }
-      return Promise.resolve({ data: [], error: null });
+      return Object.assign(Object.create(builder as object), {
+        then: (
+          res: (v: unknown) => unknown,
+          rej: (e: unknown) => unknown,
+        ) => Promise.resolve(resultado).then(res, rej),
+      });
     },
     like: () => {
       const data = script.contactCandidatesByCall

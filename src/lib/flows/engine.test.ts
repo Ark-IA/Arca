@@ -2,6 +2,7 @@ import { describe, it, expect } from "vitest";
 import {
   matchReplyId,
   flowAtiendeCanal,
+  flowAtiendeConexion,
   matchReplyText,
   matchesKeywordTrigger,
   isAutoAdvancing,
@@ -407,5 +408,37 @@ describe("flowAtiendeCanal — un flujo apagado en un canal no contesta ahí", (
 
   it("sin canal en el mensaje no se filtra", () => {
     expect(flowAtiendeCanal({ channels: ["whatsapp"] }, undefined)).toBe(true);
+  });
+});
+
+describe("flowAtiendeConexion — un flujo limitado a ciertas lineas", () => {
+  it("corre solo en las conexiones elegidas", () => {
+    const soloVentas = { connection_ids: ["conexion-ventas"] };
+    expect(flowAtiendeConexion(soloVentas, "conexion-ventas")).toBe(true);
+    expect(flowAtiendeConexion(soloVentas, "conexion-soporte")).toBe(false);
+  });
+
+  it("acepta cualquiera de las elegidas", () => {
+    const dos = { connection_ids: ["a", "b"] };
+    expect(flowAtiendeConexion(dos, "a")).toBe(true);
+    expect(flowAtiendeConexion(dos, "b")).toBe(true);
+    expect(flowAtiendeConexion(dos, "c")).toBe(false);
+  });
+
+  // Las tres puertas de escape. Cualquiera de ellas dejaria mudo un flujo
+  // que hoy funciona, asi que las tres responden que si: un flujo que deja
+  // de contestar por un detalle de configuracion interna es peor que uno
+  // que contesta de mas.
+  it("lista vacia = todas las conexiones del canal", () => {
+    expect(flowAtiendeConexion({ connection_ids: [] }, "cualquiera")).toBe(true);
+    expect(flowAtiendeConexion({}, "cualquiera")).toBe(true);
+    expect(flowAtiendeConexion({ connection_ids: null }, "cualquiera")).toBe(true);
+  });
+
+  it("un mensaje sin conexion no se descarta", () => {
+    // Una conversacion anterior a la migracion 070 no tiene con que
+    // comparar. Dejarla sin flujo la volveria muda.
+    expect(flowAtiendeConexion({ connection_ids: ["a"] }, null)).toBe(true);
+    expect(flowAtiendeConexion({ connection_ids: ["a"] }, undefined)).toBe(true);
   });
 });

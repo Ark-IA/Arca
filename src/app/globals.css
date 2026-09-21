@@ -249,6 +249,29 @@ html[data-theme="rose"] {
   }
   html {
     @apply font-sans;
+
+    /* ------------------------------------------------------------
+       Escala de toda la plataforma
+       ------------------------------------------------------------
+       Un CRM se mira todo el día y lo que importa es cuánto cabe en
+       pantalla: la lista de conversaciones, la tabla de contactos, el
+       tablero. Al tamaño del navegador (16px) las pantallas densas
+       obligan a desplazarse por cosas que deberían verse de una.
+
+       Se baja acá y no con `zoom` ni con `transform: scale()`: las
+       medidas de Tailwind son `rem`, así que este único número
+       arrastra el texto, los márgenes, los altos y los redondeos a la
+       vez. Con `zoom` el navegador reescala píxeles ya dibujados y las
+       líneas de un píxel se ven borrosas; con `scale()` el elemento
+       ocupa el sitio del tamaño original y quedan huecos.
+
+       En porcentaje y no en píxeles a propósito: quien tenga el
+       navegador configurado con letra más grande —por vista cansada—
+       conserva su ajuste, escalado. Un valor en píxeles se lo pisaría.
+
+       Es un solo número: subilo a 100% para volver a como estaba, o
+       bajalo a 87% si querés todavía más denso. */
+    font-size: 91%;
   }
 }
 /* Relleno automático de Chrome en la pantalla de acceso.

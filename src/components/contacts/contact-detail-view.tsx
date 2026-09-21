@@ -6,26 +6,15 @@ import { addContactTag, deleteContactTag } from '@/lib/contacts/tag-api';
 import { useAuth } from '@/hooks/use-auth';
 import { formatCurrency } from '@/lib/currency';
 import { toast } from 'sonner';
-import type { Contact, Tag, ContactTag, ContactNote, CustomField, ContactCustomValue, Deal, MessageTemplate } from '@/types';
+import type { Contact, Tag, CustomField, Deal, MessageTemplate } from '@/types';
 import {
   TemplatePicker,
   type TemplateSendValues,
 } from '@/components/inbox/template-picker';
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
-} from '@/components/ui/dialog';
-import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
-import { Badge } from '@/components/ui/badge';
-import { ScrollArea } from '@/components/ui/scroll-area';
 import {
   Phone,
   PhoneCall,
@@ -33,13 +22,20 @@ import {
   Building2,
   Copy,
   Check,
+  ArrowLeft,
   Loader2,
-  Plus,
-  Trash2,
   Save,
-  X,
   DollarSign,
   LayoutTemplate,
+  User,
+  Tag as TagIcon,
+  SlidersHorizontal,
+  Activity,
+  StickyNote,
+  CheckSquare,
+  FileText,
+  CalendarClock,
+  type LucideIcon,
 } from 'lucide-react';
 import { useTranslations } from 'next-intl';
 import { PanelNotas } from '@/components/registros/panel-notas';
@@ -48,8 +44,8 @@ import { PanelLineaDeTiempo } from '@/components/registros/panel-linea-de-tiempo
 import { PanelTareasDeContacto } from '@/components/registros/panel-tareas-de-contacto';
 import { PanelProximaGestion } from '@/components/registros/panel-proxima-gestion';
 import { AvisoProximaGestion } from '@/components/registros/aviso-proxima-gestion';
+import { ChatDelContacto } from '@/components/contacts/chat-del-contacto';
 import { canSendMessages } from '@/lib/auth/roles';
-import { cn } from '@/lib/utils';
 import { useTelefono } from '@/components/telefonia/contexto-telefono';
 
 /**
@@ -63,37 +59,103 @@ const CAMPO =
   'bg-muted border-border text-foreground h-8 text-sm transition-colors ' +
   'hover:border-primary/40 focus:border-primary/60';
 
-/**
- * Estilo de las pestañas. La activa se distingue por color; las inactivas se
- * iluminan al pasar por encima para que se lea que son pulsables.
- */
-const PESTANA =
-  'text-muted-foreground transition-colors rounded-md ' +
-  'hover:bg-muted/70 hover:text-foreground ' +
-  'data-active:bg-muted data-active:text-primary';
-
 interface ContactDetailViewProps {
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
   contactId: string | null;
+  /** Aviso a quien la abrió de que algo cambió, por si tiene una lista detrás. */
   onUpdated: () => void;
+  /** Pestaña con la que abrir, si el enlace pidió una. */
+  pestanaPedida?: string | null;
+  /**
+   * Volver a de donde se vino.
+   *
+   * El botón vive DENTRO de la cabecera y no encima de ella: en una fila
+   * propia se comía casi tres centímetros de alto, y ese alto sale del
+   * chat, que es lo único de la pantalla que lo necesita.
+   */
+  onVolver?: () => void;
+}
+
+/**
+ * Las pestañas de la columna derecha.
+ *
+ * Son las seis cosas que se consultan o se anotan MIENTRAS se conversa. Los
+ * datos, las etiquetas y los campos propios no están acá porque no se
+ * consultan: se editan, y por eso viven a la izquierda, siempre a la vista.
+ *
+ * El nombre se pide como función porque tres de los seis vienen de las
+ * traducciones y `t` solo existe dentro del componente.
+ */
+type Traductor = ReturnType<typeof useTranslations>;
+
+const PESTANAS: {
+  id: string;
+  etiqueta: (t: Traductor) => string;
+  icono: LucideIcon;
+}[] = [
+  { id: 'activity', etiqueta: () => 'Actividad', icono: Activity },
+  { id: 'notes', etiqueta: (t) => t('tabs.notes'), icono: StickyNote },
+  { id: 'tasks', etiqueta: () => 'Tareas', icono: CheckSquare },
+  { id: 'files', etiqueta: () => 'Archivos', icono: FileText },
+  { id: 'next', etiqueta: () => 'Gestión', icono: CalendarClock },
+  { id: 'deals', etiqueta: (t) => t('tabs.deals'), icono: DollarSign },
+];
+
+/** Para no fiarse de lo que venga en la dirección. */
+const PESTANAS_VALIDAS = PESTANAS.map((p) => p.id);
+
+function pestanaInicial(pedida: string | null | undefined): string {
+  return pedida && PESTANAS_VALIDAS.includes(pedida) ? pedida : 'activity';
+}
+
+/**
+ * Una tarjeta con título, de las que forman las columnas laterales.
+ *
+ * Existe para que las seis secciones se vean como seis cosas y no como una
+ * lista larga: sin el borde y el encabezado, «Etiquetas» y «Campos
+ * personalizados» se leen como una sola sección con campos sueltos.
+ */
+function Bloque({
+  titulo,
+  icono: Icono,
+  children,
+}: {
+  titulo: string;
+  icono: LucideIcon;
+  children: React.ReactNode;
+}) {
+  return (
+    <section className="border-border bg-card rounded-xl border">
+      <header className="border-border flex items-center gap-2 border-b px-4 py-2.5">
+        <Icono className="text-muted-foreground size-3.5" />
+        <h2 className="text-foreground text-xs font-semibold tracking-wide uppercase">
+          {titulo}
+        </h2>
+      </header>
+      <div className="p-4">{children}</div>
+    </section>
+  );
 }
 
 export function ContactDetailView({
-  open,
-  onOpenChange,
   contactId,
   onUpdated,
+  pestanaPedida,
+  onVolver,
 }: ContactDetailViewProps) {
   const t = useTranslations('Contacts.detailView');
   const supabase = createClient();
-  const { accountId, defaultCurrency, accountRole } = useAuth();
+  const { defaultCurrency, accountRole } = useAuth();
   // Los paneles nuevos comparten la misma regla que el resto del CRM: de
   // 'agent' para arriba se escribe, un 'viewer' solo mira.
   const puedeEditarRegistros = accountRole ? canSendMessages(accountRole) : false;
 
   const [contact, setContact] = useState<Contact | null>(null);
-  const [pestana, setPestana] = useState('details');
+  // La pestaña con la que se abre puede venir en la dirección
+  // (`/contacts/xxx?tab=next`). Es lo que permite que un enlace lleve
+  // directo a agendar en vez de a Detalles, y que quien lo abra vea lo que
+  // le prometieron. Se lee UNA vez, al montar: después manda lo que la
+  // persona pulse, no lo que diga la barra de direcciones.
+  const [pestana, setPestana] = useState(() => pestanaInicial(pestanaPedida));
   /**
    * Cambia cada vez que se agenda una gestión, para que el aviso de la pestaña
    * Detalles se entere. Sin esto, agendar y volver a Detalles seguiría diciendo
@@ -139,12 +201,6 @@ export function ContactDetailView({
   const [contactTagIds, setContactTagIds] = useState<string[]>([]);
   const [savingTags, setSavingTags] = useState(false);
 
-  // Notes tab
-  const [notes, setNotes] = useState<ContactNote[]>([]);
-  const [newNote, setNewNote] = useState('');
-  const [savingNote, setSavingNote] = useState(false);
-  const [loadingNotes, setLoadingNotes] = useState(false);
-
   // Custom fields tab
   const [customFields, setCustomFields] = useState<CustomField[]>([]);
   const [customValues, setCustomValues] = useState<Record<string, string>>({});
@@ -189,20 +245,6 @@ export function ContactDetailView({
     }
   }, [contactId, supabase]);
 
-  const fetchNotes = useCallback(async () => {
-    if (!contactId) return;
-    setLoadingNotes(true);
-
-    const { data } = await supabase
-      .from('contact_notes')
-      .select('*')
-      .eq('contact_id', contactId)
-      .order('created_at', { ascending: false });
-
-    if (data) setNotes(data);
-    setLoadingNotes(false);
-  }, [contactId, supabase]);
-
   const fetchCustomFields = useCallback(async () => {
     if (!contactId) return;
     setLoadingCustom(true);
@@ -239,19 +281,33 @@ export function ContactDetailView({
   }, [contactId, supabase]);
 
   useEffect(() => {
-    if (open && contactId) {
-      // Se vuelve a Detalles al abrir otra ficha. Sin esto, quien mira la
-      // pestaña Actividad de un contacto y abre el siguiente cae en Actividad
-      // de otra persona, que es justo el sitio donde peor se nota que estás
-      // viendo la ficha equivocada.
-      setPestana('details');
+    if (contactId) {
       fetchContact();
       fetchTags();
-      fetchNotes();
       fetchCustomFields();
       fetchDeals();
     }
-  }, [open, contactId, fetchContact, fetchTags, fetchNotes, fetchCustomFields, fetchDeals]);
+    // La condición era `open && contactId`, de cuando la ficha era una
+    // ventana que se abría y se cerraba. En una pantalla no hay nada que
+    // abrir: si hay contacto, se carga. Y `open` ya no era una variable de
+    // este componente —resolvía a `window.open`, que siempre existe—, así
+    // que la condición no filtraba nada.
+  }, [contactId, fetchContact, fetchTags, fetchCustomFields, fetchDeals]);
+
+  // Al pasar de un contacto a otro se vuelve a la pestaña de entrada. Sin
+  // esto, quien está mirando «Archivos» de alguien y abre el siguiente cae
+  // en los archivos de otra persona, que es donde peor se nota que estás
+  // viendo la ficha equivocada.
+  //
+  // Se guarda el par —contacto y pestaña— y se decide al dibujar, en vez de
+  // reponerla desde un efecto: con el efecto habría un instante en el que la
+  // pestaña vieja ya está en pantalla con el contacto nuevo, que es
+  // exactamente el error que se quiere evitar.
+  const [dueno, setDueno] = useState<string | null>(contactId);
+  if (dueno !== contactId) {
+    setDueno(contactId);
+    setPestana(pestanaInicial(pestanaPedida));
+  }
 
   async function copyPhone() {
     if (!contact) return;
@@ -311,51 +367,6 @@ export function ContactDetailView({
       toast.error(error instanceof Error ? error.message : t('toastUpdateFailed'));
     }
     setSavingTags(false);
-  }
-
-  async function addNote() {
-    if (!contactId || !newNote.trim()) return;
-    setSavingNote(true);
-
-    const {
-      data: { session },
-    } = await supabase.auth.getSession();
-    const user = session?.user;
-    if (!user || !accountId) {
-      toast.error(t('toastNotAuthenticated'));
-      setSavingNote(false);
-      return;
-    }
-
-    const { error } = await supabase.from('contact_notes').insert({
-      contact_id: contactId,
-      account_id: accountId,
-      user_id: user.id,
-      note_text: newNote.trim(),
-    });
-
-    if (error) {
-      toast.error(t('toastNoteAddFailed'));
-    } else {
-      setNewNote('');
-      fetchNotes();
-      toast.success(t('toastNoteAdded'));
-    }
-    setSavingNote(false);
-  }
-
-  async function deleteNote(noteId: string) {
-    const { error } = await supabase
-      .from('contact_notes')
-      .delete()
-      .eq('id', noteId);
-
-    if (error) {
-      toast.error(t('toastNoteDeleteFailed'));
-    } else {
-      setNotes((prev) => prev.filter((n) => n.id !== noteId));
-      toast.success(t('toastNoteDeleted'));
-    }
   }
 
   async function saveCustomFields() {
@@ -445,237 +456,196 @@ export function ContactDetailView({
 
   return (
     <>
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="bg-popover border-border text-popover-foreground w-full max-w-[calc(100%-2rem)] sm:max-w-5xl h-[85vh] p-0 gap-0 overflow-hidden">
-        {loading || !contact ? (
-          <div className="flex items-center justify-center h-full">
-            <Loader2 className="size-6 animate-spin text-primary" />
-          </div>
-        ) : (
-          <div className="flex flex-col h-full min-h-0">
-            {/* Header */}
-            {/* Franja del color de marca detrás del encabezado: separa la
-                identidad del contacto del contenido sin necesidad de una
-                línea más, y le da al modal un punto de anclaje visual. */}
-            <DialogHeader className="shrink-0 space-y-0 border-b border-border/50 bg-gradient-to-r from-primary/10 via-primary/5 to-transparent p-5">
-              <div className="flex flex-wrap items-center gap-4">
-                <Avatar className="size-14 border border-primary/20 bg-muted ring-2 ring-primary/10">
-                  <AvatarFallback className="bg-primary/10 text-base font-semibold text-primary">
-                    {getInitials(contact.name)}
-                  </AvatarFallback>
-                </Avatar>
-
-                <div className="min-w-0 flex-1">
-                  <DialogTitle className="truncate text-lg text-popover-foreground">
-                    {contact.name || t('unnamed')}
-                  </DialogTitle>
-                  <DialogDescription className="sr-only">
-                    {t('contactDetailsDesc')}
-                  </DialogDescription>
-
-                  {/* Los datos de contacto son PULSABLES: el teléfono se copia,
-                      el correo abre el cliente de correo, la empresa lleva a su
-                      ficha. Como texto plano obligaban a seleccionar a mano. */}
-                  <div className="mt-1.5 flex flex-wrap items-center gap-2 text-xs">
-                    {/* El teléfono LLAMA, no copia.
-                        Copiar el número era un paso intermedio inútil: nadie
-                        lo quiere en el portapapeles, lo quiere marcado. Un
-                        clic aquí inicia la llamada en el softphone y abre la
-                        burbuja sola, sin un segundo clic.
-                        Quien no tiene extensión sigue viendo "copiar", que es
-                        lo único que puede hacer con ese número. */}
-                    {puedeLlamar ? (
-                      <button
-                        onClick={llamarAlContacto}
-                        title={`Llamar a ${contact.phone}`}
-                        className="inline-flex items-center gap-1.5 rounded-md border border-primary/30 bg-primary/10 px-2 py-1 font-medium text-primary transition-all hover:border-primary/50 hover:bg-primary/20 hover:shadow-md hover:shadow-primary/10"
-                      >
-                        <PhoneCall className="size-3" />
-                        {contact.phone}
-                      </button>
-                    ) : (
-                      <button
-                        onClick={copyPhone}
-                        title="Copiar el teléfono"
-                        className="inline-flex items-center gap-1.5 rounded-md border border-border bg-card/60 px-2 py-1 text-muted-foreground transition-colors hover:border-primary/40 hover:bg-card hover:text-primary"
-                      >
-                        <Phone className="size-3" />
-                        {contact.phone}
-                        {copiedPhone ? (
-                          <Check className="size-3 text-primary" />
-                        ) : (
-                          <Copy className="size-3 opacity-60" />
-                        )}
-                      </button>
-                    )}
-
-                    {contact.email && (
-                      <a
-                        href={`mailto:${contact.email}`}
-                        title="Escribir un correo"
-                        className="inline-flex items-center gap-1.5 rounded-md border border-border bg-card/60 px-2 py-1 text-muted-foreground transition-colors hover:border-primary/40 hover:bg-card hover:text-primary"
-                      >
-                        <Mail className="size-3" />
-                        {contact.email}
-                      </a>
-                    )}
-
-                    {contact.company && (
-                      <span className="inline-flex items-center gap-1.5 rounded-md border border-border bg-card/60 px-2 py-1 text-muted-foreground">
-                        <Building2 className="size-3" />
-                        {contact.company}
-                      </span>
-                    )}
-                  </div>
-                </div>
-
-                {/* Enviar plantilla: la acción principal de la ficha, arriba a
-                    la derecha, no debajo del nombre. */}
-                <Button
-                  size="sm"
-                  onClick={() => setTemplatePickerOpen(true)}
-                  disabled={sendingTemplate}
-                  className="shrink-0 bg-primary text-primary-foreground transition-all hover:bg-primary/90 hover:shadow-lg hover:shadow-primary/20"
+      {loading || !contact ? (
+        <div className="border-border bg-card flex h-full items-center justify-center rounded-xl border">
+          <Loader2 className="size-6 animate-spin text-primary" />
+        </div>
+      ) : (
+        // Columna de alto heredado: la cabecera ocupa lo suyo y la rejilla se
+        // queda con el resto. Antes esto era una pila (`space-y-4`) que
+        // crecía con el contenido, y por eso la página se estiraba.
+        <div className="flex h-full min-h-0 flex-col gap-4">
+          {/* ============================================================
+              Cabecera: quién es y qué se hace con él
+              ============================================================
+              Franja del color de marca: separa la identidad del contacto
+              del contenido sin necesidad de una línea más, y le da a la
+              pantalla un punto de anclaje visual. */}
+          <div className="border-border from-primary/10 via-primary/5 shrink-0 rounded-xl border bg-gradient-to-r to-transparent px-4 py-3">
+            <div className="flex flex-wrap items-center gap-3">
+              {onVolver && (
+                <button
+                  type="button"
+                  onClick={onVolver}
+                  title="Volver"
+                  className="text-muted-foreground hover:bg-muted hover:text-foreground -ml-1 shrink-0 rounded-md p-1.5 transition-colors"
                 >
-                  {sendingTemplate ? (
-                    <Loader2 className="size-4 animate-spin" />
+                  <ArrowLeft className="size-4" />
+                </button>
+              )}
+
+              <Avatar className="border-primary/20 bg-muted ring-primary/10 size-10 border ring-2">
+                <AvatarFallback className="bg-primary/10 text-primary text-sm font-semibold">
+                  {getInitials(contact.name)}
+                </AvatarFallback>
+              </Avatar>
+
+              <div className="min-w-0 flex-1">
+                <h1 className="text-foreground truncate text-base font-semibold">
+                  {contact.name || t('unnamed')}
+                </h1>
+
+                {/* Los datos de contacto son PULSABLES: el teléfono llama o
+                    se copia, el correo abre el cliente de correo. Como texto
+                    plano obligaban a seleccionar a mano. */}
+                <div className="mt-1 flex flex-wrap items-center gap-1.5 text-xs">
+                  {/* El teléfono LLAMA, no copia.
+                      Copiar el número era un paso intermedio inútil: nadie lo
+                      quiere en el portapapeles, lo quiere marcado. Un clic
+                      aquí inicia la llamada en el softphone y abre la burbuja
+                      sola, sin un segundo clic.
+                      Quien no tiene extensión sigue viendo "copiar", que es
+                      lo único que puede hacer con ese número. */}
+                  {puedeLlamar ? (
+                    <button
+                      onClick={llamarAlContacto}
+                      title={`Llamar a ${contact.phone}`}
+                      className="border-primary/30 bg-primary/10 text-primary hover:border-primary/50 hover:bg-primary/20 hover:shadow-primary/10 inline-flex items-center gap-1.5 rounded-md border px-2 py-1 font-medium transition-all hover:shadow-md"
+                    >
+                      <PhoneCall className="size-3" />
+                      {contact.phone}
+                    </button>
                   ) : (
-                    <LayoutTemplate className="size-4" />
+                    <button
+                      onClick={copyPhone}
+                      title="Copiar el teléfono"
+                      className="border-border bg-card/60 text-muted-foreground hover:border-primary/40 hover:bg-card hover:text-primary inline-flex items-center gap-1.5 rounded-md border px-2 py-1 transition-colors"
+                    >
+                      <Phone className="size-3" />
+                      {contact.phone}
+                      {copiedPhone ? (
+                        <Check className="text-primary size-3" />
+                      ) : (
+                        <Copy className="size-3 opacity-60" />
+                      )}
+                    </button>
                   )}
-                  {t('sendTemplateBtn')}
-                </Button>
+
+                  {contact.email && (
+                    <a
+                      href={`mailto:${contact.email}`}
+                      title="Escribir un correo"
+                      className="border-border bg-card/60 text-muted-foreground hover:border-primary/40 hover:bg-card hover:text-primary inline-flex items-center gap-1.5 rounded-md border px-2 py-1 transition-colors"
+                    >
+                      <Mail className="size-3" />
+                      {contact.email}
+                    </a>
+                  )}
+
+                  {contact.company && (
+                    <span className="border-border bg-card/60 text-muted-foreground inline-flex items-center gap-1.5 rounded-md border px-2 py-1">
+                      <Building2 className="size-3" />
+                      {contact.company}
+                    </span>
+                  )}
+                </div>
               </div>
-            </DialogHeader>
 
-            {/* Tabs */}
-            {/* Controlada, no con `defaultValue`: el aviso de arriba de
-                Detalles tiene que poder saltar a "Próxima gestión", y para eso
-                hace falta poder cambiar la pestaña desde fuera. */}
-            <Tabs
-              value={pestana}
-              onValueChange={(v) => v && setPestana(v as string)}
-              className="flex-1 flex flex-col min-h-0"
-            >
-              <TabsList className="mx-5 mt-3 shrink-0 gap-0.5 overflow-x-auto bg-muted/50 border-b border-border">
-                <TabsTrigger
-                  value="details"
-                  className={PESTANA}
-                >
-                  {t('tabs.details')}
-                </TabsTrigger>
-                {/* Segunda, pegada a Detalles. Es la acción más importante de
-                    una ficha de contacto -- "qué sigue con esta persona" -- y
-                    quinta entre nueve pestañas, en un panel angosto, quedaba
-                    fuera de la vista y nadie la encontraba. */}
-                <TabsTrigger
-                  value="next"
-                  className={cn(PESTANA, "whitespace-nowrap")}
-                >
-                  Próxima gestión
-                </TabsTrigger>
-                <TabsTrigger
-                  value="tags"
-                  className={PESTANA}
-                >
-                  {t('tabs.tags')}
-                </TabsTrigger>
-                <TabsTrigger
-                  value="notes"
-                  className={PESTANA}
-                >
-                  {t('tabs.notes')}
-                </TabsTrigger>
-                <TabsTrigger
-                  value="custom"
-                  className={PESTANA}
-                >
-                  {t('tabs.custom')}
-                </TabsTrigger>
-                <TabsTrigger
-                  value="tasks"
-                  className={PESTANA}
-                >
-                  Tareas
-                </TabsTrigger>
-                <TabsTrigger
-                  value="files"
-                  className={PESTANA}
-                >
-                  Archivos
-                </TabsTrigger>
-                <TabsTrigger
-                  value="activity"
-                  className={PESTANA}
-                >
-                  Actividad
-                </TabsTrigger>
-                <TabsTrigger
-                  value="deals"
-                  className={PESTANA}
-                >
-                  {t('tabs.deals')}
-                </TabsTrigger>
-              </TabsList>
-
-              {/* Details Tab */}
-              <TabsContent value="details" className="flex-1 min-h-0 overflow-y-auto px-5 py-4">
-                {/* Lo primero que hay que saber de un contacto no es su correo
-                    sino qué sigue con él. Va arriba de todo y es el único sitio
-                    donde una gestión vencida se ve sin buscarla. */}
-                {contactId && (
-                  <AvisoProximaGestion
-                    // La clave incluye la versión: cambiarla remonta el aviso y
-                    // lo obliga a releer, que es más simple y más difícil de
-                    // romper que pasarle un `refrescar` hacia abajo.
-                    key={`${contactId}-${gestionesVersion}`}
-                    contactId={contactId}
-                    onIr={() => setPestana('next')}
-                  />
+              {/* Enviar plantilla: la acción principal de la ficha, arriba a
+                  la derecha, no debajo del nombre. */}
+              <Button
+                size="sm"
+                onClick={() => setTemplatePickerOpen(true)}
+                disabled={sendingTemplate}
+                className="bg-primary text-primary-foreground hover:bg-primary/90 hover:shadow-primary/20 shrink-0 transition-all hover:shadow-lg"
+              >
+                {sendingTemplate ? (
+                  <Loader2 className="size-4 animate-spin" />
+                ) : (
+                  <LayoutTemplate className="size-4" />
                 )}
-                {/* Dos columnas desde sm. En un modal ancho, una sola columna
-                    de campos deja media pantalla vacía y obliga a desplazarse
-                    para algo que entra de sobra. */}
-                <div className="space-y-4">
-                  <div className="grid gap-x-4 gap-y-3 sm:grid-cols-2">
-                    <div className="space-y-1.5">
-                      <Label className="text-muted-foreground text-xs">{t('name')}</Label>
-                      <Input
-                        value={editName}
-                        onChange={(e) => setEditName(e.target.value)}
-                        className={CAMPO}
-                      />
-                    </div>
-                    <div className="space-y-1.5">
-                      <Label className="text-muted-foreground text-xs">
-                        {t('phone')} <span className="text-red-400">*</span>
-                      </Label>
-                      <Input
-                        value={editPhone}
-                        onChange={(e) => setEditPhone(e.target.value)}
-                        className={CAMPO}
-                      />
-                    </div>
-                    <div className="space-y-1.5">
-                      <Label className="text-muted-foreground text-xs">{t('email')}</Label>
-                      <Input
-                        value={editEmail}
-                        onChange={(e) => setEditEmail(e.target.value)}
-                        className={CAMPO}
-                      />
-                    </div>
-                    <div className="space-y-1.5">
-                      <Label className="text-muted-foreground text-xs">{t('company')}</Label>
-                      <Input
-                        value={editCompany}
-                        onChange={(e) => setEditCompany(e.target.value)}
-                        className={CAMPO}
-                      />
-                    </div>
+                {t('sendTemplateBtn')}
+              </Button>
+            </div>
+          </div>
+
+          {/* ============================================================
+              Tres columnas
+              ============================================================
+              Cada una responde una pregunta distinta, y esa es la razón del
+              reparto:
+
+                izquierda  QUIÉN es           datos, etiquetas, campos propios
+                centro     QUÉ LE DIGO        la conversación con el cliente
+                derecha    QUÉ HAY ALREDEDOR  actividad, notas, tareas,
+                                              archivos, negocios y la próxima
+                                              gestión
+
+              El chat va en el MEDIO porque es lo único de esta pantalla que
+              se usa mirándolo fijo: se lee lo que escribió el cliente y se le
+              contesta ahí mismo. Todo lo demás son cosas que se consultan de
+              reojo o se anotan al pasar, y por eso viven a los costados.
+
+              Antes era una sola fila de nueve pestañas. El problema no era el
+              espacio sino que obligaba a elegir: para ver una etiqueta había
+              que dejar de ver la actividad, y para saber qué se había
+              acordado había que abandonar los campos que se estaban
+              editando. Un contacto se mira entero, no de a una cosa.
+
+              La rejilla se queda con el alto que sobra —`flex-1`— en vez de
+              calcularlo restando a `100vh`. El chat necesita un alto conocido
+              para desplazarse por dentro, pero ese alto lo sabe el
+              contenedor, no una cuenta: la versión con números no incluía el
+              hueco de la burbuja del teléfono y la página sobraba por abajo.
+
+              Se apila por debajo de `xl` —tres columnas en una pantalla
+              angosta dejan cada una demasiado estrecha para escribir— y ahí
+              sí se desplaza en bloque, porque apiladas no caben. */}
+          <div className="grid min-h-0 flex-1 gap-4 overflow-y-auto xl:grid-cols-[19rem_minmax(0,1fr)_22rem] xl:grid-rows-[minmax(0,1fr)] xl:overflow-visible">
+            {/* ---------- IZQUIERDA: quién es ---------- */}
+            {/* Se desplaza por dentro. Sin esto, tres campos personalizados
+                de más estirarían la fila y descolocarían el chat. */}
+            <div className="space-y-4 xl:min-h-0 xl:overflow-y-auto xl:pr-1">
+              <Bloque titulo="Contacto" icono={User}>
+                <div className="space-y-3">
+                  <div className="space-y-1.5">
+                    <Label className="text-muted-foreground text-xs">{t('name')}</Label>
+                    <Input
+                      value={editName}
+                      onChange={(e) => setEditName(e.target.value)}
+                      className={CAMPO}
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label className="text-muted-foreground text-xs">
+                      {t('phone')} <span className="text-red-400">*</span>
+                    </Label>
+                    <Input
+                      value={editPhone}
+                      onChange={(e) => setEditPhone(e.target.value)}
+                      className={CAMPO}
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label className="text-muted-foreground text-xs">{t('email')}</Label>
+                    <Input
+                      value={editEmail}
+                      onChange={(e) => setEditEmail(e.target.value)}
+                      className={CAMPO}
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label className="text-muted-foreground text-xs">{t('company')}</Label>
+                    <Input
+                      value={editCompany}
+                      onChange={(e) => setEditCompany(e.target.value)}
+                      className={CAMPO}
+                    />
                   </div>
                   <Button
                     onClick={saveDetails}
                     disabled={savingDetails}
-                    className="bg-primary hover:bg-primary/90 text-primary-foreground w-full sm:w-auto"
+                    className="bg-primary hover:bg-primary/90 text-primary-foreground w-full"
                     size="sm"
                   >
                     {savingDetails ? (
@@ -686,16 +656,15 @@ export function ContactDetailView({
                     {t('saveChangesBtn')}
                   </Button>
                 </div>
-              </TabsContent>
+              </Bloque>
 
-              {/* Tags Tab */}
-              <TabsContent value="tags" className="flex-1 min-h-0 overflow-y-auto px-5 py-4">
+              <Bloque titulo={t('tabs.tags')} icono={TagIcon}>
                 <div className="space-y-3">
-                  <p className="text-xs text-muted-foreground">
+                  <p className="text-muted-foreground text-xs">
                     {t('tagsTab.clickTagDesc')}
                   </p>
                   {allTags.length === 0 ? (
-                    <p className="text-sm text-muted-foreground">
+                    <p className="text-muted-foreground text-sm">
                       {t('tagsTab.noTagsAvailable')}
                     </p>
                   ) : (
@@ -707,9 +676,9 @@ export function ContactDetailView({
                             key={tag.id}
                             onClick={() => toggleTag(tag.id)}
                             disabled={savingTags}
-                            className={`inline-flex items-center rounded-full px-3 py-1 text-xs font-medium transition-all cursor-pointer ${
+                            className={`inline-flex cursor-pointer items-center rounded-full px-3 py-1 text-xs font-medium transition-all ${
                               selected
-                                ? 'ring-2 ring-primary ring-offset-1 ring-offset-border'
+                                ? 'ring-primary ring-offset-border ring-2 ring-offset-1'
                                 : 'opacity-50 hover:opacity-80'
                             }`}
                             style={{
@@ -717,7 +686,7 @@ export function ContactDetailView({
                               color: tag.color,
                             }}
                           >
-                            {selected && <Check className="size-3 mr-1" />}
+                            {selected && <Check className="mr-1 size-3" />}
                             {tag.name}
                           </button>
                         );
@@ -725,69 +694,15 @@ export function ContactDetailView({
                     </div>
                   )}
                 </div>
-              </TabsContent>
+              </Bloque>
 
-              {/* Notes Tab */}
-              {/* Notas. Usa el panel compartido, el mismo que la ficha de una
-                  empresa: hasta la migración 049 había DOS sistemas de notas
-                  conviviendo y nadie sabía en cuál había escrito. */}
-              <TabsContent value="notes" className="flex-1 min-h-0 overflow-y-auto px-5 py-4">
-                {contactId && (
-                  <PanelNotas
-                    tipo="contact"
-                    registroId={contactId}
-                    puedeEditar={puedeEditarRegistros}
-                  />
-                )}
-              </TabsContent>
-
-              {/* Próxima gestión: qué sigue con este cliente y cuándo. Lo que
-                  se agenda aquí es un evento de calendario de verdad, así que
-                  aparece en la agenda del equipo y no solo en esta ficha. */}
-              <TabsContent value="next" className="flex-1 min-h-0 overflow-y-auto px-5 py-4">
-                {contactId && (
-                  <PanelProximaGestion
-                    contactId={contactId}
-                    companyId={companyIdDelContacto}
-                    puedeEditar={puedeEditarRegistros}
-                    onAgendado={() => setGestionesVersion((v) => v + 1)}
-                  />
-                )}
-              </TabsContent>
-
-              <TabsContent value="tasks" className="flex-1 min-h-0 overflow-y-auto px-5 py-4">
-                {contactId && (
-                  <PanelTareasDeContacto
-                    contactId={contactId}
-                    puedeEditar={puedeEditarRegistros}
-                  />
-                )}
-              </TabsContent>
-
-              <TabsContent value="files" className="flex-1 min-h-0 overflow-y-auto px-5 py-4">
-                {contactId && (
-                  <PanelAdjuntos
-                    tipo="contact"
-                    registroId={contactId}
-                    puedeEditar={puedeEditarRegistros}
-                  />
-                )}
-              </TabsContent>
-
-              <TabsContent value="activity" className="flex-1 min-h-0 overflow-y-auto px-5 py-4">
-                {contactId && <PanelLineaDeTiempo tipo="contact" registroId={contactId} />}
-              </TabsContent>
-
-              {/* Custom Fields Tab */}
-              <TabsContent value="custom" className="flex-1 min-h-0 overflow-y-auto px-5 py-4">
+              <Bloque titulo={t('tabs.custom')} icono={SlidersHorizontal}>
                 {loadingCustom ? (
-                  <div className="flex items-center justify-center py-8">
-                    <Loader2 className="size-5 animate-spin text-muted-foreground" />
+                  <div className="flex items-center justify-center py-6">
+                    <Loader2 className="text-muted-foreground size-5 animate-spin" />
                   </div>
                 ) : customFields.length === 0 ? (
-                  <p className="text-sm text-muted-foreground text-center py-8">
-                    {t('noCustomFields')}
-                  </p>
+                  <p className="text-muted-foreground text-sm">{t('noCustomFields')}</p>
                 ) : (
                   <div className="space-y-3">
                     {customFields.map((field) => (
@@ -804,7 +719,7 @@ export function ContactDetailView({
                             }))
                           }
                           placeholder={t('enterCustomField', { name: field.field_name })}
-                          className="bg-muted border-border text-foreground h-8 text-sm placeholder:text-muted-foreground"
+                          className={CAMPO}
                         />
                       </div>
                     ))}
@@ -823,74 +738,181 @@ export function ContactDetailView({
                     </Button>
                   </div>
                 )}
-              </TabsContent>
+              </Bloque>
+            </div>
 
-              {/* Deals Tab */}
-              <TabsContent value="deals" className="flex-1 min-h-0 overflow-y-auto px-5 py-4">
-                {loadingDeals ? (
-                  <div className="flex items-center justify-center py-8">
-                    <Loader2 className="size-5 animate-spin text-primary" />
-                  </div>
-                ) : deals.length === 0 ? (
-                  <p className="text-xs text-muted-foreground">{t('dealsTab.noDeals')}</p>
-                ) : (
-                  <div className="space-y-2">
-                    {deals.map((deal) => (
-                      <div
-                        key={deal.id}
-                        className="rounded-lg border border-border bg-muted/50 p-3"
-                      >
-                        <div className="flex items-start justify-between gap-2">
-                          <p className="text-sm font-medium text-foreground">
-                            {deal.title}
-                          </p>
-                          {deal.stage && (
-                            <span
-                              className="shrink-0 rounded-full px-1.5 py-0.5 text-[10px] font-medium"
-                              style={{
-                                backgroundColor: `${deal.stage.color}20`,
-                                color: deal.stage.color,
-                              }}
-                            >
-                              {deal.stage.name}
-                            </span>
-                          )}
-                        </div>
-                        <div className="mt-1.5 flex items-center justify-between text-xs text-muted-foreground">
-                          <span className="flex items-center gap-1">
-                            <DollarSign className="size-3" />
-                            {formatCurrency(
-                              deal.value ?? 0,
-                              deal.currency || defaultCurrency,
-                            )}
-                          </span>
-                          {deal.status && deal.status !== 'open' && (
-                            <span
-                              className={
-                                deal.status === 'won'
-                                  ? 'text-primary'
-                                  : 'text-red-400'
-                              }
-                            >
-                              {deal.status}
-                            </span>
-                          )}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
+            {/* ---------- CENTRO: qué le digo ---------- */}
+            {/* El mismo hilo de la bandeja, con su campo de escritura, sus
+                adjuntos y sus estados de entrega. Que sea EL MISMO y no una
+                caja de texto reducida es la diferencia entre poder atender
+                desde la ficha y tener que saltar a la bandeja para cada
+                respuesta. */}
+            {/* Alto fijo por debajo de `xl`, donde la fila no lo impone; de
+                `xl` para arriba lo marca la rejilla.
+
+                La fila se declara `minmax(0, 1fr)` arriba, y ese `0` es lo
+                que arregla que el chat se pasara de largo. Por omisión una
+                fila mide `auto`, o sea «lo que pida el contenido más alto»:
+                con doscientos mensajes, el hilo pedía toda su altura, la
+                fila crecía con él y las columnas de los lados se estiraban
+                detrás, vacías. Con el mínimo en cero la fila vale exactamente
+                el alto disponible y el hilo se desplaza por dentro, a la
+                altura de los datos de al lado. */}
+            <div className="min-h-0 xl:h-auto max-xl:h-[30rem]">
+              <ChatDelContacto contact={contact} />
+            </div>
+
+            {/* ---------- DERECHA: qué hay alrededor ---------- */}
+            {/* Todo lo que se consulta o se anota mientras se conversa, en un
+                solo sitio y por pestañas. Apilado en bloques ocupaba tres
+                pantallas de alto y lo de abajo no lo miraba nadie; y como
+                fila de pestañas arriba del contenido le robaba el centro al
+                chat, que es lo que de verdad se mira fijo. */}
+            <div className="border-border bg-card flex min-h-0 flex-col overflow-hidden rounded-xl border">
+              {/* El aviso de la próxima gestión va FUERA de las pestañas: es
+                  lo único de esta columna que hay que ver sin buscarlo. Una
+                  gestión vencida escondida detrás de una pestaña es una
+                  gestión que nadie atiende. */}
+              {contactId && (
+                <div className="border-border shrink-0 border-b p-3">
+                  <AvisoProximaGestion
+                    // La clave incluye la versión: cambiarla remonta el aviso
+                    // y lo obliga a releer, que es más simple y más difícil
+                    // de romper que pasarle un `refrescar` hacia abajo.
+                    key={`${contactId}-${gestionesVersion}`}
+                    contactId={contactId}
+                    onIr={() => setPestana('next')}
+                  />
+                </div>
+              )}
+
+              {/* Dos filas de tres. Seis nombres en una sola fila no entran en
+                  una columna de este ancho: o se recortan o aparece una barra
+                  horizontal, y una pestaña que hay que ir a buscar
+                  desplazando es una pestaña que no existe. */}
+              <div className="border-border grid shrink-0 grid-cols-3 gap-px border-b">
+                {PESTANAS.map((p) => {
+                  const Icono = p.icono;
+                  const activa = pestana === p.id;
+                  return (
+                    <button
+                      key={p.id}
+                      type="button"
+                      onClick={() => setPestana(p.id)}
+                      className={
+                        'flex flex-col items-center gap-1 px-1 py-2 text-[11px] font-medium transition-colors ' +
+                        (activa
+                          ? 'text-primary border-primary -mb-px border-b-2'
+                          : 'text-muted-foreground hover:text-foreground hover:bg-muted/50')
+                      }
+                    >
+                      <Icono className="size-4" />
+                      {p.etiqueta(t)}
+                    </button>
+                  );
+                })}
+              </div>
+
+              <div className="min-h-0 flex-1 overflow-y-auto p-3">
+                {pestana === 'activity' && contactId && (
+                  <PanelLineaDeTiempo tipo="contact" registroId={contactId} conChat={false} />
                 )}
-              </TabsContent>
-            </Tabs>
+
+                {/* Notas. Usa el panel compartido, el mismo que la ficha de
+                    una empresa: hasta la migración 049 había DOS sistemas de
+                    notas conviviendo y nadie sabía en cuál había escrito. */}
+                {pestana === 'notes' && contactId && (
+                  <PanelNotas
+                    tipo="contact"
+                    registroId={contactId}
+                    puedeEditar={puedeEditarRegistros}
+                  />
+                )}
+
+                {pestana === 'tasks' && contactId && (
+                  <PanelTareasDeContacto
+                    contactId={contactId}
+                    puedeEditar={puedeEditarRegistros}
+                  />
+                )}
+
+                {pestana === 'files' && contactId && (
+                  <PanelAdjuntos
+                    tipo="contact"
+                    registroId={contactId}
+                    puedeEditar={puedeEditarRegistros}
+                  />
+                )}
+
+                {/* Próxima gestión: qué sigue con este cliente y cuándo. Lo
+                    que se agenda aquí es un evento de calendario de verdad,
+                    así que aparece en la agenda del equipo y no solo en esta
+                    ficha. */}
+                {pestana === 'next' && contactId && (
+                  <PanelProximaGestion
+                    contactId={contactId}
+                    companyId={companyIdDelContacto}
+                    puedeEditar={puedeEditarRegistros}
+                    onAgendado={() => setGestionesVersion((v) => v + 1)}
+                  />
+                )}
+
+                {pestana === 'deals' &&
+                  (loadingDeals ? (
+                    <div className="flex items-center justify-center py-6">
+                      <Loader2 className="text-primary size-5 animate-spin" />
+                    </div>
+                  ) : deals.length === 0 ? (
+                    <p className="text-muted-foreground text-xs">{t('dealsTab.noDeals')}</p>
+                  ) : (
+                    <div className="space-y-2">
+                      {deals.map((deal) => (
+                        <div
+                          key={deal.id}
+                          className="border-border bg-muted/50 rounded-lg border p-3"
+                        >
+                          <div className="flex items-start justify-between gap-2">
+                            <p className="text-foreground text-sm font-medium">{deal.title}</p>
+                            {deal.stage && (
+                              <span
+                                className="shrink-0 rounded-full px-1.5 py-0.5 text-[10px] font-medium"
+                                style={{
+                                  backgroundColor: `${deal.stage.color}20`,
+                                  color: deal.stage.color,
+                                }}
+                              >
+                                {deal.stage.name}
+                              </span>
+                            )}
+                          </div>
+                          <div className="text-muted-foreground mt-1.5 flex items-center justify-between text-xs">
+                            <span className="flex items-center gap-1 tabular-nums">
+                              <DollarSign className="size-3" />
+                              {formatCurrency(deal.value ?? 0, deal.currency || defaultCurrency)}
+                            </span>
+                            {deal.status && deal.status !== 'open' && (
+                              <span
+                                className={deal.status === 'won' ? 'text-primary' : 'text-red-400'}
+                              >
+                                {deal.status}
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  ))}
+              </div>
+            </div>
           </div>
-        )}
-      </DialogContent>
-    </Dialog>
-    <TemplatePicker
-      open={templatePickerOpen}
-      onOpenChange={setTemplatePickerOpen}
-      onSelect={handleSendTemplate}
-    />
+        </div>
+      )}
+
+      <TemplatePicker
+        open={templatePickerOpen}
+        onOpenChange={setTemplatePickerOpen}
+        onSelect={handleSendTemplate}
+      />
     </>
   );
 }

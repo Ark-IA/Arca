@@ -264,7 +264,15 @@ export function ListaTareas({
   return (
     <div className="space-y-3">
       {puedeEditar && (
-        <div className="flex flex-col gap-2 sm:flex-row">
+        /* En compacto los cuatro controles NO se ponen en fila.
+           `sm:flex-row` mira el ancho de la VENTANA, no el de la columna que
+           le toca: en el panel de la bandeja —unos 320px— la ventana es
+           ancha, así que la fila se activaba igual y metía campo, fecha,
+           prioridad y botón en un tercio del sitio que necesitan. El campo
+           quedaba en un hilo y «Agregar» se salía del panel, recortado por
+           el borde. Desde la pantalla eso se ve como que no se pueden crear
+           tareas — y en la práctica no se podía. */
+        <div className={cn('flex flex-col gap-2', !compacto && 'sm:flex-row')}>
           <Input
             value={titulo}
             onChange={(e) => setTitulo(e.target.value)}
@@ -274,27 +282,33 @@ export function ListaTareas({
             placeholder="Qué hay que hacer…"
             className="flex-1"
           />
-          <Input
-            type="date"
-            value={vencimiento}
-            onChange={(e) => setVencimiento(e.target.value)}
-            className="w-auto shrink-0"
-            aria-label="Fecha de vencimiento"
-          />
-          <Select
-            value={prioridad}
-            onValueChange={(v) => v && setPrioridad(v as PrioridadTarea)}
+          <div className={cn('flex gap-2', compacto && 'items-center')}>
+            <Input
+              type="date"
+              value={vencimiento}
+              onChange={(e) => setVencimiento(e.target.value)}
+              className={cn('shrink-0', compacto ? 'min-w-0 flex-1' : 'w-auto')}
+              aria-label="Fecha de vencimiento"
+            />
+            <Select
+              value={prioridad}
+              onValueChange={(v) => v && setPrioridad(v as PrioridadTarea)}
+            >
+              <SelectTrigger className="w-28 shrink-0">
+                <SelectValue>{ETIQUETA_PRIORIDAD[prioridad]}</SelectValue>
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="low">{ETIQUETA_PRIORIDAD.low}</SelectItem>
+                <SelectItem value="normal">{ETIQUETA_PRIORIDAD.normal}</SelectItem>
+                <SelectItem value="high">{ETIQUETA_PRIORIDAD.high}</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <Button
+            onClick={crear}
+            disabled={creando || titulo.trim() === ''}
+            className={cn('shrink-0', compacto && 'w-full')}
           >
-            <SelectTrigger className="w-28 shrink-0">
-              <SelectValue>{ETIQUETA_PRIORIDAD[prioridad]}</SelectValue>
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="low">{ETIQUETA_PRIORIDAD.low}</SelectItem>
-              <SelectItem value="normal">{ETIQUETA_PRIORIDAD.normal}</SelectItem>
-              <SelectItem value="high">{ETIQUETA_PRIORIDAD.high}</SelectItem>
-            </SelectContent>
-          </Select>
-          <Button onClick={crear} disabled={creando || titulo.trim() === ''} className="shrink-0">
             {creando ? <Loader2 className="size-4 animate-spin" /> : <Plus className="size-4" />}
             Agregar
           </Button>

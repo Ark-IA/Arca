@@ -331,6 +331,13 @@ export interface MessageReaction {
 export interface WhatsAppConfig {
   id: string;
   user_id: string;
+  /**
+   * La conexión a la que pertenece esta línea. Es lo que la ata a su
+   * nombre, su prompt propio y su cola (`channel_connections`). Opcional
+   * porque las filas anteriores a la migración 070 no la tenían, aunque esa
+   * misma migración las fue completando.
+   */
+  connection_id?: string | null;
   phone_number_id: string;
   waba_id?: string;
   access_token: string;

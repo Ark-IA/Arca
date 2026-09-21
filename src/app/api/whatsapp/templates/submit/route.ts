@@ -7,6 +7,7 @@ import {
   toErrorResponse,
 } from '@/lib/auth/account'
 import { decrypt } from '@/lib/whatsapp/encryption'
+import { configDeWhatsApp } from '@/lib/whatsapp/credenciales'
 import { submitMessageTemplate } from '@/lib/whatsapp/meta-api'
 import {
   validateTemplatePayload,
@@ -138,12 +139,10 @@ export async function POST(request: Request) {
       metaTemplateId = `dry-run-${crypto.randomUUID()}`
       metaStatus = 'PENDING'
     } else {
-      const { data: config, error: configError } = await supabase
-        .from('whatsapp_config')
-        .select('*')
-        .eq('account_id', accountId)
-        .single()
-      if (configError || !config) {
+      // Las plantillas son de la cuenta, no de una conversacion: se
+      // registran en la linea principal. Ver credenciales.ts.
+      const config = await configDeWhatsApp(supabase, accountId)
+      if (!config) {
         return NextResponse.json(
           {
             error:

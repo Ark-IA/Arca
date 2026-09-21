@@ -338,7 +338,10 @@ async function processWebhook(body: { entry?: WhatsAppWebhookEntry[] }) {
           // Default ON: the column is NOT NULL DEFAULT TRUE, but a row
           // read before migration 039 lands would have it undefined,
           // and losing attachments is the failure mode worth avoiding.
-          config.mirror_inbound_media !== false
+          config.mirror_inbound_media !== false,
+          // La conexion de ESTA linea. Puede ser nula en una fila
+          // anterior a la migracion 070.
+          config.connection_id ?? null,
         )
       }
     }
@@ -639,7 +642,12 @@ async function processMessage(
   accessToken: string,
   // Per-account opt-out for the inbound-media mirror (migration 039).
   // See parseMessageContent for what it turns off.
-  mirrorMedia: boolean
+  mirrorMedia: boolean,
+  // Que LINEA recibio el mensaje. Una cuenta puede tener la de ventas y
+  // la de soporte, y el agente contesta con la personalidad de cada una.
+  // Null en una fila anterior a la migracion 070: quien la use tiene que
+  // saber seguir con los valores de la cuenta.
+  connectionId: string | null,
 ) {
   // Meta manda hasta TRES formas de identificar al remitente, y cada una
   // sirve para algo distinto:
@@ -682,7 +690,8 @@ async function processMessage(
   const convResult = await findOrCreateConversation(
     accountId,
     configOwnerUserId,
-    contactRecord.id
+    contactRecord.id,
+    connectionId,
   )
   if (!convResult) return
   const conversation = convResult.conversation
@@ -926,6 +935,7 @@ async function processMessage(
     // Va explícito de todos modos: el motor descarta los flujos que el
     // usuario apagó para este canal, y omitirlo los activaría a todos.
     channel: 'whatsapp',
+    connectionId,
   })
   const flowConsumed = flowResult.consumed
 
@@ -1352,6 +1362,8 @@ async function findOrCreateConversation(
   accountId: string,
   configOwnerUserId: string,
   contactId: string,
+  /** Que linea de WhatsApp recibio el mensaje. */
+  connectionId: string | null,
 ) {
   // Look for an existing conversation in this account, oldest-first.
   //
@@ -1391,6 +1403,9 @@ async function findOrCreateConversation(
       account_id: accountId,
       user_id: configOwnerUserId,
       contact_id: contactId,
+      // Sin esto el agente no sabria con que prompt contestar en esta
+      // conversacion, y caeria siempre en el de la cuenta.
+      connection_id: connectionId,
     })
     .select()
     .single()

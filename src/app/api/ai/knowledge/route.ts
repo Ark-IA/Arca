@@ -19,7 +19,7 @@ export async function GET() {
     const { supabase, accountId } = await getCurrentAccount()
     const { data, error } = await supabase
       .from('ai_knowledge_documents')
-      .select('id, title, updated_at')
+      .select('id, title, updated_at, connection_id')
       .eq('account_id', accountId)
       .order('updated_at', { ascending: false })
     if (error) {
@@ -57,9 +57,37 @@ export async function POST(request: Request) {
       )
     }
 
+    // A qué conexión pertenece el documento. Sin valor es de la cuenta
+    // entera y lo ve el agente en todas: es el caso normal —precios,
+    // horarios— y por eso es lo que pasa si no se elige nada.
+    let connectionId: string | null =
+      typeof body?.connection_id === 'string' && body.connection_id.trim()
+        ? body.connection_id.trim()
+        : null
+
+    if (connectionId) {
+      // Que sea de esta cuenta. La consulta de búsqueda filtra por
+      // conexión, así que un identificador ajeno no filtraría datos de
+      // nadie — pero dejaría el documento invisible para todos, que desde
+      // la pantalla se ve como «lo subí y el agente no lo usa».
+      const { data: propia } = await supabase
+        .from('channel_connections')
+        .select('id')
+        .eq('id', connectionId)
+        .eq('account_id', accountId)
+        .maybeSingle()
+      if (!propia) connectionId = null
+    }
+
     const { data: doc, error } = await supabase
       .from('ai_knowledge_documents')
-      .insert({ account_id: accountId, created_by: userId, title, content })
+      .insert({
+        account_id: accountId,
+        created_by: userId,
+        title,
+        content,
+        connection_id: connectionId,
+      })
       .select('id')
       .single()
     if (error || !doc) {

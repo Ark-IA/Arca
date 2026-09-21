@@ -132,6 +132,9 @@ function planDb(fx: PlanFixture, writes: PlanWrites = {}): SupabaseClient {
         select: () => b,
         eq: () => b,
         order: () => b,
+        // `whatsapp_config` se consulta con limit(1)+maybeSingle desde que
+        // una cuenta puede tener varias lineas.
+        limit: () => b,
         in: (col: string, vals: unknown) => {
           if (col === 'status') writes.statusFilter = vals;
           if (col === 'id') writes.failedIds = vals;
@@ -142,7 +145,10 @@ function planDb(fx: PlanFixture, writes: PlanWrites = {}): SupabaseClient {
           return b;
         },
         maybeSingle: async () => ({
-          data: fx.broadcast === undefined ? null : fx.broadcast,
+          data:
+            table === 'whatsapp_config'
+              ? (fx.config === undefined ? null : fx.config)
+              : (fx.broadcast === undefined ? null : fx.broadcast),
           error: null,
         }),
         single: async () => ({

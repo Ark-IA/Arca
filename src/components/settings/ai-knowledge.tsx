@@ -20,6 +20,8 @@ interface DocSummary {
   id: string;
   title: string;
   updated_at: string;
+  /** Vacío = lo usa el agente en todas las conexiones. */
+  connection_id?: string | null;
 }
 
 /** Editor target: 'new' when creating, a doc id when editing, null when closed. */
@@ -39,6 +41,14 @@ export function AiKnowledgeCard({
   const [editing, setEditing] = useState<EditTarget>(null);
   const [title, setTitle] = useState('');
   const [content, setContent] = useState('');
+  // A qué conexión pertenece el documento. Vacío = a toda la cuenta, que es
+  // el caso normal: precios y horarios valen igual en todas las líneas. Se
+  // elige una cuando el dato es de UNA línea y citarlo en otra sería un
+  // error — la lista de precios mayorista en la línea del consumidor final.
+  const [conexionDoc, setConexionDoc] = useState('');
+  const [conexiones, setConexiones] = useState<
+    { id: string; name: string | null; external_id: string; channel: string }[]
+  >([]);
   const [saving, setSaving] = useState(false);
   const [reindexing, setReindexing] = useState(false);
   const loadedAccountIdRef = useRef<string | null>(null);
@@ -81,15 +91,32 @@ export function AiKnowledgeCard({
       setEditing(id);
       setTitle(data.title ?? '');
       setContent(data.content ?? '');
+      setConexionDoc(data.connection_id ?? '');
     } catch {
       toast.error(t('openFailed'));
     }
   };
 
+  useEffect(() => {
+    if (!canEdit) return;
+    void (async () => {
+      try {
+        const r = await fetch('/api/conexiones', { cache: 'no-store' });
+        if (!r.ok) return;
+        const json = await r.json();
+        setConexiones(json.conexiones ?? []);
+      } catch {
+        // Sin la lista, el selector no aparece y los documentos se guardan
+        // para toda la cuenta, que es como funcionaba antes.
+      }
+    })();
+  }, [canEdit]);
+
   const cancelEdit = () => {
     setEditing(null);
     setTitle('');
     setContent('');
+    setConexionDoc('');
   };
 
   const save = async () => {
@@ -105,7 +132,11 @@ export function AiKnowledgeCard({
         {
           method: isNew ? 'POST' : 'PATCH',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ title: title.trim(), content: content.trim() }),
+          body: JSON.stringify({
+            title: title.trim(),
+            content: content.trim(),
+            connection_id: conexionDoc || null,
+          }),
         },
       );
       const data = await res.json();
@@ -242,6 +273,33 @@ export function AiKnowledgeCard({
                     disabled={saving}
                   />
                 </div>
+                {/* Solo con más de una conexión: con una sola, elegirla o no
+                    da exactamente el mismo resultado. */}
+                {conexiones.length > 1 && (
+                  <div className="space-y-2">
+                    <Label htmlFor="kb-conexion">¿Para cuál conexión?</Label>
+                    <select
+                      id="kb-conexion"
+                      value={conexionDoc}
+                      onChange={(e) => setConexionDoc(e.target.value)}
+                      disabled={saving}
+                      className="h-9 w-full rounded-md border border-border bg-background px-3 text-sm disabled:opacity-50"
+                    >
+                      <option value="">Todas — es información de la cuenta</option>
+                      {conexiones.map((c) => (
+                        <option key={c.id} value={c.id}>
+                          {c.name ?? c.external_id} ({c.channel})
+                        </option>
+                      ))}
+                    </select>
+                    <p className="text-xs text-muted-foreground">
+                      El agente solo cita este documento cuando atiende por la
+                      conexión que elijas. Dejalo en «todas» salvo que decir
+                      esto en otra línea sea un error.
+                    </p>
+                  </div>
+                )}
+
                 <div className="flex justify-end gap-2">
                   <Button variant="ghost" onClick={cancelEdit} disabled={saving}>
                     {t('cancel')}

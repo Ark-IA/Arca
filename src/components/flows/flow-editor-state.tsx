@@ -65,6 +65,13 @@ export interface BuilderState {
   trigger_config: Record<string, unknown>;
   /** Canales en los que se activa. Al menos uno (migracion 056). */
   channels: string[];
+  /**
+   * Conexiones concretas en las que se activa: esta linea de WhatsApp si,
+   * la otra no. Vacio quiere decir TODAS las del canal, que es lo que
+   * hacia el flujo antes de que hubiera varias -- asi un flujo viejo sigue
+   * atendiendo lo mismo sin que nadie lo abra.
+   */
+  connection_ids: string[];
   entry_node_id: string | null;
   status: FlowRow["status"];
   nodes: BuilderNode[];
@@ -252,6 +259,7 @@ export function FlowEditorProvider({
     channels: initialFlow.channels?.length
       ? initialFlow.channels
       : ["whatsapp", "facebook", "instagram"],
+    connection_ids: initialFlow.connection_ids ?? [],
     entry_node_id: initialFlow.entry_node_id,
     status: initialFlow.status,
     nodes: initialNodes.map((n) => ({
@@ -348,6 +356,7 @@ export function FlowEditorProvider({
           trigger_type: state.trigger_type,
           trigger_config: state.trigger_config,
           channels: state.channels,
+          connection_ids: state.connection_ids,
           entry_node_id: state.entry_node_id,
           nodes: state.nodes,
         }),

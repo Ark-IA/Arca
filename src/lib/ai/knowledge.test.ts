@@ -95,7 +95,7 @@ describe('retrieveKnowledge', () => {
       { id: 's2', content: 'S2' },
       { id: 's3', content: 'S3' },
     ]
-    const out = await retrieveKnowledge(db, 'acct', { embeddingsApiKey: 'sk-x' }, 'q', 3)
+    const out = await retrieveKnowledge(db, 'acct', { embeddingsApiKey: 'sk-x' }, 'q', null, 3)
     expect(out).toEqual(['S1', 'S2', 'S3'])
     expect(h.embedTexts).toHaveBeenCalledTimes(1)
     // Enough semantic hits → no FTS top-up.
@@ -112,7 +112,7 @@ describe('retrieveKnowledge', () => {
       { id: 's2', content: 'S2-dup' }, // dedup by id
       { id: 'f1', content: 'F1' },
     ]
-    const out = await retrieveKnowledge(db, 'acct', { embeddingsApiKey: 'sk-x' }, 'q', 3)
+    const out = await retrieveKnowledge(db, 'acct', { embeddingsApiKey: 'sk-x' }, 'q', null, 3)
     expect(out).toEqual(['S1', 'S2', 'F1'])
     expect(state.rpcCalls).toEqual([
       'match_ai_knowledge_semantic',
