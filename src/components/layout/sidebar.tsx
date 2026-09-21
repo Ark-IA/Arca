@@ -12,6 +12,7 @@ import {
   Bell,
   Bot,
   Building2,
+  Boxes,
   CalendarDays,
   CheckSquare,
   Crown,
@@ -110,6 +111,11 @@ const navItems: NavItem[] = [
   // Empresas va pegada a Contactos: son las dos caras de la misma ficha
   // (la persona y dónde trabaja) y quien busca una suele querer la otra.
   { href: "/companies", labelKey: "companies", icon: Building2 },
+  // Objetos personalizados: define entidades propias (proyectos, pólizas,
+  // lo que haga falta) sin tocar el esquema. Va con las fichas porque es
+  // de lo mismo que habla: qué guarda el CRM. Solo admin, que crear un
+  // objeto cambia la estructura para toda la cuenta.
+  { href: "/objects", labelKey: "objects", icon: Boxes, soloAdmin: true },
   { href: "/pipelines", labelKey: "pipelines", icon: GitBranch },
   { href: "/tasks", labelKey: "tasks", icon: CheckSquare },
   { href: "/calendar", labelKey: "calendar", icon: CalendarDays },
