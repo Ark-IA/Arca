@@ -42,7 +42,7 @@ export interface FieldDefinition {
   labelPlural: string;
   type: FieldType;
   required: boolean;
-  defaultValue?: any;
+  defaultValue?: unknown;
   description?: string;
   icon?: string;
   // Para SELECT/MULTI_SELECT
@@ -118,7 +118,7 @@ export interface ViewDefinition {
 export interface Filter {
   fieldId: string;
   operator: FilterOperator;
-  value: any;
+  value: unknown;
   conjunction?: 'AND' | 'OR';
 }
 
@@ -167,7 +167,7 @@ export interface ObjectRecord {
   id: string;
   objectId: string;
   accountId: string;
-  fields: Record<string, any>;
+  fields: Record<string, unknown>;
   createdBy: string;
   updatedBy: string;
   createdAt: Date;
@@ -181,11 +181,11 @@ export interface AuditLog {
   recordId: string;
   fieldId?: string;
   action: 'CREATE' | 'UPDATE' | 'DELETE';
-  oldValue?: any;
-  newValue?: any;
+  oldValue?: unknown;
+  newValue?: unknown;
   userId: string;
   timestamp: Date;
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
 }
 
 // Objetos del sistema por defecto
@@ -232,7 +232,7 @@ export const SYSTEM_OBJECTS: ObjectDefinition[] = [
     icon: 'TrendingUp',
     primaryFieldId: 'name',
     fields: [],
-    defaultView: 'KANBAN',
+    defaultView: 'TABLE',
     isSystem: true,
     isActive: true,
     createdAt: new Date(),

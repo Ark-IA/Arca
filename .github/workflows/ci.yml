@@ -51,3 +51,42 @@ jobs:
 
       - name: Build
         run: npm run build
+
+  mcp:
+    name: MCP server
+    runs-on: ubuntu-latest
+    # `mcp-server/` is a separate npm package with its own lockfile and
+    # its own TypeScript config, and nothing above reaches into it.
+    #
+    # The root typecheck APPEARS to cover it — `tsconfig.json` includes
+    # `**/*.ts` and excludes only `node_modules`, so the CLI does read
+    # these files. But it only resolves their imports because
+    # `@modelcontextprotocol/sdk` and `zod` happen to be present in the
+    # root `node_modules`. That is a coincidence of hoisting, not a
+    # declared dependency: the day it stops holding, the MCP server
+    # breaks and the root job still goes green.
+    #
+    # So it gets its own job, against its own lockfile, ending in the
+    # build that actually produces the `dist/index.js` the `bin` entry
+    # points at — an unbuilt package installs fine and then fails on
+    # first launch.
+    defaults:
+      run:
+        working-directory: mcp-server
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: mcp-server/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Build
+        run: npm run build

@@ -1,3 +1,9 @@
+
+
+/** El modismo del repo para sacar texto de algo que se atrapó en un catch. */
+function mensaje(error: unknown): string {
+  return error instanceof Error ? error.message : String(error);
+}
 /**
  * Motor de Fórmulas y Campos Calculados
  * Inspirado en Salesforce Formula Fields y Airtable
@@ -12,7 +18,7 @@
  */
 
 export type FormulaResult = {
-  value: any;
+  value: unknown;
   type: 'TEXT' | 'NUMBER' | 'CURRENCY' | 'DATE' | 'BOOLEAN';
   error?: string;
 };
@@ -60,7 +66,7 @@ const FUNCTIONS = {
   FIND: (search: string, text: string) => text?.indexOf(search) || -1,
   SUBSTITUTE: (text: string, find: string, replace: string) => text?.replaceAll(find, replace) || '',
   CONCATENATE: (...args: string[]) => args.join(''),
-  TEXT: (value: any, format: string) => String(value),
+  TEXT: (value: unknown, format: string) => String(value),
   REPEAT: (text: string, count: number) => text?.repeat(count) || '',
   
   // Fecha
@@ -103,19 +109,19 @@ const FUNCTIONS = {
   },
   
   // Lógicas
-  IF: (condition: boolean, trueValue: any, falseValue: any) => condition ? trueValue : falseValue,
+  IF: (condition: boolean, trueValue: unknown, falseValue: unknown) => condition ? trueValue : falseValue,
   AND: (...args: boolean[]) => args.every(Boolean),
   OR: (...args: boolean[]) => args.some(Boolean),
   NOT: (value: boolean) => !value,
   XOR: (a: boolean, b: boolean) => (a && !b) || (!a && b),
-  ISNULL: (value: any) => value === null || value === undefined,
-  ISNOTNULL: (value: any) => value !== null && value !== undefined,
-  ISBLANK: (value: any) => value === null || value === undefined || value === '',
-  ISNUMBER: (value: any) => typeof value === 'number' && !isNaN(value),
-  ISTEXT: (value: any) => typeof value === 'string',
-  ISDATE: (value: any) => value instanceof Date,
-  EQUALS: (a: any, b: any) => a === b,
-  NOTEQUALS: (a: any, b: any) => a !== b,
+  ISNULL: (value: unknown) => value === null || value === undefined,
+  ISNOTNULL: (value: unknown) => value !== null && value !== undefined,
+  ISBLANK: (value: unknown) => value === null || value === undefined || value === '',
+  ISNUMBER: (value: unknown) => typeof value === 'number' && !isNaN(value),
+  ISTEXT: (value: unknown) => typeof value === 'string',
+  ISDATE: (value: unknown) => value instanceof Date,
+  EQUALS: (a: unknown, b: unknown) => a === b,
+  NOTEQUALS: (a: unknown, b: unknown) => a !== b,
   GREATER: (a: number, b: number) => a > b,
   LESS: (a: number, b: number) => a < b,
   GREATEREQUALS: (a: number, b: number) => a >= b,
@@ -126,24 +132,24 @@ const FUNCTIONS = {
   ENDSWITH: (text: string, suffix: string) => text?.endsWith(suffix) || false,
   
   // Conversión
-  TONUMBER: (value: any) => Number(value) || 0,
-  TOTEXT: (value: any) => String(value),
+  TONUMBER: (value: unknown) => Number(value) || 0,
+  TOTEXT: (value: unknown) => String(value),
   TODATE: (value: string | number) => new Date(value),
   TOCURRENCY: (value: number, currency: string = 'USD') => ({ value, currency }),
   
   // Agregación (para ROLLUP)
-  COUNT: (...args: any[]) => args.filter(v => v !== null && v !== undefined).length,
-  COUNTA: (...args: any[]) => args.filter(Boolean).length,
-  COUNTBLANK: (...args: any[]) => args.filter(v => v === null || v === undefined || v === '').length,
+  COUNT: (...args: unknown[]) => args.filter(v => v !== null && v !== undefined).length,
+  COUNTA: (...args: unknown[]) => args.filter(Boolean).length,
+  COUNTBLANK: (...args: unknown[]) => args.filter(v => v === null || v === undefined || v === '').length,
   
   // Utilidades
-  CASE: (expression: any, ...pairs: any[]) => {
+  CASE: (expression: unknown, ...pairs: unknown[]) => {
     for (let i = 0; i < pairs.length; i += 2) {
       if (pairs[i] === expression) return pairs[i + 1];
     }
     return pairs[pairs.length - 1]; // Default value
   },
-  SWITCH: (expression: any, ...cases: any[]) => {
+  SWITCH: (expression: unknown, ...cases: unknown[]) => {
     for (let i = 0; i < cases.length; i += 3) {
       const condition = cases[i];
       if (typeof condition === 'function' ? condition(expression) : condition === expression) {
@@ -152,15 +158,15 @@ const FUNCTIONS = {
     }
     return cases[cases.length - 1];
   },
-  COALESCE: (...args: any[]) => args.find(v => v !== null && v !== undefined) || null,
+  COALESCE: (...args: unknown[]) => args.find(v => v !== null && v !== undefined) || null,
   BLANK: () => null,
 };
 
 export class FormulaEngine {
-  private fieldValues: Record<string, any>;
+  private fieldValues: Record<string, unknown>;
   private referencedFields: string[];
 
-  constructor(fieldValues: Record<string, any>) {
+  constructor(fieldValues: Record<string, unknown>) {
     this.fieldValues = fieldValues;
     this.referencedFields = [];
   }
@@ -177,11 +183,11 @@ export class FormulaEngine {
         value,
         type: returnType,
       };
-    } catch (error: any) {
+    } catch (error) {
       return {
         value: null,
         type: returnType,
-        error: error.message,
+        error: mensaje(error),
       };
     }
   }
@@ -200,13 +206,13 @@ export class FormulaEngine {
     try {
       this.parseFormula(formula);
       return { valid: true };
-    } catch (error: any) {
-      return { valid: false, error: error.message };
+    } catch (error) {
+      return { valid: false, error: mensaje(error) };
     }
   }
 
   // Parser interno
-  private parseFormula(formula: string): any {
+  private parseFormula(formula: string): unknown {
     // Reemplazar referencias a campos {{field_name}}
     const withFields = formula.replace(/\{\{(\w+)\}\}/g, (match, fieldName) => {
       this.referencedFields.push(fieldName);
@@ -236,15 +242,15 @@ export class FormulaEngine {
     try {
       const result = this.safeEvaluate(expression);
       return result;
-    } catch (error: any) {
-      throw new Error(`Error evaluando fórmula: ${error.message}`);
+    } catch (error) {
+      throw new Error(`Error evaluando fórmula: ${mensaje(error)}`);
     }
   }
 
   /**
    * Evaluación segura usando Function en lugar de eval
    */
-  private safeEvaluate(expression: string): any {
+  private safeEvaluate(expression: string): unknown {
     // Crear función con contexto limitado
     const func = new Function('FUNCTIONS', 'CONSTANTS', `
       'use strict';
@@ -269,30 +275,60 @@ export class FormulaEngine {
       return `ERROR: ${result.error}`;
     }
 
+    // El resultado de una fórmula es un valor arbitrario: lo produce
+    // una expresión que el usuario escribió. `returnType` dice cómo
+    // QUIERE verlo, no lo que la fórmula devolvió de verdad — una
+    // marcada como CURRENCY puede acabar dando un texto porque una
+    // rama del IF devuelve "sin dato".
+    //
+    // Antes eso llegaba directo a `Intl.NumberFormat().format()`, que
+    // no acepta un texto y revienta la celda entera. Ahora, cuando el
+    // valor no encaja con el formato pedido, se muestra tal cual: que
+    // una celda diga "sin dato" es infinitamente mejor que una tabla
+    // que no carga.
+    const comoNumero = typeof result.value === 'number' && Number.isFinite(result.value)
+      ? result.value
+      : null;
+
     switch (returnType) {
-      case 'CURRENCY':
-        if (format) {
-          return new Intl.NumberFormat(format, { style: 'currency', currency: format }).format(result.value);
+      case 'CURRENCY': {
+        if (comoNumero === null) return String(result.value ?? '');
+        // `format` es aquí el código ISO de moneda, no una etiqueta de
+        // idioma; con un código inválido `Intl` lanza RangeError, así
+        // que se cae al formato por omisión en vez de romper.
+        try {
+          if (format) {
+            return new Intl.NumberFormat(undefined, { style: 'currency', currency: format }).format(comoNumero);
+          }
+        } catch {
+          // Código de moneda inválido — sigue al formato por omisión.
         }
-        return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(result.value);
-      
-      case 'DATE':
-        if (format) {
-          return new Date(result.value).toLocaleDateString(format);
-        }
-        return new Date(result.value).toLocaleDateString();
-      
+        return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(comoNumero);
+      }
+
+      case 'DATE': {
+        // Una fecha puede venir como Date, como texto ISO o como marca
+        // de tiempo. Cualquier otra cosa no es una fecha.
+        const v = result.value;
+        const fecha =
+          v instanceof Date ? v
+          : typeof v === 'string' || typeof v === 'number' ? new Date(v)
+          : null;
+        if (!fecha || Number.isNaN(fecha.getTime())) return String(v ?? '');
+        return fecha.toLocaleDateString(format);
+      }
+
       case 'NUMBER':
-        if (format) {
-          return new Intl.NumberFormat(format).format(result.value);
-        }
-        return String(result.value);
-      
+        if (comoNumero === null) return String(result.value ?? '');
+        return format
+          ? new Intl.NumberFormat(format).format(comoNumero)
+          : String(comoNumero);
+
       case 'BOOLEAN':
         return result.value ? 'Sí' : 'No';
-      
+
       default:
-        return String(result.value);
+        return String(result.value ?? '');
     }
   }
 }
@@ -379,8 +415,8 @@ export class CalculatedFieldsManager {
   /**
    * Calcular todos los campos para un registro
    */
-  calculateAll(fieldValues: Record<string, any>): Record<string, any> {
-    const results: Record<string, any> = {};
+  calculateAll(fieldValues: Record<string, unknown>): Record<string, unknown> {
+    const results: Record<string, unknown> = {};
 
     for (const [fieldId, field] of this.formulas) {
       const engine = new FormulaEngine(fieldValues);
@@ -397,7 +433,7 @@ export class CalculatedFieldsManager {
   /**
    * Calcular un campo específico
    */
-  calculate(fieldId: string, fieldValues: Record<string, any>): FormulaResult {
+  calculate(fieldId: string, fieldValues: Record<string, unknown>): FormulaResult {
     const field = this.formulas.get(fieldId);
     
     if (!field) {

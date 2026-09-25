@@ -115,9 +115,13 @@ export function Step2SelectAudience({
       setLoadingFields(true);
       try {
         const supabase = createClient();
+        // Contact fields only (object_id NULL). A custom object's
+        // fields live in this table too, and offering them as audience
+        // filters would segment on a column contacts never have.
         const { data } = await supabase
           .from('custom_fields')
           .select('*')
+          .is('object_id', null)
           .order('field_name');
         setCustomFields(data ?? []);
       } finally {

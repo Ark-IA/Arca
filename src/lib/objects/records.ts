@@ -6,13 +6,45 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { Filter, Sort, ObjectRecord, AuditLog } from '@/types/objects';
 
+/** El modismo del repo para sacar texto de algo que se atrapó en un catch. */
+function mensaje(error: unknown): string {
+  return error instanceof Error ? error.message : String(error);
+}
+
+/** Fila de `custom_object_records` tal como vuelve de PostgREST. */
+interface FilaDeRegistro {
+  id: string;
+  object_id: string;
+  account_id: string;
+  fields: Record<string, unknown> | null;
+  created_by: string;
+  updated_by: string;
+  created_at: string;
+  updated_at: string;
+}
+
+/** Fila de `field_audit_logs`. */
+interface FilaDeAuditoria {
+  id: string;
+  account_id: string;
+  object_id: string;
+  record_id: string;
+  field_id?: string;
+  action: AuditLog['action'];
+  old_value?: unknown;
+  new_value?: unknown;
+  user_id: string;
+  timestamp: string;
+  metadata?: Record<string, unknown>;
+}
+
 export interface CreateRecordInput {
   objectId: string;
-  fields: Record<string, any>;
+  fields: Record<string, unknown>;
 }
 
 export interface UpdateRecordInput {
-  fields: Record<string, any>;
+  fields: Record<string, unknown>;
 }
 
 export interface QueryOptions {
@@ -63,8 +95,8 @@ export class CustomRecordsManager {
       });
 
       return { record: this.mapToRecord(data), error: null };
-    } catch (error: any) {
-      return { record: null, error: error.message };
+    } catch (error) {
+      return { record: null, error: mensaje(error) };
     }
   }
 
@@ -87,10 +119,52 @@ export class CustomRecordsManager {
   }
 
   /**
+   * Traduce la referencia a un campo (su id o su nombre) a la clave con
+   * la que el registro está realmente guardado.
+   *
+   * Los valores viven en la columna JSONB `fields`, **indexados por
+   * nombre**: es lo que escribe el formulario y lo que lee la tabla
+   * (`record.fields[field.name]` en `dynamic-table.tsx`). Durante un
+   * tiempo esta consulta armó la ruta con el id del campo, así que
+   * ningún filtro podía coincidir jamás — devolvía cero resultados sin
+   * error, que es la forma más incómoda de fallar.
+   *
+   * Acepta las dos formas porque las dos circulan: las vistas guardadas
+   * en `custom_views.filters` traen ids, y `custom_objects
+   * .primary_field_id` (un VARCHAR, no una FK) trae a veces el nombre.
+   */
+  private async resolveFieldKey(objectId: string): Promise<(ref: string) => string | null> {
+    const { data } = await this.supabase
+      .from('custom_fields')
+      .select('id, field_name')
+      .eq('object_id', objectId)
+      .eq('account_id', this.accountId);
+
+    const porId = new Map<string, string>();
+    const nombres = new Set<string>();
+    for (const f of data ?? []) {
+      porId.set(f.id as string, f.field_name as string);
+      nombres.add(f.field_name as string);
+    }
+
+    return (ref: string) => {
+      const nombre = porId.get(ref) ?? (nombres.has(ref) ? ref : null);
+      // La clave se interpola cruda en la gramática de PostgREST, así
+      // que sólo pasa si además es un identificador. Un campo que no
+      // existe devuelve null y quien llama omite el filtro, en vez de
+      // armar una ruta inválida que tumbaría la consulta entera.
+      if (!nombre || !/^[a-zA-Z0-9_]+$/.test(nombre)) return null;
+      return nombre;
+    };
+  }
+
+  /**
    * Consultar registros con filtros y ordenamiento
    */
   async queryRecords(objectId: string, options: QueryOptions = {}): Promise<{ records: ObjectRecord[]; total: number; error: string | null }> {
     try {
+      const claveDe = await this.resolveFieldKey(objectId);
+
       // Query base.
       //
       // El tipo va suelto a propósito: abajo se le encadenan filtros en un
@@ -98,84 +172,111 @@ export class CustomRecordsManager {
       // tipo completo, TypeScript se queda sin profundidad ("type
       // instantiation is excessively deep"). Los filtros que entran ya
       // vienen validados por `QueryOptions`.
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- ver el comentario de arriba: el tipo completo agota la profundidad de instanciacion de TypeScript
       let query: any = this.supabase
         .from('custom_object_records')
         .select('*', { count: 'exact' })
         .eq('object_id', objectId)
         .eq('account_id', this.accountId);
 
-      // Aplicar filtros
+      // Aplicar filtros.
+      //
+      // La ruta es `fields->>clave`, que extrae el valor como TEXTO. La
+      // forma anterior, `fields.clave`, no es una ruta JSONB para
+      // PostgREST sino la sintaxis de recurso embebido: no filtraba por
+      // el contenido del JSON.
+      //
+      // Al comparar como texto, GREATER_THAN y LESS_THAN ordenan
+      // lexicográficamente, no numéricamente ("9" > "10"). Sirve para
+      // fechas ISO, que ordenan igual como texto; para números hace
+      // falta castear, y eso pide un RPC porque PostgREST no permite
+      // castear en el lado izquierdo de un filtro.
       if (options.filters && options.filters.length > 0) {
         for (const filter of options.filters) {
-          const jsonPath = `fields.${filter.fieldId}`;
-          
+          const clave = claveDe(filter.fieldId);
+          if (!clave) continue;
+          const jsonPath = `fields->>${clave}`;
+
           switch (filter.operator) {
             case 'EQUALS':
-              query = query.eq(jsonPath as any, filter.value);
+              query = query.eq(jsonPath, filter.value);
               break;
             case 'NOT_EQUALS':
-              query = query.neq(jsonPath as any, filter.value);
+              query = query.neq(jsonPath, filter.value);
               break;
             case 'CONTAINS':
-              query = query.like(jsonPath as any, `%${filter.value}%`);
+              query = query.ilike(jsonPath, `%${filter.value}%`);
               break;
             case 'IS_EMPTY':
-              query = query.or(`${jsonPath}.is.null,${jsonPath}.eq.""`);
+              query = query.or(`${jsonPath}.is.null,${jsonPath}.eq.`);
               break;
             case 'IS_NOT_EMPTY':
-              query = query.not(jsonPath as any, 'is', null).neq(jsonPath as any, '');
+              query = query.not(jsonPath, 'is', null).neq(jsonPath, '');
               break;
+            // `->>` devuelve texto, así que un booleano del JSON llega
+            // como 'true' / 'false', no como true / false.
             case 'IS_TRUE':
-              query = query.eq(jsonPath as any, true);
+              query = query.eq(jsonPath, 'true');
               break;
             case 'IS_FALSE':
-              query = query.eq(jsonPath as any, false);
+              query = query.eq(jsonPath, 'false');
               break;
             case 'GREATER_THAN':
-              query = query.gt(jsonPath as any, filter.value);
+              query = query.gt(jsonPath, filter.value);
               break;
             case 'LESS_THAN':
-              query = query.lt(jsonPath as any, filter.value);
+              query = query.lt(jsonPath, filter.value);
               break;
             // Agregar más operadores según sea necesario
           }
         }
       }
 
-      // Búsqueda de texto
+      // Búsqueda de texto. `ilike` y no `like`: quien busca "acme" espera
+      // encontrar "Acme".
       if (options.searchFieldId && options.searchQuery) {
-        query = query.like(`fields.${options.searchFieldId}` as any, `%${options.searchQuery}%`);
+        const clave = claveDe(options.searchFieldId);
+        if (clave) {
+          query = query.ilike(`fields->>${clave}`, `%${options.searchQuery}%`);
+        }
       }
 
       // Ordenamiento
       if (options.sorts && options.sorts.length > 0) {
         for (const sort of options.sorts) {
-          const jsonPath = `fields.${sort.fieldId}`;
-          query = query.order(jsonPath as any, { ascending: sort.direction === 'ASC' });
+          const clave = claveDe(sort.fieldId);
+          if (!clave) continue;
+          query = query.order(`fields->>${clave}`, { ascending: sort.direction === 'ASC' });
         }
       } else {
         query = query.order('created_at', { ascending: false });
       }
 
-      // Paginación
-      if (options.limit) {
-        query = query.limit(options.limit);
-      }
+      // Paginación. `range` ya acota el tamaño, así que aplicar también
+      // `limit` sería redundante y dejaría los dos caminos pudiendo
+      // discrepar.
       if (options.offset) {
         query = query.range(options.offset, options.offset + (options.limit || 20) - 1);
+      } else if (options.limit) {
+        query = query.limit(options.limit);
       }
 
-      const { data, error } = await query;
+      const { data, error, count } = await query;
 
       if (error) throw error;
 
-      return { 
-        records: data.map(this.mapToRecord), 
-        total: data.length, // Nota: count exact puede necesitar otro approach
-        error: null 
+      return {
+        records: (data ?? []).map(this.mapToRecord),
+        // `count: 'exact'` ya viene pedido arriba: es el total que
+        // cumple el filtro, no el tamaño de esta página. Devolver
+        // `data.length` hacía que el total nunca pasara del límite, así
+        // que cualquier paginador construido encima creía que sólo
+        // había una página.
+        total: count ?? (data ?? []).length,
+        error: null
       };
-    } catch (error: any) {
-      return { records: [], total: 0, error: error.message };
+    } catch (error) {
+      return { records: [], total: 0, error: mensaje(error) };
     }
   }
 
@@ -222,8 +323,8 @@ export class CustomRecordsManager {
       }
 
       return { record: this.mapToRecord(data), error: null };
-    } catch (error: any) {
-      return { record: null, error: error.message };
+    } catch (error) {
+      return { record: null, error: mensaje(error) };
     }
   }
 
@@ -258,8 +359,8 @@ export class CustomRecordsManager {
       }
 
       return { success: true, error: null };
-    } catch (error: any) {
-      return { success: false, error: error.message };
+    } catch (error) {
+      return { success: false, error: mensaje(error) };
     }
   }
 
@@ -294,15 +395,15 @@ export class CustomRecordsManager {
       }
 
       return { created: data?.length || 0, error: null };
-    } catch (error: any) {
-      return { created: 0, error: error.message };
+    } catch (error) {
+      return { created: 0, error: mensaje(error) };
     }
   }
 
   /**
    * Bulk update
    */
-  async bulkUpdateRecords(recordIds: string[], fields: Record<string, any>): Promise<{ updated: number; error: string | null }> {
+  async bulkUpdateRecords(recordIds: string[], fields: Record<string, unknown>): Promise<{ updated: number; error: string | null }> {
     try {
       const { data, error } = await this.supabase
         .from('custom_object_records')
@@ -330,8 +431,8 @@ export class CustomRecordsManager {
       }
 
       return { updated: data?.length || 0, error: null };
-    } catch (error: any) {
-      return { updated: 0, error: error.message };
+    } catch (error) {
+      return { updated: 0, error: mensaje(error) };
     }
   }
 
@@ -359,8 +460,8 @@ export class CustomRecordsManager {
       }
 
       return { deleted: data?.length || 0, error: null };
-    } catch (error: any) {
-      return { deleted: 0, error: error.message };
+    } catch (error) {
+      return { deleted: 0, error: mensaje(error) };
     }
   }
 
@@ -404,8 +505,8 @@ export class CustomRecordsManager {
     recordId: string;
     fieldId?: string;
     action: 'CREATE' | 'UPDATE' | 'DELETE';
-    oldValue?: any;
-    newValue?: any;
+    oldValue?: unknown;
+    newValue?: unknown;
   }): Promise<void> {
     await this.supabase
       .from('field_audit_logs')
@@ -439,7 +540,7 @@ export class CustomRecordsManager {
   }
 
   // Helper de mapeo
-  private mapToRecord(data: any): ObjectRecord {
+  private mapToRecord(data: FilaDeRegistro): ObjectRecord {
     return {
       id: data.id,
       objectId: data.object_id,
@@ -452,14 +553,14 @@ export class CustomRecordsManager {
     };
   }
 
-  private mapToAuditLog(data: any): AuditLog {
+  private mapToAuditLog(data: FilaDeAuditoria): AuditLog {
     return {
       id: data.id,
       accountId: data.account_id,
       objectId: data.object_id,
       recordId: data.record_id,
       fieldId: data.field_id,
-      action: data.action as any,
+      action: data.action,
       oldValue: data.old_value,
       newValue: data.new_value,
       userId: data.user_id,

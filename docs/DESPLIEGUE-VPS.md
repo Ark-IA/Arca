@@ -27,14 +27,29 @@ con TLS automático, conviviendo con los demás servicios de la plataforma.
    └─────────┘   └────┬─────┘   └──────────┘
                       │
                       ▼
-              Supabase Cloud
-                 (externo)
+            ┌───────────────────┐
+            │ Supabase (Docker) │  en este mismo VPS
+            │  Postgres · Auth  │  autoalojado
+            │  PostgREST · etc. │
+            └───────────────────┘
 ```
 
-Arca no lleva contenedor de base de datos: usa **Supabase Cloud**. Sólo necesita
-salida a internet y las claves del proyecto. Eso simplifica el despliegue —no hay
-volumen de Postgres que respaldar— pero significa que **la disponibilidad de Arca
-depende de Supabase**.
+Supabase corre **autoalojado en Docker, en este mismo servidor**. No es Supabase
+Cloud.
+
+Conviene tenerlo presente porque cambia tres cosas del día a día:
+
+- **Las migraciones no se aplican desde ningún dashboard de supabase.com.** Entran
+  con `psql` dentro del contenedor; `scripts/apply-migrations-remote.sh` lo hace y
+  además verifica que el esquema quedó construido de verdad.
+- **Sí hay un volumen de Postgres que respaldar.** La base es responsabilidad de
+  ustedes, no de un proveedor.
+- **La disponibilidad no depende de un tercero**, pero tampoco la recuperación:
+  si el volumen se pierde y no hay copia, no hay a quién pedírsela.
+
+> Este documento afirmaba lo contrario hasta septiembre de 2026 —decía que la base
+> era Supabase Cloud y que no había volumen que respaldar—. Era falso y llevaba a
+> aplicar migraciones en un sitio que no existe.
 
 ---
 
@@ -46,7 +61,7 @@ depende de Supabase**.
 | Docker | 24+ con Compose v2 |
 | Traefik | corriendo en la red `root_default` |
 | DNS | registro **A** del dominio → IP del VPS |
-| Supabase | proyecto creado, con las migraciones de `supabase/` aplicadas |
+| Supabase | stack autoalojado corriendo en Docker, con las migraciones de `supabase/` aplicadas |
 
 > El registro DNS debe resolver **antes** de levantar el stack: Traefik pide el
 > certificado por desafío TLS-ALPN y falla si el dominio no apunta al servidor.

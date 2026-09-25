@@ -6,8 +6,10 @@ import {
   Camera,
   Coins,
   FileText,
+  Globe,
   Inbox,
   KeyRound,
+  Mic,
   LayoutGrid,
   MessagesSquare,
   Palette,
@@ -45,7 +47,9 @@ export const SETTINGS_SECTIONS = [
   'members',
   'colas',
   'agente-ia',
+  'voz',
   'blocklist',
+  'seguimiento-web',
   'api',
 ] as const;
 
@@ -68,43 +72,161 @@ export interface SectionMeta {
    * contrasena, su tema -- mas las respuestas rapidas, que usa a diario y
    * no afectan a nadie mas.
    */
-  minRole?: 'agent' | 'admin';
+  minRole?: 'agent' | 'admin' | 'owner';
 }
 
 export const SECTION_META: Record<SettingsSection, SectionMeta> = {
-  overview: { id: 'overview', label: 'Overview', icon: LayoutGrid, group: 'top' },
-  profile: { id: 'profile', label: 'Your profile', icon: User, group: 'account' },
-  security: { id: 'security', label: 'Login & security', icon: Shield, group: 'account' },
-  appearance: { id: 'appearance', label: 'Appearance', icon: Palette, group: 'account' },
+  overview: {
+    id: 'overview',
+    label: 'Overview',
+    icon: LayoutGrid,
+    group: 'top',
+  },
+  profile: {
+    id: 'profile',
+    label: 'Your profile',
+    icon: User,
+    group: 'account',
+  },
+  security: {
+    id: 'security',
+    label: 'Login & security',
+    icon: Shield,
+    group: 'account',
+  },
+  appearance: {
+    id: 'appearance',
+    label: 'Appearance',
+    icon: Palette,
+    group: 'account',
+  },
   // Va PRIMERO del bloque de canales, antes que WhatsApp / Facebook /
   // Instagram: es la vista de conjunto -- que lineas y paginas atiende la
   // cuenta, con que prompt responde cada una -- y las tres de abajo son el
   // detalle de como se conecta cada canal. Puesta despues, habria que
   // recorrer los tres canales para descubrir que existe.
-  conexiones: { id: 'conexiones', label: 'Conexiones', icon: Cable, group: 'workspace', minRole: 'admin' },
-  whatsapp: { id: 'whatsapp', label: 'WhatsApp', icon: PlugZap, group: 'workspace', minRole: 'admin' },
+  conexiones: {
+    id: 'conexiones',
+    label: 'Conexiones',
+    icon: Cable,
+    group: 'workspace',
+    minRole: 'admin',
+  },
+  whatsapp: {
+    id: 'whatsapp',
+    label: 'WhatsApp',
+    icon: PlugZap,
+    group: 'workspace',
+    minRole: 'admin',
+  },
   // Canales separados y no una sola pantalla de 'Canales': cada uno se
   // conecta distinto y con credenciales propias, y meterlos juntos
   // obligaria a elegir el canal antes de ver que pide cada uno.
-  facebook: { id: 'facebook', label: 'Facebook', icon: MessagesSquare, group: 'workspace', minRole: 'admin' },
-  instagram: { id: 'instagram', label: 'Instagram', icon: Camera, group: 'workspace', minRole: 'admin' },
-  templates: { id: 'templates', label: 'Templates', icon: FileText, group: 'workspace', minRole: 'admin' },
-  'quick-replies': { id: 'quick-replies', label: 'Quick replies', icon: Zap, group: 'workspace', minRole: 'agent' },
-  fields: { id: 'fields', label: 'Fields & tags', icon: Tags, group: 'workspace', minRole: 'admin' },
-  deals: { id: 'deals', label: 'Deals & currency', icon: Coins, group: 'workspace', minRole: 'admin' },
-  members: { id: 'members', label: 'Team members', icon: UsersRound, group: 'workspace', minRole: 'admin' },
+  facebook: {
+    id: 'facebook',
+    label: 'Facebook',
+    icon: MessagesSquare,
+    group: 'workspace',
+    minRole: 'admin',
+  },
+  instagram: {
+    id: 'instagram',
+    label: 'Instagram',
+    icon: Camera,
+    group: 'workspace',
+    minRole: 'admin',
+  },
+  templates: {
+    id: 'templates',
+    label: 'Templates',
+    icon: FileText,
+    group: 'workspace',
+    minRole: 'admin',
+  },
+  'quick-replies': {
+    id: 'quick-replies',
+    label: 'Quick replies',
+    icon: Zap,
+    group: 'workspace',
+    minRole: 'agent',
+  },
+  fields: {
+    id: 'fields',
+    label: 'Fields & tags',
+    icon: Tags,
+    group: 'workspace',
+    minRole: 'admin',
+  },
+  deals: {
+    id: 'deals',
+    label: 'Deals & currency',
+    icon: Coins,
+    group: 'workspace',
+    minRole: 'admin',
+  },
+  members: {
+    id: 'members',
+    label: 'Team members',
+    icon: UsersRound,
+    group: 'workspace',
+    minRole: 'admin',
+  },
   // Va pegada a Team members porque es la misma decision vista de otro
   // lado: quien esta en el equipo, y que atiende cada uno.
-  colas: { id: 'colas', label: 'Colas de asesores', icon: Inbox, group: 'workspace', minRole: 'admin' },
+  colas: {
+    id: 'colas',
+    label: 'Colas de asesores',
+    icon: Inbox,
+    group: 'workspace',
+    minRole: 'admin',
+  },
   // Asignar el agente a cada bandeja. Va en Configuracion, junto a los
   // canales, porque es una decision sobre COMO se atiende cada bandeja; el
   // ajuste del modelo y la clave sigue viviendo en Agentes IA.
-  'agente-ia': { id: 'agente-ia', label: 'Agente de IA', icon: Bot, group: 'workspace', minRole: 'admin' },
-  blocklist: { id: 'blocklist', label: 'Lista de bloqueo', icon: ShieldBan, group: 'workspace', minRole: 'admin' },
-  api: { id: 'api', label: 'API keys', icon: KeyRound, group: 'workspace', minRole: 'admin' },
+  'agente-ia': {
+    id: 'agente-ia',
+    label: 'Agente de IA',
+    icon: Bot,
+    group: 'workspace',
+    minRole: 'admin',
+  },
+  // Solo el dueño: es la voz con la que la empresa les habla a sus clientes,
+  // clonada de una persona real. No la cambia cualquier administrador.
+  voz: {
+    id: 'voz',
+    label: 'Respuesta por voz',
+    icon: Mic,
+    group: 'workspace',
+    minRole: 'owner',
+  },
+  blocklist: {
+    id: 'blocklist',
+    label: 'Lista de bloqueo',
+    icon: ShieldBan,
+    group: 'workspace',
+    minRole: 'admin',
+  },
+  // Decide qué páginas pueden crear contactos en la cuenta: solo administración.
+  'seguimiento-web': {
+    id: 'seguimiento-web',
+    label: 'Formularios web',
+    icon: Globe,
+    group: 'workspace',
+    minRole: 'admin',
+  },
+  api: {
+    id: 'api',
+    label: 'API keys',
+    icon: KeyRound,
+    group: 'workspace',
+    minRole: 'admin',
+  },
 };
 
-export const RAIL_GROUPS: { label: string | null; group: SectionMeta['group'] }[] = [
+export const RAIL_GROUPS: {
+  label: string | null;
+  group: SectionMeta['group'];
+}[] = [
   { label: null, group: 'top' },
   { label: 'Account', group: 'account' },
   { label: 'Workspace', group: 'workspace' },
@@ -136,7 +258,7 @@ export function resolveSection(raw: string | null): SettingsSection {
  */
 export function puedeVer(
   meta: SectionMeta,
-  rol: AccountRole | null | undefined,
+  rol: AccountRole | null | undefined
 ): boolean {
   if (!meta.minRole) return true;
   // Sin rol todavía resuelto se responde que no: es medio segundo, y al

@@ -140,7 +140,7 @@ export function AiConfig() {
   // Empty string = leave unassigned (shared queue).
   const [handoffAgentId, setHandoffAgentId] = useState('');
   const [respuestaMedios, setRespuestaMedios] = useState(
-    '¡Gracias por comunicarte con ARK-IA! 🙌 Para poder ayudarte ya mismo, ¿escribenos por texto todo lo qué necesitás? Así te respondo al instante.',
+    '¡Gracias por escribirnos! 🙌 Para ayudarte más rápido, ¿nos cuentas por texto qué necesitas? Así te respondo al instante.',
   );
   const [avisoEscalada, setAvisoEscalada] = useState(
     'Dejame consultarlo con un compañero del equipo y te respondemos por aquí. 🙌',

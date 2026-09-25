@@ -103,5 +103,7 @@ describe('ICU-hostile strings are not read with plain t()', () => {
       offenders.sort(),
       'these render as their own keypath at runtime; use t.raw() (or t.rich() with tag handlers)',
     ).toEqual([]);
-  });
+    // Recorre todo src/: con la máquina cargada (CI, build en paralelo)
+    // pasa de los 5 s por defecto y falla sin que haya nada roto.
+  }, 30_000);
 });

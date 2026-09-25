@@ -44,7 +44,9 @@
     "menuSettings": "Settings",
     "menuSignOut": "Sign out",
     "collapse": "Collapse",
-    "expand": "Expand"
+    "expand": "Expand",
+    "reports": "Reports",
+    "superadmin": "Superadmin"
   },
   "Header": {
     "dashboard": "Dashboard",

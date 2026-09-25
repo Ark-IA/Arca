@@ -400,8 +400,8 @@ export const View = {
 
 // Helpers para filtros
 export const Filter = {
-  EQUALS: (fieldId: string, value: any) => ({ fieldId, operator: 'EQUALS' as const, value }),
-  NOT_EQUALS: (fieldId: string, value: any) => ({ fieldId, operator: 'NOT_EQUALS' as const, value }),
+  EQUALS: (fieldId: string, value: unknown) => ({ fieldId, operator: 'EQUALS' as const, value }),
+  NOT_EQUALS: (fieldId: string, value: unknown) => ({ fieldId, operator: 'NOT_EQUALS' as const, value }),
   CONTAINS: (fieldId: string, value: string) => ({ fieldId, operator: 'CONTAINS' as const, value }),
   GREATER_THAN: (fieldId: string, value: number) => ({ fieldId, operator: 'GREATER_THAN' as const, value }),
   LESS_THAN: (fieldId: string, value: number) => ({ fieldId, operator: 'LESS_THAN' as const, value }),

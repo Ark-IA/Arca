@@ -1,211 +1,116 @@
-# 📋 Instrucciones para Aplicar Migraciones - Supabase Dashboard
+# Aplicar migraciones
 
-## Método Recomendado: Aplicar desde Supabase Dashboard
+Supabase aquí es **autoalojado, en Docker, en el mismo VPS**. No es Supabase
+Cloud: no existe un dashboard de supabase.com donde pegar SQL para este
+proyecto.
 
-### Paso 1: Ir al Dashboard de Supabase
+> Una versión anterior de este documento mandaba justamente ahí. Si alguien la
+> siguió y "no encontró el proyecto", era eso.
 
-1. Abre tu navegador
-2. Navega a: **https://supabase.com/dashboard**
-3. Inicia sesión con tu cuenta
-4. Selecciona tu proyecto **"wacrm"**
-
----
-
-### Paso 2: Abrir SQL Editor
-
-1. En el menú lateral, haz clic en **"SQL Editor"**
-2. Haz clic en **"New query"**
+Las migraciones viven en `supabase/migrations/`, numeradas, y se aplican en
+orden dentro del contenedor de Postgres.
 
 ---
 
-### Paso 3: Copiar y Ejecutar Migración 070
+## La forma corta
 
-1. Abre el archivo `supabase/migrations/070_custom_objects.sql` en tu editor
-2. **Copia TODO el contenido** del archivo
-3. **Pega** en el SQL Editor de Supabase
-4. Haz clic en **"Run"** o presiona `Ctrl+Enter`
+Desde la raíz del repositorio, con `SERVIDOR` puesto a la IP del VPS:
 
-**Deberías ver un mensaje de éxito:**
+```bash
+scp -P 2235 supabase/migrations/077_objetos_personalizados.sql root@SERVIDOR:/tmp/
+scp -P 2235 supabase/migrations/078_funciones_enterprise.sql   root@SERVIDOR:/tmp/
+scp -P 2235 scripts/apply-migrations-remote.sh                 root@SERVIDOR:/tmp/
+
+ssh -p 2235 root@SERVIDOR 'bash /tmp/apply-migrations-remote.sh'
 ```
-Success. No rows returned
+
+El script localiza el contenedor de Postgres, aplica las migraciones con
+`ON_ERROR_STOP=1` y **verifica el resultado**. Eso último no es ceremonia: ver
+la sección "Por qué no basta con que no dé error".
+
+---
+
+## La forma manual
+
+Si prefieres hacerlo a mano, o necesitas aplicar una migración distinta:
+
+```bash
+ssh -p 2235 root@SERVIDOR
+
+# 1. Encontrar el contenedor de la base
+docker ps --format '{{.Names}}\t{{.Image}}' | grep -i postgres
+
+# 2. Aplicar, parando en el primer error
+docker exec -i <contenedor> \
+  psql -v ON_ERROR_STOP=1 -U postgres -d postgres < /tmp/077_objetos_personalizados.sql
 ```
 
-**Verifica que se crearon las tablas:**
+`ON_ERROR_STOP=1` importa. Sin él, `psql` informa el error, **sigue con la
+sentencia siguiente** y termina con código 0: una migración a medio aplicar
+que se reporta como exitosa.
+
+---
+
+## Por qué no basta con que no dé error
+
+Todo el DDL de este repositorio está guardado con `CREATE TABLE IF NOT EXISTS`
+y `ON CONFLICT`, para que las migraciones se puedan volver a correr sin romper
+nada. Esa misma propiedad convierte un nombre mal escrito en un no-op
+silencioso: la migración "se aplica", no da error, y no crea nada.
+
+Por eso hay que comprobar el esquema después:
+
 ```sql
-SELECT table_name 
-FROM information_schema.tables 
-WHERE table_schema = 'public' 
-AND table_name LIKE 'custom_%'
+-- Las tablas de la 077 y la 078
+SELECT table_name
+FROM information_schema.tables
+WHERE table_schema = 'public'
+  AND table_name IN (
+    'custom_objects', 'custom_object_records', 'custom_views',
+    'field_audit_logs', 'object_permissions', 'object_relations',
+    'object_relation_records', 'custom_reports', 'ai_tool_executions',
+    'custom_layouts', 'activity_timeline', 'advanced_tasks',
+    'centralized_files'
+  )
 ORDER BY table_name;
 ```
 
-**Resultado esperado (8 tablas):**
-- custom_objects
-- custom_fields
-- custom_views
-- custom_object_records
-- field_audit_logs
-- object_permissions
-- object_relations
-- object_relation_records
-
----
-
-### Paso 4: Copiar y Ejecutar Migración 071
-
-1. Abre el archivo `supabase/migrations/071_enterprise_features.sql` en tu editor
-2. **Copia TODO el contenido** del archivo
-3. **Pega** en el SQL Editor de Supabase
-4. Haz clic en **"Run"** o presiona `Ctrl+Enter`
-
-**Verifica que se crearon las tablas:**
-```sql
-SELECT table_name 
-FROM information_schema.tables 
-WHERE table_schema = 'public' 
-AND (
-  table_name = 'custom_reports' OR
-  table_name = 'ai_tool_executions' OR
-  table_name = 'custom_layouts' OR
-  table_name = 'activity_timeline' OR
-  table_name = 'advanced_tasks' OR
-  table_name = 'centralized_files'
-)
-ORDER BY table_name;
-```
-
-**Resultado esperado (6 tablas):**
-- custom_reports
-- ai_tool_executions
-- custom_layouts
-- activity_timeline
-- advanced_tasks
-- centralized_files
-
----
-
-### Paso 5: Verificar Vista Unificada
-
-Ejecuta esta consulta para verificar la vista:
+**Y lo más importante**, que no es una tabla sino una columna:
 
 ```sql
-SELECT * FROM unified_activity_feed LIMIT 1;
+-- La 077 NO crea `custom_fields` — esa tabla es de la 001. La ALTERA.
+-- Comprobar que la tabla existe pasaría igual sobre el esquema viejo.
+SELECT column_name, is_nullable
+FROM information_schema.columns
+WHERE table_schema = 'public'
+  AND table_name = 'custom_fields'
+  AND column_name IN ('object_id', 'user_id');
 ```
+
+Se esperan dos filas: `object_id` (la columna que separa un campo de contacto
+de uno de objeto) y `user_id` con `is_nullable = YES`. Si `object_id` no está,
+la 077 no hizo su trabajo aunque no haya dado error. Si `user_id` sigue siendo
+`NO`, cada alta de campo de objeto va a fallar en producción.
 
 ---
 
-### Paso 6: Verificar Funciones
+## Después de aplicar
 
-Ejecuta esta consulta para verificar las funciones:
-
-```sql
-SELECT routine_name 
-FROM information_schema.routines 
-WHERE routine_schema = 'public' 
-AND routine_name IN ('create_activity', 'get_activity_metrics')
-ORDER BY routine_name;
+```bash
+docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d
 ```
+
+Y comprobar que lo que dependía de esas migraciones responde:
+
+- `/objects` en el dashboard
+- `GET /api/v1/objects` con una clave que tenga el scope `objects:read`
 
 ---
 
-## ✅ Verificación Final
+## En CI
 
-Ejecuta este script de verificación completo:
-
-```sql
--- ============================================
--- VERIFICACIÓN DE IMPLEMENTACIÓN ENTERPRISE
--- ============================================
-
--- 1. Contar tablas custom_objects
-SELECT 'Custom Objects Tables' as check_type, COUNT(*) as count
-FROM information_schema.tables 
-WHERE table_name IN (
-  'custom_objects', 'custom_fields', 'custom_views', 
-  'custom_object_records', 'field_audit_logs',
-  'object_permissions', 'object_relations', 'object_relation_records'
-)
-UNION ALL
--- 2. Contar tablas enterprise features
-SELECT 'Enterprise Features Tables', COUNT(*)
-FROM information_schema.tables 
-WHERE table_name IN (
-  'custom_reports', 'ai_tool_executions', 'custom_layouts',
-  'activity_timeline', 'advanced_tasks', 'centralized_files'
-)
-UNION ALL
--- 3. Verificar vista
-SELECT 'Unified View', CASE WHEN EXISTS (
-  SELECT 1 FROM information_schema.views 
-  WHERE table_name = 'unified_activity_feed'
-) THEN 1 ELSE 0 END
-UNION ALL
--- 4. Verificar funciones
-SELECT 'Functions', COUNT(*)
-FROM information_schema.routines 
-WHERE routine_schema = 'public' 
-AND routine_name IN ('create_activity', 'get_activity_metrics');
-```
-
-**Resultado esperado:**
-```
-check_type              | count
-------------------------|-------
-Custom Objects Tables   | 8
-Enterprise Features     | 6
-Unified View            | 1
-Functions               | 2
-```
-
----
-
-## 🎉 ¡Listo!
-
-Si todas las verificaciones son correctas, las migraciones se aplicaron exitosamente.
-
-### Siguientes Pasos:
-
-1. **Crear archivo .env.local** (si no existe):
-   ```bash
-   cp .env.local.example .env.local
-   ```
-
-2. **Editar .env.local** con tus credenciales:
-   ```env
-   NEXT_PUBLIC_SUPABASE_URL=https://wacrm.supabase.co
-   NEXT_PUBLIC_SUPABASE_ANON_KEY=<tu-anon-key>
-   SUPABASE_SERVICE_ROLE_KEY=<tu-service-role-key>
-   ```
-
-3. **Reiniciar el servidor**:
-   ```bash
-   npm run dev
-   ```
-
-4. **Probar la nueva funcionalidad**:
-   - Navega a `http://localhost:3000/dashboard/objects`
-   - Haz clic en "Nuevo Objeto"
-   - Crea tu primer objeto personalizado
-
----
-
-## 🔍 Solución de Problemas
-
-### Error: "relation already exists"
-
-Las migraciones usan `CREATE TABLE IF NOT EXISTS`, así que deberían ser idempotentes. Si ves este error, ignóralo y continúa.
-
-### Error: "permission denied"
-
-Asegúrate de estar usando una cuenta con privilegios de administrador en el proyecto.
-
-### Error: "function gen_random_uuid() does not exist"
-
-Ejecuta esto primero:
-```sql
-CREATE EXTENSION IF NOT EXISTS pgcrypto;
-```
-
----
-
-**¿Necesitas ayuda? Revisa `docs/PROXIMOS_PASOS.md` para más detalles.**
+`.github/workflows/migrations.yml` levanta un Postgres desechable, corre
+`supabase db reset` contra `supabase/migrations/` y ejecuta
+`supabase/ci/verify-schema.sql`, que hace las mismas comprobaciones de arriba.
+Un fallo ahí es una migración que no construye el esquema, no un problema del
+job.

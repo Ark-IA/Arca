@@ -12,6 +12,12 @@
 
 import type { SupabaseClient } from '@supabase/supabase-js';
 
+/** El modismo del repo para sacar texto de algo que se atrapó en un catch. */
+function mensaje(error: unknown): string {
+  return error instanceof Error ? error.message : String(error);
+}
+
+
 export type ReportType = 'TABLE' | 'SUMMARY' | 'MATRIX' | 'CHART';
 export type ChartType = 'BAR' | 'LINE' | 'PIE' | 'DONUT' | 'AREA' | 'SCATTER';
 export type AggregateFunction = 'COUNT' | 'SUM' | 'AVG' | 'MIN' | 'MAX' | 'MEDIAN' | 'STDDEV';
@@ -22,8 +28,8 @@ export interface ReportFilter {
   operator: FilterOperator;
   // Opcional porque IS_NULL e IS_NOT_NULL no comparan contra nada: el
   // operador ya dice todo. Exigirlo obligaba a inventar un valor.
-  value?: any;
-  value2?: any; // Para BETWEEN
+  value?: unknown;
+  value2?: unknown; // Para BETWEEN
   condition?: 'AND' | 'OR';
 }
 
@@ -103,9 +109,40 @@ export interface ReportConfig {
   updatedAt: Date;
 }
 
+/** Fila cruda de `custom_object_records` que alimenta un reporte. */
+interface FilaCruda {
+  id: string;
+  fields: Record<string, unknown>;
+}
+
+/**
+ * Fila ya aplanada: `id` más una clave por columna visible y otra por
+ * métrica. Las claves salen de la configuración del reporte, así que
+ * no se pueden enumerar en un tipo — pero los valores sí se sabe que
+ * son datos sueltos, no cualquier cosa.
+ */
+type FilaDeReporte = Record<string, unknown>;
+
+/**
+ * Ordena dos valores de agrupación, que salen de un JSONB y por tanto
+ * pueden ser de cualquier tipo. Los vacíos van siempre al final, los
+ * números se comparan como números, y el resto como texto con la
+ * intercalación del idioma. Comparar con `<` a secas convertía a texto
+ * sin avisar: 9 quedaba después de 10.
+ */
+function compararValores(a: unknown, b: unknown): number {
+  const vacio = (v: unknown) => v === null || v === undefined || v === '';
+  if (vacio(a) && vacio(b)) return 0;
+  if (vacio(a)) return 1;
+  if (vacio(b)) return -1;
+  if (typeof a === 'number' && typeof b === 'number') return a - b;
+  if (typeof a === 'boolean' && typeof b === 'boolean') return Number(a) - Number(b);
+  return String(a).localeCompare(String(b), undefined, { numeric: true });
+}
+
 export interface ReportResult {
-  data: any[];
-  summary: Record<string, any>;
+  data: unknown[];
+  summary: Record<string, unknown>;
   groups?: ReportGroupResult[];
   totalRows: number;
   executedAt: Date;
@@ -113,9 +150,9 @@ export interface ReportResult {
 }
 
 export interface ReportGroupResult {
-  groupValue: any;
-  data: any[];
-  summary: Record<string, any>;
+  groupValue: unknown;
+  data: unknown[];
+  summary: Record<string, unknown>;
   subgroups?: ReportGroupResult[];
 }
 
@@ -191,7 +228,7 @@ export class ReportBuilder {
       if (error) throw error;
 
       // Procesar datos
-      const processedData = this.processData(data || [], reportConfig);
+      const processedData = this.processData((data ?? []) as unknown as FilaCruda[], reportConfig);
 
       // Calcular agrupaciones
       let groups: ReportGroupResult[] | undefined;
@@ -212,83 +249,92 @@ export class ReportBuilder {
         executedAt: new Date(),
         executionTime: endTime - startTime,
       };
-    } catch (error: any) {
-      throw new Error(`Error ejecutando reporte: ${error.message}`);
+    } catch (error) {
+      throw new Error(`Error ejecutando reporte: ${mensaje(error)}`);
     }
   }
 
   /**
    * Aplicar filtro a una consulta
    */
-  private applyFilter(
-    query: any,
-    filter: ReportFilter
-  ): any {
-    const fieldPath = `fields.${filter.fieldPath}`;
+  /* eslint-disable @typescript-eslint/no-explicit-any -- el constructor
+     encadenado de supabase-js anida un tipo por filtro: con el tipo
+     completo, TypeScript se queda sin profundidad de instanciación. El
+     valor entra y sale del mismo constructor, así que el `any` no se
+     escapa de esta función. */
+  private applyFilter(query: any, filter: ReportFilter): any {
+    // `->>` y no `.`: `fields.clave` no es una ruta JSONB para
+    // PostgREST sino la sintaxis de recurso embebido, así que estos
+    // filtros no miraban dentro del JSON. Es el mismo fallo que tenía
+    // `lib/objects/records.ts`; se arregla igual, y con la misma
+    // salvedad: `->>` extrae TEXTO, así que las comparaciones de orden
+    // son lexicográficas.
+    const fieldPath = `fields->>${filter.fieldPath}`;
 
     switch (filter.operator) {
       case 'EQUALS':
-        return query.eq(fieldPath as any, filter.value);
+        return query.eq(fieldPath, filter.value);
       
       case 'NOT_EQUALS':
-        return query.neq(fieldPath as any, filter.value);
+        return query.neq(fieldPath, filter.value);
       
       case 'CONTAINS':
-        return query.like(fieldPath as any, `%${filter.value}%`);
+        return query.like(fieldPath, `%${filter.value}%`);
       
       case 'NOT_CONTAINS':
-        return query.not(fieldPath as any, 'like', `%${filter.value}%`);
+        return query.not(fieldPath, 'like', `%${filter.value}%`);
       
       case 'STARTS_WITH':
-        return query.like(fieldPath as any, `${filter.value}%`);
+        return query.like(fieldPath, `${filter.value}%`);
       
       case 'ENDS_WITH':
-        return query.like(fieldPath as any, `%${filter.value}`);
+        return query.like(fieldPath, `%${filter.value}`);
       
       case 'GREATER_THAN':
-        return query.gt(fieldPath as any, filter.value);
+        return query.gt(fieldPath, filter.value);
       
       case 'LESS_THAN':
-        return query.lt(fieldPath as any, filter.value);
+        return query.lt(fieldPath, filter.value);
       
       case 'GREATER_OR_EQUALS':
-        return query.gte(fieldPath as any, filter.value);
+        return query.gte(fieldPath, filter.value);
       
       case 'LESS_OR_EQUALS':
-        return query.lte(fieldPath as any, filter.value);
+        return query.lte(fieldPath, filter.value);
       
       case 'BETWEEN':
-        return query.gte(fieldPath as any, filter.value).lte(fieldPath as any, filter.value2);
+        return query.gte(fieldPath, filter.value).lte(fieldPath, filter.value2);
       
       case 'IN':
-        return query.in(fieldPath as any, filter.value);
+        return query.in(fieldPath, filter.value);
       
       case 'NOT_IN':
-        return query.not(fieldPath as any, 'in', filter.value);
+        return query.not(fieldPath, 'in', filter.value);
       
       case 'IS_NULL':
-        return query.is(fieldPath as any, null);
+        return query.is(fieldPath, null);
       
       case 'IS_NOT_NULL':
-        return query.not(fieldPath as any, 'is', null);
+        return query.not(fieldPath, 'is', null);
       
       case 'IS_TRUE':
-        return query.eq(fieldPath as any, true);
+        return query.eq(fieldPath, true);
       
       case 'IS_FALSE':
-        return query.eq(fieldPath as any, false);
+        return query.eq(fieldPath, false);
       
       default:
         return query;
     }
   }
+  /* eslint-enable @typescript-eslint/no-explicit-any */
 
   /**
    * Procesar datos del reporte
    */
-  private processData(records: any[], reportConfig: ReportConfig): any[] {
+  private processData(records: FilaCruda[], reportConfig: ReportConfig): FilaDeReporte[] {
     return records.map((record) => {
-      const row: any = { id: record.id };
+      const row: FilaDeReporte = { id: record.id };
 
       // Extraer valores de campos
       for (const column of reportConfig.columns.filter(c => c.visible)) {
@@ -309,13 +355,13 @@ export class ReportBuilder {
   /**
    * Obtener valor de campo por path
    */
-  private getFieldValue(fields: Record<string, any>, path: string): any {
+  private getFieldValue(fields: Record<string, unknown>, path: string): unknown {
     const parts = path.split('.');
-    let value = fields;
+    let value: unknown = fields;
 
     for (const part of parts) {
       if (value && typeof value === 'object') {
-        value = value[part];
+        value = (value as Record<string, unknown>)[part];
       } else {
         return null;
       }
@@ -328,14 +374,14 @@ export class ReportBuilder {
    * Agrupar datos
    */
   private groupData(
-    data: any[],
+    data: FilaDeReporte[],
     groups: ReportGroup[],
     metrics: ReportMetric[]
   ): ReportGroupResult[] {
     if (groups.length === 0) return [];
 
     const primaryGroup = groups[0];
-    const grouped = new Map<any, any[]>();
+    const grouped = new Map<unknown, FilaDeReporte[]>();
 
     // Agrupar por campo principal
     for (const row of data) {
@@ -365,16 +411,8 @@ export class ReportBuilder {
     }
 
     // Ordenar
-    results.sort((a, b) => {
-      const aVal = a.groupValue;
-      const bVal = b.groupValue;
-      
-      if (primaryGroup.sortOrder === 'ASC') {
-        return aVal < bVal ? -1 : aVal > bVal ? 1 : 0;
-      } else {
-        return aVal > bVal ? -1 : aVal < bVal ? 1 : 0;
-      }
-    });
+    const signo = primaryGroup.sortOrder === 'ASC' ? 1 : -1;
+    results.sort((a, b) => compararValores(a.groupValue, b.groupValue) * signo);
 
     return results;
   }
@@ -382,8 +420,8 @@ export class ReportBuilder {
   /**
    * Calcular métricas
    */
-  private calculateMetrics(data: any[], metrics: ReportMetric[]): Record<string, any> {
-    const summary: Record<string, any> = {};
+  private calculateMetrics(data: FilaDeReporte[], metrics: ReportMetric[]): Record<string, unknown> {
+    const summary: Record<string, unknown> = {};
 
     for (const metric of metrics) {
       const values = data
@@ -446,7 +484,7 @@ export class ReportBuilder {
       .map(c => c.label)
       .join(',');
 
-    const rows = result.data.map(row =>
+    const rows = (result.data as FilaDeReporte[]).map(row =>
       reportConfig.columns
         .filter(c => c.visible)
         .map(c => {
@@ -500,13 +538,13 @@ export class ReportBuilder {
  */
 export const Report = {
   filter: {
-    equals: (fieldId: string, value: any): ReportFilter => ({
+    equals: (fieldId: string, value: unknown): ReportFilter => ({
       fieldId,
       fieldPath: fieldId,
       operator: 'EQUALS',
       value,
     }),
-    notEquals: (fieldId: string, value: any): ReportFilter => ({
+    notEquals: (fieldId: string, value: unknown): ReportFilter => ({
       fieldId,
       fieldPath: fieldId,
       operator: 'NOT_EQUALS',

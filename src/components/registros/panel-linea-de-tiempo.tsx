@@ -17,6 +17,7 @@ import {
   CheckSquare,
   CircleDot,
   DollarSign,
+  Globe,
   Loader2,
   Mail,
   MessageSquare,
@@ -37,6 +38,7 @@ import type { TimelineEvent, TipoDeRegistro } from '@/types';
  * prefijo y cualquier verbo desconocido cae en un punto neutro.
  */
 function iconoDe(tipo: string) {
+  if (tipo.startsWith('web')) return Globe;
   if (tipo.startsWith('message')) return MessageSquare;
   if (tipo.startsWith('call')) return Phone;
   if (tipo.startsWith('note')) return StickyNote;

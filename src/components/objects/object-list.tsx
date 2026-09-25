@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import Link from 'next/link';
 import { Plus, Settings2, Trash2, Edit3, Eye, EyeOff, Database } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -81,12 +82,22 @@ const ICON_OPTIONS = [
   'Archive',
 ];
 
-const VIEW_OPTIONS = [
-  { value: 'TABLE', label: 'Tabla' },
-  { value: 'KANBAN', label: 'Kanban' },
-  { value: 'TIMELINE', label: 'Línea de tiempo' },
-  { value: 'GALLERY', label: 'Galería' },
-];
+// Solo la tabla: kanban, línea de tiempo y galería no están construidas, y
+// elegirlas dejaba el objeto sin forma de ver sus registros.
+const VIEW_OPTIONS = [{ value: 'TABLE', label: 'Tabla' }];
+
+// Los objetos de sistema tienen su propia pantalla; los personalizados, la
+// de objetos.
+const PANTALLA_DE_SISTEMA: Record<string, string> = {
+  contacts: '/contacts',
+  companies: '/companies',
+  deals: '/pipelines',
+  tasks: '/tasks',
+};
+
+function hrefDe(obj: ObjectDefinition): string {
+  return (obj.isSystem && PANTALLA_DE_SISTEMA[obj.id]) || `/objects/${obj.id}`;
+}
 
 export function CustomObjectsList({
   objects,
@@ -282,8 +293,11 @@ export function CustomObjectsList({
                     <Label htmlFor="defaultView">Vista por Defecto</Label>
                     <Select
                       value={formData.defaultView}
-                      onValueChange={(value: any) =>
-                        setFormData({ ...formData, defaultView: value })
+                      onValueChange={(value) =>
+                        setFormData({
+                          ...formData,
+                          defaultView: value as ViewType,
+                        })
                       }
                     >
                       <SelectTrigger>
@@ -323,7 +337,11 @@ export function CustomObjectsList({
                     {IconComponent(obj.icon)}
                   </div>
                   <div>
-                    <CardTitle className="text-lg">{obj.labelPlural}</CardTitle>
+                    <CardTitle className="text-lg">
+                      <Link href={hrefDe(obj)} className="hover:underline">
+                        {obj.labelPlural}
+                      </Link>
+                    </CardTitle>
                     <CardDescription className="text-xs">
                       {obj.namePlural}
                     </CardDescription>
@@ -345,13 +363,16 @@ export function CustomObjectsList({
                   <Database className="h-3 w-3" />
                   {obj.fields?.length || 0} campos
                 </Badge>
-                <Badge variant="outline" className="gap-1">
-                  <Eye className="h-3 w-3" />
-                  {obj.defaultView}
-                </Badge>
               </div>
               {!obj.isSystem && (
                 <div className="flex gap-2">
+                  <Link
+                    href={hrefDe(obj)}
+                    className="inline-flex h-8 flex-1 items-center justify-center gap-1 rounded-md bg-primary px-3 text-xs font-medium text-primary-foreground hover:bg-primary/90"
+                  >
+                    <Database className="h-3 w-3" />
+                    Abrir
+                  </Link>
                   <Button
                     variant="outline"
                     size="sm"

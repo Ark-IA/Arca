@@ -26,10 +26,11 @@ write guards:
 
 | Variable                  | Required | Purpose                                                        |
 | ------------------------- | -------- | -------------------------------------------------------------- |
-| `WACRM_BASE_URL`          | yes      | Your instance URL, e.g. `https://crm.example.com`              |
-| `WACRM_API_KEY`           | yes      | An API key from the dashboard                                  |
-| `WACRM_ENABLE_WRITES`     | no       | `true` to expose contact writes + message sending             |
-| `WACRM_ENABLE_BROADCASTS` | no       | `true` to expose mass broadcasts (needs `WACRM_ENABLE_WRITES`) |
+| `ARCA_BASE_URL`          | yes      | Your instance URL, e.g. `https://crm.example.com`              |
+| `ARCA_API_KEY`           | yes      | An API key from the dashboard                                  |
+| `ARCA_ENABLE_WRITES`     | no       | `true` to expose contact writes + message sending             |
+| `ARCA_ENABLE_BROADCASTS` | no       | `true` to expose mass broadcasts (needs `ARCA_ENABLE_WRITES`) |
+| `ARCA_ENABLE_DELETES`    | no       | `true` to expose the delete tools (needs `ARCA_ENABLE_WRITES`) |
 
 ### Claude Desktop / Claude Code / Cursor
 
@@ -41,10 +42,10 @@ Add to your MCP client config (e.g. `claude_desktop_config.json`, or
   "mcpServers": {
     "wacrm": {
       "command": "npx",
-      "args": ["-y", "wacrm-mcp"],
+      "args": ["-y", "arca-mcp"],
       "env": {
-        "WACRM_BASE_URL": "https://crm.example.com",
-        "WACRM_API_KEY": "wacrm_live_xxxxxxxxxxxxxxxxxxxxxxxx"
+        "ARCA_BASE_URL": "https://crm.example.com",
+        "ARCA_API_KEY": "wacrm_live_xxxxxxxxxxxxxxxxxxxxxxxx"
       }
     }
   }
@@ -56,17 +57,22 @@ assistant change data or send messages, add the write guards:
 
 ```jsonc
 "env": {
-  "WACRM_BASE_URL": "https://crm.example.com",
-  "WACRM_API_KEY": "wacrm_live_xxxxxxxxxxxxxxxxxxxxxxxx",
-  "WACRM_ENABLE_WRITES": "true",
-  "WACRM_ENABLE_BROADCASTS": "true"
+  "ARCA_BASE_URL": "https://crm.example.com",
+  "ARCA_API_KEY": "wacrm_live_xxxxxxxxxxxxxxxxxxxxxxxx",
+  "ARCA_ENABLE_WRITES": "true",
+  "ARCA_ENABLE_BROADCASTS": "true"
 }
 ```
 
 ## Tools
 
-Read tools are always available. Write and broadcast tools appear only
-when their guard is set.
+Read tools are always available. Write, broadcast and delete tools
+appear only when their guard is set.
+
+The custom-object tools are **generic**: they work against every object
+the account has defined, including ones created after this server was
+installed. A client discovers them at runtime with `list_objects` and
+`describe_object` rather than needing a tool per object.
 
 | Tool                 | Group     | Scope needed         | What it does                                    |
 | -------------------- | --------- | -------------------- | ----------------------------------------------- |
@@ -81,22 +87,40 @@ when their guard is set.
 | `create_contact`     | write     | `contacts:write`     | Create (find-or-create) a contact               |
 | `update_contact`     | write     | `contacts:write`     | Update a contact / replace its tags             |
 | `send_broadcast`     | broadcast | `broadcasts:send`    | Launch a template broadcast (requires `confirm`)|
+| `list_objects`       | read      | `objects:read`       | Discover the account's custom objects           |
+| `describe_object`    | read      | `objects:read`       | One object's fields, types and requiredness     |
+| `list_records`       | read      | `objects:read`       | List a custom object's records, with filters    |
+| `get_record`         | read      | `objects:read`       | Read one custom-object record                   |
+| `crm_list`           | read      | `<resource>:read`    | List companies/tasks/notes/events/deals/pipelines|
+| `crm_get`            | read      | `<resource>:read`    | Read one CRM record                             |
+| `create_record`      | write     | `objects:write`      | Create a custom-object record                   |
+| `update_record`      | write     | `objects:write`      | Update a custom-object record (merges fields)   |
+| `crm_create`         | write     | `<resource>:write`   | Create a CRM record                             |
+| `crm_update`         | write     | `<resource>:write`   | Update a CRM record                             |
+| `delete_record`      | delete    | `objects:delete`     | Permanently delete a custom-object record       |
+| `crm_delete`         | delete    | `<resource>:delete`  | Permanently delete a CRM record                 |
 
 ## Safety model
 
 Sending WhatsApp messages through an LLM is a real-world side effect, so
-the server layers three guards:
+the server layers four guards:
 
-1. **Read-only by default.** Write and broadcast tools are not even
-   registered — the model can't see them — unless you opt in via
-   `WACRM_ENABLE_WRITES` / `WACRM_ENABLE_BROADCASTS`.
-2. **API-key scopes.** Whatever the guards allow, your wacrm instance
+1. **Read-only by default.** Write, broadcast and delete tools are not
+   even registered — the model can't see them — unless you opt in via
+   `ARCA_ENABLE_WRITES` / `ARCA_ENABLE_BROADCASTS` /
+   `ARCA_ENABLE_DELETES`.
+2. **API-key scopes.** Whatever the guards allow, your ARCA instance
    still enforces the key's scopes. A call without the right scope
    returns a clean `forbidden` error. Issue a read-only key for a
    read-only assistant.
 3. **Explicit broadcast confirmation.** `send_broadcast` refuses to run
    unless called with `confirm: true`, and is marked `destructive` so
    compliant clients prompt the user first.
+4. **Deletes behind their own switch.** Deleting is permanent and has
+   no undo, so it stays off even when writes are on, needs its own
+   `<resource>:delete` scope on the key, and every delete tool is
+   marked `destructive`. Pipelines have no delete at all — removing one
+   would cascade into every deal on its board.
 
 ## Development
 

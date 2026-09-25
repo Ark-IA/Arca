@@ -29,6 +29,8 @@ const h = vi.hoisted(() => ({
     }[],
     /** Error the next storage upload resolves with, if any. */
     storageUploadError: null as { message: string } | null,
+    /** Patches findOrCreateContact backfilled onto the existing row. */
+    contactPatches: [] as Record<string, unknown>[],
   },
 }))
 
@@ -61,6 +63,36 @@ vi.mock('@supabase/supabase-js', () => ({
                   error: null,
                 }),
             }),
+          }
+        case 'contacts':
+          // findOrCreateContact resolves a contact in three steps, and
+          // only the middle one is mocked elsewhere in this file.
+          //
+          // First it looks the contact up by its WhatsApp identifiers
+          // — `select('*').eq(account).eq(whatsapp_user_id|whatsapp_id)
+          // .limit(1).maybeSingle()` — because those arrive on every
+          // inbound message while the phone number may not. Returning
+          // null here is what sends it on to `findExistingContact`,
+          // which IS mocked (see below) and answers with contact-1.
+          //
+          // Then, having found that contact, it backfills whatever the
+          // row is missing (a manually-created contact has no wa_id
+          // until its first message), which is the `update().eq()`.
+          return {
+            select: () => ({
+              eq: () => ({
+                eq: () => ({
+                  limit: () => ({
+                    maybeSingle: () =>
+                      Promise.resolve({ data: null, error: null }),
+                  }),
+                }),
+              }),
+            }),
+            update: (row: Record<string, unknown>) => {
+              h.state.contactPatches.push(row)
+              return { eq: () => Promise.resolve({ data: null, error: null }) }
+            },
           }
         case 'conversations':
           // findOrCreateConversation: select().eq().eq().order().limit()
@@ -260,6 +292,7 @@ beforeEach(() => {
   h.state.mirrorInboundMedia = true
   h.state.storageUploads = []
   h.state.storageUploadError = null
+  h.state.contactPatches = []
   mockGetMediaUrl.mockResolvedValue({
     url: 'https://lookaside.fbsbx.com/whatsapp/abc',
     mimeType: 'image/jpeg',

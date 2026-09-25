@@ -25,7 +25,11 @@ import { Switch } from '@/components/ui/switch';
 import { DynamicTableView } from '@/components/objects/dynamic-table';
 import { createCustomObjectsManager } from '@/lib/objects/manager';
 import { createCustomRecordsManager } from '@/lib/objects/records';
-import type { FieldDefinition, ObjectDefinition, ObjectRecord } from '@/types/objects';
+import type {
+  FieldDefinition,
+  ObjectDefinition,
+  ObjectRecord,
+} from '@/types/objects';
 
 /**
  * Los datos de un objeto personalizado.
@@ -49,12 +53,20 @@ export default function RegistrosPage() {
   const [abierto, setAbierto] = useState(false);
   const [guardando, setGuardando] = useState(false);
   const [borrador, setBorrador] = useState<Record<string, unknown>>({});
+  // null = creando uno nuevo; un id = editando ese registro.
+  const [editando, setEditando] = useState<string | null>(null);
+  const [porBorrar, setPorBorrar] = useState<string[]>([]);
+  const [borrando, setBorrando] = useState(false);
 
   const traer = useCallback(async () => {
     if (!accountId || !user) return;
 
     const objetos = createCustomObjectsManager(supabase, accountId);
-    const registrosMgr = createCustomRecordsManager(supabase, accountId, user.id);
+    const registrosMgr = createCustomRecordsManager(
+      supabase,
+      accountId,
+      user.id
+    );
 
     // La ficha va primero y no en paralelo: la búsqueda necesita saber por
     // qué campo buscar, y ese es el principal del objeto, que sale de acá.
@@ -100,29 +112,66 @@ export default function RegistrosPage() {
       }
     }
     setBorrador(inicial);
+    setEditando(null);
     setAbierto(true);
+  };
+
+  const abrirExistente = (id: string) => {
+    const registro = registros.find((r) => r.id === id);
+    if (!registro) return;
+    setBorrador({ ...registro.fields });
+    setEditando(id);
+    setAbierto(true);
+  };
+
+  const borrar = async () => {
+    if (!accountId || !user || porBorrar.length === 0) return;
+    setBorrando(true);
+    try {
+      const mgr = createCustomRecordsManager(supabase, accountId, user.id);
+      const { deleted, error } = await mgr.bulkDeleteRecords(porBorrar);
+      if (error) {
+        toast.error(error);
+        return;
+      }
+      toast.success(
+        deleted === 1 ? 'Registro eliminado' : `${deleted} registros eliminados`
+      );
+      setPorBorrar([]);
+      await traer();
+    } finally {
+      setBorrando(false);
+    }
   };
 
   const guardar = async () => {
     if (!accountId || !user) return;
 
     const faltantes = campos.filter(
-      (c) => c.required && (borrador[c.name] === undefined || borrador[c.name] === ''),
+      (c) =>
+        c.required &&
+        (borrador[c.name] === undefined || borrador[c.name] === '')
     );
     if (faltantes.length > 0) {
-      toast.error(`Falta completar: ${faltantes.map((c) => c.label).join(', ')}`);
+      toast.error(
+        `Falta completar: ${faltantes.map((c) => c.label).join(', ')}`
+      );
       return;
     }
 
     setGuardando(true);
     try {
       const mgr = createCustomRecordsManager(supabase, accountId, user.id);
-      const { error } = await mgr.createRecord({ objectId, fields: borrador });
+      const { error } = editando
+        ? await mgr.updateRecord(editando, { fields: borrador })
+        : await mgr.createRecord({ objectId, fields: borrador });
       if (error) {
         toast.error(error);
         return;
       }
-      toast.success(`${objeto?.labelSingular ?? 'Registro'} creado`);
+      toast.success(
+        `${objeto?.labelSingular ?? 'Registro'} ${editando ? 'actualizado' : 'creado'}`
+      );
       setAbierto(false);
       await traer();
     } finally {
@@ -133,7 +182,7 @@ export default function RegistrosPage() {
   if (profileLoading || cargando) {
     return (
       <div className="flex h-64 items-center justify-center">
-        <div className="size-8 animate-spin rounded-full border-b-2 border-primary" />
+        <div className="border-primary size-8 animate-spin rounded-full border-b-2" />
       </div>
     );
   }
@@ -148,7 +197,7 @@ export default function RegistrosPage() {
           <ArrowLeft className="size-5" />
         </Link>
         <div>
-          <h1 className="font-bold text-3xl tracking-tight">
+          <h1 className="text-3xl font-bold tracking-tight">
             {objeto?.labelPlural ?? 'Registros'}
           </h1>
           <p className="text-muted-foreground">
@@ -163,22 +212,27 @@ export default function RegistrosPage() {
         view={objeto?.defaultView}
         loading={cargando}
         onNewRecord={abrirNuevo}
+        onRecordClick={abrirExistente}
+        onDeleteRecords={setPorBorrar}
         onSearch={setBusqueda}
       />
 
       <Dialog open={abierto} onOpenChange={setAbierto}>
         <DialogContent className="sm:max-w-[520px]">
           <DialogHeader>
-            <DialogTitle>Nuevo {objeto?.labelSingular ?? 'registro'}</DialogTitle>
+            <DialogTitle>
+              {editando ? 'Editar' : 'Nuevo'}{' '}
+              {objeto?.labelSingular ?? 'registro'}
+            </DialogTitle>
             <DialogDescription>
-              Completá los campos definidos para este objeto.
+              Completa los campos definidos para este objeto.
             </DialogDescription>
           </DialogHeader>
 
           <div className="max-h-[55vh] space-y-4 overflow-auto py-2">
             {campos.length === 0 && (
               <p className="text-muted-foreground text-sm">
-                Este objeto todavía no tiene campos. Agregalos desde la pestaña
+                Este objeto todavía no tiene campos. Agrégalos desde la pestaña
                 Campos.
               </p>
             )}
@@ -187,17 +241,56 @@ export default function RegistrosPage() {
                 key={campo.id || campo.name}
                 campo={campo}
                 valor={borrador[campo.name]}
-                onCambio={(v) => setBorrador((b) => ({ ...b, [campo.name]: v }))}
+                onCambio={(v) =>
+                  setBorrador((b) => ({ ...b, [campo.name]: v }))
+                }
               />
             ))}
           </div>
 
           <DialogFooter>
-            <Button variant="ghost" onClick={() => setAbierto(false)} disabled={guardando}>
+            <Button
+              variant="ghost"
+              onClick={() => setAbierto(false)}
+              disabled={guardando}
+            >
               Cancelar
             </Button>
-            <Button onClick={guardar} disabled={guardando || campos.length === 0}>
+            <Button
+              onClick={guardar}
+              disabled={guardando || campos.length === 0}
+            >
               {guardando ? 'Guardando…' : 'Guardar'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog
+        open={porBorrar.length > 0}
+        onOpenChange={(o) => !o && setPorBorrar([])}
+      >
+        <DialogContent className="sm:max-w-[420px]">
+          <DialogHeader>
+            <DialogTitle>
+              {porBorrar.length === 1
+                ? `¿Eliminar este ${objeto?.labelSingular?.toLowerCase() ?? 'registro'}?`
+                : `¿Eliminar ${porBorrar.length} registros?`}
+            </DialogTitle>
+            <DialogDescription>
+              Esta acción no se puede deshacer.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button
+              variant="ghost"
+              onClick={() => setPorBorrar([])}
+              disabled={borrando}
+            >
+              Cancelar
+            </Button>
+            <Button variant="destructive" onClick={borrar} disabled={borrando}>
+              {borrando ? 'Eliminando…' : 'Eliminar'}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -226,7 +319,7 @@ function CampoDeFormulario({
   const etiqueta = (
     <Label htmlFor={id}>
       {campo.label}
-      {campo.required && <span className="ml-1 text-destructive">*</span>}
+      {campo.required && <span className="text-destructive ml-1">*</span>}
     </Label>
   );
 
@@ -284,7 +377,7 @@ function CampoDeFormulario({
               ? e.target.value === ''
                 ? ''
                 : Number(e.target.value)
-              : e.target.value,
+              : e.target.value
           )
         }
       />

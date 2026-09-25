@@ -361,7 +361,7 @@ function TarjetaDeConexion({
               onChange={(e) => setPrompt(e.target.value)}
               disabled={!puedeEditar}
               rows={6}
-              placeholder="Sos el asesor comercial de ARK-IA. Atendés a quien escribe por la línea de ventas…"
+              placeholder="Eres el asesor comercial de la empresa. Atiendes a quien escribe por la línea de ventas…"
             />
             <p className="text-xs text-muted-foreground">
               {prompt.trim()

@@ -11,9 +11,21 @@
 // scope they require; `requireApiKey(request, scope)` enforces it.
 // Adding a capability = one entry here + the endpoint that checks
 // it. No migration needed (the DB stores scopes as a free `text[]`).
+//
+// Actions follow one convention across every resource:
+//
+//   :read    GET   — list and read
+//   :write   POST  + PATCH — create and update
+//   :delete  DELETE — remove
+//
+// `:delete` is deliberately its own scope rather than folded into
+// `:write`. Integrations overwhelmingly need to create and update;
+// very few need to destroy. Splitting them means the common key can
+// be issued without ever being able to lose data.
 // ============================================================
 
 export const API_SCOPES = [
+  // --- WhatsApp messaging (the original wacrm surface) ----------
   'messages:send',
   'messages:read',
   'contacts:read',
@@ -21,6 +33,40 @@ export const API_SCOPES = [
   'conversations:read',
   'broadcasts:send',
   'webhooks:manage',
+
+  // --- Custom objects (the Twenty-style metadata layer) ---------
+  // One scope pair covers EVERY custom object, present and future:
+  // the endpoints are generic over `custom_objects`, so granting
+  // `objects:read` grants read on all of them. Per-object limits
+  // are enforced separately by `object_permissions`.
+  'objects:read',
+  'objects:write',
+  'objects:delete',
+
+  // --- CRM records ---------------------------------------------
+  'companies:read',
+  'companies:write',
+  'companies:delete',
+  'tasks:read',
+  'tasks:write',
+  'tasks:delete',
+  'notes:read',
+  'notes:write',
+  'notes:delete',
+  'calendar:read',
+  'calendar:write',
+  'calendar:delete',
+  'deals:read',
+  'deals:write',
+  'deals:delete',
+
+  // Pipelines are structure, not records: deleting one cascades
+  // into every deal it holds. The API therefore exposes read and
+  // write but NO delete — dropping a pipeline stays a deliberate
+  // act performed in the dashboard, by a human, with the warning
+  // in front of them. See docs/public-api.md.
+  'pipelines:read',
+  'pipelines:write',
 ] as const;
 
 export type ApiScope = (typeof API_SCOPES)[number];
@@ -34,6 +80,33 @@ export const SCOPE_DESCRIPTIONS: Record<ApiScope, string> = {
   'conversations:read': 'List and read conversations',
   'broadcasts:send': 'Launch broadcast campaigns',
   'webhooks:manage': 'Register and manage outbound event webhooks',
+
+  'objects:read': 'List custom objects, their fields, and their records',
+  'objects:write': 'Create and update custom object records',
+  'objects:delete': 'Delete custom object records',
+
+  'companies:read': 'List and read companies',
+  'companies:write': 'Create and update companies',
+  'companies:delete': 'Delete companies',
+
+  'tasks:read': 'List and read tasks',
+  'tasks:write': 'Create and update tasks',
+  'tasks:delete': 'Delete tasks',
+
+  'notes:read': 'List and read notes',
+  'notes:write': 'Create and update notes',
+  'notes:delete': 'Delete notes',
+
+  'calendar:read': 'List and read calendar events',
+  'calendar:write': 'Create and update calendar events',
+  'calendar:delete': 'Delete calendar events',
+
+  'deals:read': 'List and read deals',
+  'deals:write': 'Create and update deals',
+  'deals:delete': 'Delete deals',
+
+  'pipelines:read': 'List pipelines and their stages',
+  'pipelines:write': 'Create and update pipelines and their stages',
 };
 
 /** Type-narrow an unknown value into a valid `ApiScope`. */

@@ -6,6 +6,7 @@ import { CustomObjectsList } from '@/components/objects/object-list';
 import type { ObjectDefinition } from '@/types/objects';
 import { toast } from 'sonner';
 import { createCustomObjectsManager } from '@/lib/objects/manager';
+import type { UpdateObjectInput } from '@/lib/objects/manager';
 import type { CreateObjectFormData } from '@/components/objects/object-list';
 
 export default function ObjectsPage() {
@@ -78,7 +79,7 @@ export default function ObjectsPage() {
     }
   };
 
-  const handleUpdateObject = async (id: string, data: any) => {
+  const handleUpdateObject = async (id: string, data: UpdateObjectInput) => {
     if (!manager) return;
 
     const result = await manager.updateObject(id, data);
@@ -87,8 +88,15 @@ export default function ObjectsPage() {
       toast.error(result.error);
     } else {
       toast.success('Objeto actualizado');
-      setObjects(objects.map(obj => 
-        obj.id === id ? { ...obj, ...data } : obj
+      // Sólo los metadatos. `data.fields` viene con forma de ENTRADA
+      // (`CreateFieldInput`, sin id ni etiquetas derivadas) y esta
+      // lista guarda definiciones completas; volcarlo entero dejaba en
+      // memoria campos a medio construir que la tabla luego intenta
+      // pintar. Los campos no se editan desde este diálogo de todos
+      // modos — eso vive en la pantalla de detalle.
+      const { fields: _campos, ...metadatos } = data;
+      setObjects(objects.map(obj =>
+        obj.id === id ? { ...obj, ...metadatos } : obj
       ));
     }
   };

@@ -6,6 +6,8 @@ import { useTranslations } from 'next-intl';
 
 import { createClient } from '@/lib/supabase/client';
 import { useAuth } from '@/hooks/use-auth';
+import { useModulos } from '@/hooks/use-modulos';
+import { moduloDeAjuste } from '@/lib/modulos/catalogo';
 import { useTheme } from '@/hooks/use-theme';
 import { THEMES } from '@/lib/themes';
 import { CURRENCIES } from '@/lib/currency';
@@ -45,6 +47,7 @@ export function SettingsOverview({
   const { user, profile, accountId, accountRole, defaultCurrency, canManageMembers } =
     useAuth();
   const { mode, theme } = useTheme();
+  const { apagados } = useModulos();
   const t = useTranslations('Settings.overview');
   const tRoles = useTranslations('Settings.roles');
   const tSections = useTranslations('Settings.sections');
@@ -95,7 +98,14 @@ export function SettingsOverview({
             .from('tags')
             .select('id', { count: 'exact', head: true })
             .eq('user_id', userId),
-          supabase.from('custom_fields').select('id', { count: 'exact', head: true }),
+          // Contact fields only — this counter sits next to "Campos
+          // personalizados", which manages exactly that set, so
+          // counting a custom object's fields here would not match
+          // what the screen it links to shows.
+          supabase
+            .from('custom_fields')
+            .select('id', { count: 'exact', head: true })
+            .is('object_id', null),
         ]);
 
       if (cancelled) return;
@@ -312,7 +322,9 @@ export function SettingsOverview({
 
       {/* Status tiles */}
       <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-        {tiles.map(({ section, loading, subtitle }) => {
+        {tiles
+          .filter(({ section }) => !apagados.has(moduloDeAjuste(section) ?? ''))
+          .map(({ section, loading, subtitle }) => {
           const meta = SECTION_META[section];
           const Icon = meta.icon;
           return (

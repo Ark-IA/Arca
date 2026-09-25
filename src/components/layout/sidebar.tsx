@@ -5,6 +5,8 @@ import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/hooks/use-auth";
+import { useModulos } from "@/hooks/use-modulos";
+import { MARCA } from "@/lib/marca";
 import { canConfigureSystem } from "@/lib/auth/roles";
 import { useTotalUnread } from "@/hooks/use-total-unread";
 import { useUnreadNotifications } from "@/hooks/use-unread-notifications";
@@ -13,6 +15,7 @@ import {
   Bot,
   Building2,
   Boxes,
+  ChartColumn,
   CalendarDays,
   CheckSquare,
   Crown,
@@ -23,6 +26,7 @@ import {
   Radio,
   Settings,
   Shield,
+  ShieldCheck,
   User,
   UserCog,
   Users,
@@ -121,12 +125,15 @@ const navItems: NavItem[] = [
   { href: "/calendar", labelKey: "calendar", icon: CalendarDays },
   { href: "/broadcasts", labelKey: "broadcasts", icon: Radio },
   { href: "/automations", labelKey: "automations", icon: Zap, soloAdmin: true },
-  { href: "/flows", labelKey: "flows", icon: Workflow, beta: true, soloAdmin: true },
+  { href: "/flows", labelKey: "flows", icon: Workflow, soloAdmin: true },
   { href: "/agents", labelKey: "aiAgents", icon: Bot, soloAdmin: true },
+  { href: "/informes", labelKey: "reports", icon: ChartColumn },
 ];
 
-const bottomNavItems = [
+const bottomNavItems: { href: string; labelKey: string; icon: typeof Settings; soloSuperadmin?: boolean }[] = [
   { href: "/settings", labelKey: "settings", icon: Settings },
+  // Solo para ARK-IA: qué módulos tiene esta instalación. Ver src/lib/modulos.
+  { href: "/superadmin", labelKey: "superadmin", icon: ShieldCheck, soloSuperadmin: true },
 ];
 
 interface SidebarProps {
@@ -150,6 +157,7 @@ const CLAVE_PLEGADO = "wacrm.sidebar.collapsed";
 export function Sidebar({ open = false, onClose }: SidebarProps) {
   const t = useTranslations("Sidebar");
   const pathname = usePathname();
+  const { rutaVisible, superadmin } = useModulos();
   // Arranca desplegado y se corrige en el primer efecto. Leer localStorage
   // durante el render romperia la hidratacion: el servidor no lo tiene y
   // React se quejaria de que el HTML no coincide.
@@ -310,7 +318,7 @@ export function Sidebar({ open = false, onClose }: SidebarProps) {
           <Link
             href="/dashboard"
             className="flex items-center gap-2"
-            title={plegado ? t("title") : undefined}
+            title={plegado ? MARCA : undefined}
           >
             {/* El monograma circular de ARK-IA, el mismo del favicon. A este
                 tamano un logotipo horizontal seria ilegible; el monograma no. */}
@@ -327,7 +335,7 @@ export function Sidebar({ open = false, onClose }: SidebarProps) {
                 plegado && "lg:hidden",
               )}
             >
-              {t("title")}
+              {MARCA}
             </span>
           </Link>
 
@@ -346,6 +354,8 @@ export function Sidebar({ open = false, onClose }: SidebarProps) {
         <nav className="scroll-invisible flex-1 overflow-y-auto px-3 py-4">
           <ul className="flex flex-col gap-1">
             {navItems
+              // Módulos apagados en esta instalación: ni se muestran.
+              .filter((item) => rutaVisible(item.href))
               .filter(
                 (item) =>
                   !item.soloAdmin ||
@@ -436,7 +446,9 @@ export function Sidebar({ open = false, onClose }: SidebarProps) {
           <div className="my-4 border-t border-border" />
 
           <ul className="flex flex-col gap-1">
-            {bottomNavItems.map((item) => {
+            {bottomNavItems
+              .filter((item) => !item.soloSuperadmin || superadmin)
+              .map((item) => {
               const isActive = pathname.startsWith(item.href);
               return (
                 <li key={item.href}>

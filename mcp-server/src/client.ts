@@ -98,6 +98,14 @@ export class WacrmClient {
       throw new WacrmApiError(res.status, code, message);
     }
 
+    // A successful DELETE answers 204 with no body, so there is no
+    // envelope to unwrap. Reaching into `payload.data` here would
+    // throw on undefined and surface as "Unexpected error" for what
+    // is actually the success path.
+    if (payload === undefined) {
+      return { data: undefined as T };
+    }
+
     const envelope = payload as { data: T; meta?: { next_cursor: string | null } };
     return { data: envelope.data, meta: envelope.meta };
   }
@@ -175,5 +183,91 @@ export class WacrmClient {
 
   getBroadcast(id: string): Promise<{ data: unknown }> {
     return this.request('GET', `/broadcasts/${encodeURIComponent(id)}`);
+  }
+
+  // --- Custom objects -----------------------------------------------
+  //
+  // Generic over every object the account has defined: the object is
+  // a path segment, not a compiled-in resource. One set of methods
+  // covers objects that do not exist yet.
+
+  listObjects(): Promise<Paginated<unknown>> {
+    return this.list('/objects', {});
+  }
+
+  describeObject(object: string): Promise<{ data: unknown }> {
+    return this.request('GET', `/objects/${encodeURIComponent(object)}`);
+  }
+
+  listRecords(
+    object: string,
+    query: { limit?: number; cursor?: string; where?: Record<string, string> },
+  ): Promise<Paginated<unknown>> {
+    const { where, ...rest } = query;
+    // `where` is sent as repeated `where[field]=value` params, which
+    // is what the endpoint parses.
+    const flat: Record<string, string | number | undefined> = { ...rest };
+    for (const [field, value] of Object.entries(where ?? {})) {
+      flat[`where[${field}]`] = value;
+    }
+    return this.list(`/objects/${encodeURIComponent(object)}/records`, flat);
+  }
+
+  getRecord(object: string, id: string): Promise<{ data: unknown }> {
+    return this.request(
+      'GET',
+      `/objects/${encodeURIComponent(object)}/records/${encodeURIComponent(id)}`,
+    );
+  }
+
+  createRecord(object: string, fields: unknown): Promise<{ data: unknown }> {
+    return this.request('POST', `/objects/${encodeURIComponent(object)}/records`, {
+      body: { fields },
+    });
+  }
+
+  updateRecord(object: string, id: string, fields: unknown): Promise<{ data: unknown }> {
+    return this.request(
+      'PATCH',
+      `/objects/${encodeURIComponent(object)}/records/${encodeURIComponent(id)}`,
+      { body: { fields } },
+    );
+  }
+
+  deleteRecord(object: string, id: string): Promise<{ data: unknown }> {
+    return this.request(
+      'DELETE',
+      `/objects/${encodeURIComponent(object)}/records/${encodeURIComponent(id)}`,
+    );
+  }
+
+  // --- CRM resources ------------------------------------------------
+  //
+  // companies / tasks / notes / calendar-events / deals / pipelines.
+  // The resource is a path segment here too, so the six share one
+  // set of methods rather than thirty near-identical ones. The tool
+  // layer constrains which names are allowed.
+
+  crmList(
+    resource: string,
+    query: Record<string, string | number | undefined>,
+  ): Promise<Paginated<unknown>> {
+    return this.list(`/${resource}`, query);
+  }
+
+  crmGet(resource: string, id: string): Promise<{ data: unknown }> {
+    return this.request('GET', `/${resource}/${encodeURIComponent(id)}`);
+  }
+
+  crmCreate(resource: string, body: unknown): Promise<{ data: unknown }> {
+    return this.request('POST', `/${resource}`, { body });
+  }
+
+  crmUpdate(resource: string, id: string, body: unknown): Promise<{ data: unknown }> {
+    return this.request('PATCH', `/${resource}/${encodeURIComponent(id)}`, { body });
+  }
+
+  crmDelete(resource: string, id: string): Promise<{ data: unknown }> {
+    return this.request('DELETE', `/${resource}/${encodeURIComponent(id)}`);
   }
 }

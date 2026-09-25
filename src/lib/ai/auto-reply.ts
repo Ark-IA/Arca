@@ -1,4 +1,5 @@
 import { supabaseAdmin } from './admin-client'
+import { moduloActivo } from '@/lib/modulos/servidor'
 import { loadAiConfig } from './config'
 import { buildConversationContext, esDescripcionDeMedios } from './context'
 import { ajustesDeConexion, promptEfectivo } from './conexion'
@@ -9,6 +10,7 @@ import { buildHandoffSummary } from './handoff'
 import { logAiUsage } from './usage'
 import { latestUserMessage } from './query'
 import { responderPorCanal } from './enviar-por-canal'
+import { clienteMandoAudio, modoDeVoz, responderConVoz } from './voz'
 import { checkRateLimit, RATE_LIMITS } from '@/lib/rate-limit'
 import type { Canal } from '@/types'
 
@@ -48,6 +50,9 @@ export async function dispatchInboundToAiReply(
 
   try {
     const db = supabaseAdmin()
+
+    // Módulo apagado en esta instalación: el agente no contesta.
+    if (!(await moduloActivo('agentes_ia'))) return
 
     const config = await loadAiConfig(db, accountId)
     if (!config || !config.autoReplyEnabled) return
@@ -279,6 +284,27 @@ export async function dispatchInboundToAiReply(
       return
     }
     if (claimed !== true) return // lost the per-conversation cap race
+
+    // Nota de voz en vez de texto, si la cuenta lo pidió. Si la voz falla por
+    // lo que sea, `responderConVoz` devuelve false y sale el texto.
+    const modo = await modoDeVoz(db, accountId)
+    const conVoz =
+      modo === 'siempre' ||
+      (modo === 'si_audio' && (await clienteMandoAudio(db, conversationId)))
+    if (
+      conVoz &&
+      (await responderConVoz({
+        db,
+        accountId,
+        configOwnerUserId,
+        conversationId,
+        contactId,
+        canal,
+        texto: text,
+      }))
+    ) {
+      return
+    }
 
     await responderPorCanal({
       db,

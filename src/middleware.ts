@@ -1,7 +1,18 @@
 import { createServerClient } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
+import { rutaDisponible } from '@/lib/modulos/catalogo'
+import { modulosApagados } from '@/lib/modulos/servidor'
 
 export async function middleware(request: NextRequest) {
+  // Seguimiento web: el script y el colector los pide el navegador de un
+  // desconocido en la página de un cliente, sin sesión. Se sueltan antes de
+  // tocar Supabase: son una petición por página vista y no hay sesión que
+  // refrescar.
+  const camino = request.nextUrl.pathname
+  if (camino.startsWith('/t/') || camino === '/api/t/e') {
+    return NextResponse.next()
+  }
+
   let supabaseResponse = NextResponse.next({ request })
 
   const supabase = createServerClient(
@@ -90,6 +101,23 @@ export async function middleware(request: NextRequest) {
     '/api/meta/webhook',
   ]
   const ruta = request.nextUrl.pathname
+
+  // Registro cerrado. ARCA se instala un servidor por cliente: un registro
+  // abierto dejaría a cualquiera que dé con la dirección crearse una cuenta
+  // en el servidor del cliente. Se entra por invitación (el enlace trae
+  // `?invite=`) o porque un administrador crea el usuario. Una instalación
+  // que quiera el registro abierto lo pide con ARCA_REGISTRO_ABIERTO=true.
+  if (
+    ruta === '/signup' &&
+    !request.nextUrl.searchParams.get('invite') &&
+    process.env.ARCA_REGISTRO_ABIERTO !== 'true'
+  ) {
+    const url = request.nextUrl.clone()
+    url.pathname = '/login'
+    url.search = ''
+    return withRefreshedCookies(NextResponse.redirect(url))
+  }
+
   const esPublica =
     ruta === '/' || rutasPublicas.some((p) => ruta === p || ruta.startsWith(`${p}/`))
 
@@ -113,11 +141,34 @@ export async function middleware(request: NextRequest) {
   // Las rutas públicas de API son los webhooks (los llama Meta, sin sesión) y
   // la API pública v1, que se autentica con su propia clave y no con cookies.
   const apiPublica =
-    ruta.includes('/webhook') || ruta.startsWith('/api/v1/')
+    ruta.includes('/webhook') || ruta.startsWith('/api/v1/') || ruta === '/api/mcp'
   if (!user && ruta.startsWith('/api/') && !apiPublica) {
     return withRefreshedCookies(
       NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     )
+  }
+
+  // Módulos apagados en esta instalación (ver src/lib/modulos/catalogo.ts).
+  //
+  // Los webhooks no pasan por acá a propósito: Meta desactiva un webhook que
+  // responde con error, y con él se caería también lo que SÍ está activo.
+  // Los motores que esos webhooks disparan se frenan solos.
+  if (!ruta.includes('/webhook')) {
+    const apagados = await modulosApagados(supabase)
+    if (apagados.size > 0 && !rutaDisponible(ruta, apagados)) {
+      if (ruta.startsWith('/api/')) {
+        return withRefreshedCookies(
+          NextResponse.json(
+            { error: 'Este módulo no está activo en esta instalación' },
+            { status: 403 }
+          )
+        )
+      }
+      const url = request.nextUrl.clone()
+      url.pathname = '/dashboard'
+      url.search = ''
+      return withRefreshedCookies(NextResponse.redirect(url))
+    }
   }
 
   return supabaseResponse

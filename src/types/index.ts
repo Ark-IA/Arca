@@ -903,3 +903,81 @@ export interface BlocklistEntry {
   reason: string | null;
   created_at: string;
 }
+
+// ============================================================
+// Seguimiento web (migración 079)
+// ============================================================
+
+/** Origen de una visita, ya clasificado. Ver src/lib/seguimiento-web/atribucion.ts. */
+export interface OrigenWeb {
+  fuente: string;
+  medio: 'organic' | 'social' | 'referral' | 'email' | 'cpc' | 'direct' | 'other';
+  campana: string | null;
+  termino: string | null;
+  contenido: string | null;
+  referente: string | null;
+  aterrizaje: string | null;
+  en: string;
+}
+
+export interface SitioWeb {
+  id: string;
+  account_id: string;
+  nombre: string;
+  clave: string;
+  dominios: string[];
+  incluir_subdominios: boolean;
+  limitar_a_dominios: boolean;
+  respetar_dnt: boolean;
+  dias_cookie: number;
+  pais_por_defecto: string;
+  etiqueta_id: string | null;
+  pausado: boolean;
+  paginas_vistas: number;
+  ultima_visita: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface FormularioWeb {
+  id: string;
+  account_id: string;
+  sitio_id: string;
+  visitante: string | null;
+  contact_id: string | null;
+  host: string;
+  ruta: string;
+  nombre: string | null;
+  email: string | null;
+  telefono: string | null;
+  campos: Record<string, string>;
+  primer_origen: OrigenWeb | null;
+  ultimo_origen: OrigenWeb | null;
+  archivado_en: string | null;
+  motivo_omitido: string | null;
+  created_at: string;
+}
+
+export interface VisitanteWeb {
+  id: string;
+  sitio_id: string;
+  visitante: string;
+  contact_id: string | null;
+  primer_origen: OrigenWeb | null;
+  ultimo_origen: OrigenWeb | null;
+  primera_visita: string;
+  ultima_visita: string;
+}
+
+export interface EventoWeb {
+  id: number;
+  visitante: string;
+  tipo: 'page_view' | 'click';
+  host: string;
+  ruta: string;
+  etiqueta: string | null;
+  fuente: string | null;
+  medio: string | null;
+  campana: string | null;
+  ocurrio_en: string;
+}

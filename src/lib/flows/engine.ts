@@ -33,6 +33,7 @@
  */
 
 import { supabaseAdmin } from "./admin-client";
+import { moduloActivo } from "@/lib/modulos/servidor";
 import {
   engineSendInteractiveButtons,
   engineSendInteractiveList,
@@ -1058,6 +1059,9 @@ export async function dispatchInboundToFlows(
   input: DispatchInboundInput & { isFirstInboundMessage: boolean },
 ): Promise<DispatchInboundResult> {
   const db = supabaseAdmin();
+  // Módulo apagado en esta instalación: el flujo no atiende, y el webhook
+  // sigue como si no hubiera ninguno que coincida.
+  if (!(await moduloActivo("flujos"))) return { consumed: false, outcome: "no_match" };
   try {
     const activeRun = await loadActiveRunForContact(
       db,

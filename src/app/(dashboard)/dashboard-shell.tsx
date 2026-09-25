@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { AuthProvider, useAuth } from "@/hooks/use-auth";
+import { ProveedorModulos, useModulos } from "@/hooks/use-modulos";
 import { Sidebar } from "@/components/layout/sidebar";
 import { Header } from "@/components/layout/header";
 import { AccountAccessAlert } from "@/components/layout/account-access-alert";
@@ -18,6 +19,7 @@ import { AvisadorMensajes } from "@/components/inbox/avisador-mensajes";
 
 function DashboardShellInner({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuth();
+  const { activo } = useModulos();
   const router = useRouter();
 
   // Sidebar drawer state — only used on mobile. On lg+ the sidebar is
@@ -61,12 +63,12 @@ function DashboardShellInner({ children }: { children: React.ReactNode }) {
           tiene que sobrevivir a la navegacion, o cada clic en el menu
           desregistraria la extension y cortaria la llamada en curso.
           No renderiza nada para quien no tiene extension asignada. */}
-      <BurbujaTelefono />
+      {activo("telefonia") && <BurbujaTelefono />}
       {/* Aviso de llamada entrante y barra de llamada en curso. Va aparte de
           la burbuja porque tiene que salir SIEMPRE, también donde la burbuja
           se oculta (la bandeja): una llamada perdida por no avisar es peor
           que una esquina ocupada. */}
-      <AvisoLlamada />
+      {activo("telefonia") && <AvisoLlamada />}
       <Sidebar open={sidebarOpen} onClose={closeSidebar} />
       <div className="flex flex-1 flex-col overflow-hidden">
         <Header onOpenSidebar={() => setSidebarOpen(true)} />
@@ -86,7 +88,9 @@ function DashboardShellInner({ children }: { children: React.ReactNode }) {
 export function DashboardShell({ children }: { children: React.ReactNode }) {
   return (
     <AuthProvider>
-      <DashboardShellInner>{children}</DashboardShellInner>
+      <ProveedorModulos>
+        <DashboardShellInner>{children}</DashboardShellInner>
+      </ProveedorModulos>
     </AuthProvider>
   );
 }

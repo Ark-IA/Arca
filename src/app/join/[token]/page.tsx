@@ -66,27 +66,27 @@ interface PeekFail {
 type PeekResult = PeekOk | PeekFail;
 
 const ROLE_LABEL: Record<PeekOk['role'], string> = {
-  admin: 'Admin',
-  agent: 'Agent',
-  viewer: 'Viewer',
+  admin: 'Administrador',
+  agent: 'Agente',
+  viewer: 'Observador',
 };
 
 const FAIL_COPY: Record<PeekFail['reason'], { title: string; body: string }> = {
   not_found: {
-    title: 'Invite not found',
-    body: 'This link doesn’t match a valid invitation. Double-check the URL or ask the person who invited you to send a new one.',
+    title: 'Invitación no encontrada',
+    body: 'Este enlace no corresponde a una invitación válida. Revisa la URL o pídele a quien te invitó que te envíe una nueva.',
   },
   used: {
-    title: 'Invite already used',
-    body: 'This invitation has already been accepted. If that wasn’t you, ask the account admin to send a fresh link.',
+    title: 'Invitación ya utilizada',
+    body: 'Esta invitación ya fue aceptada. Si no fuiste tú, pídele al administrador de la cuenta que te envíe un enlace nuevo.',
   },
   expired: {
-    title: 'Invite expired',
-    body: 'This invitation has expired. Ask the account admin to send a new one — they take a few seconds to generate.',
+    title: 'Invitación vencida',
+    body: 'Esta invitación venció. Pídele al administrador de la cuenta que te envíe una nueva; se genera en pocos segundos.',
   },
   server_error: {
-    title: 'Something went wrong',
-    body: 'We couldn’t verify this invitation right now. Try refreshing the page in a moment.',
+    title: 'Algo salió mal',
+    body: 'No pudimos verificar esta invitación en este momento. Intenta recargar la página en un momento.',
   },
 };
 
@@ -99,7 +99,7 @@ export default function JoinPage() {
   // route group, so it doesn't reach this page. We hit Supabase
   // directly the same way `/login` and `/signup` do.
   const [authedUserId, setAuthedUserId] = useState<string | null | undefined>(
-    undefined, // undefined = unknown / still loading; null = signed out
+    undefined // undefined = unknown / still loading; null = signed out
   );
   const [accepting, setAccepting] = useState(false);
   // `redeem_invitation` returns 409 when the caller's current account
@@ -169,7 +169,7 @@ export default function JoinPage() {
     try {
       const res = await fetch(
         `/api/invitations/${encodeURIComponent(token)}/redeem`,
-        { method: 'POST' },
+        { method: 'POST' }
       );
       if (!res.ok) {
         const payload = (await res.json().catch(() => ({}))) as {
@@ -183,21 +183,21 @@ export default function JoinPage() {
         if (res.status === 409) {
           setConflictMessage(
             payload.error ||
-              'You are already in another account. Sign in with a different email to join this one.',
+              'Ya perteneces a otra cuenta. Inicia sesión con otro correo para unirte a esta.'
           );
         } else {
-          toast.error(payload.error || 'Failed to accept invitation');
+          toast.error(payload.error || 'No se pudo aceptar la invitación');
         }
         setAccepting(false);
         return;
       }
-      toast.success('Welcome to the team');
+      toast.success('Te damos la bienvenida al equipo');
       // Full reload (not router.push) so AuthProvider re-fetches
       // the profile with the new account_id and account_role.
       window.location.href = '/dashboard';
     } catch (err) {
       console.error('[join] redeem error:', err);
-      toast.error('Could not reach the server');
+      toast.error('No se pudo contactar al servidor');
       setAccepting(false);
     }
   }, [token]);
@@ -212,7 +212,7 @@ export default function JoinPage() {
       window.location.reload();
     } catch (err) {
       console.error('[join] sign-out error:', err);
-      toast.error('Could not sign out. Try refreshing the page.');
+      toast.error('No se pudo cerrar la sesión. Intenta recargar la página.');
       setSigningOut(false);
     }
   }, []);
@@ -220,10 +220,12 @@ export default function JoinPage() {
   // ----- Loading state (peek pending OR auth not yet resolved) -----
   if (peek === null || authedUserId === undefined) {
     return (
-      <Card className="w-full max-w-md border-border bg-card">
+      <Card className="border-border bg-card w-full max-w-md">
         <CardContent className="flex flex-col items-center gap-3 py-12">
-          <Loader2 className="size-6 animate-spin text-primary" />
-          <p className="text-sm text-muted-foreground">Verifying invitation…</p>
+          <Loader2 className="text-primary size-6 animate-spin" />
+          <p className="text-muted-foreground text-sm">
+            Verificando invitación…
+          </p>
         </CardContent>
       </Card>
     );
@@ -233,12 +235,14 @@ export default function JoinPage() {
   if (!peek.ok) {
     const copy = FAIL_COPY[peek.reason];
     return (
-      <Card className="w-full max-w-md border-border bg-card">
+      <Card className="border-border bg-card w-full max-w-md">
         <CardHeader className="items-center text-center">
           <div className="mb-2 flex h-12 w-12 items-center justify-center rounded-xl bg-red-500/10">
             <MailX className="h-6 w-6 text-red-400" />
           </div>
-          <CardTitle className="text-xl text-foreground">{copy.title}</CardTitle>
+          <CardTitle className="text-foreground text-xl">
+            {copy.title}
+          </CardTitle>
           <CardDescription className="text-muted-foreground">
             {copy.body}
           </CardDescription>
@@ -255,32 +259,32 @@ export default function JoinPage() {
             <>
               <Button
                 onClick={loadPeekAndAuth}
-                className="w-full bg-primary text-primary-foreground hover:bg-primary/90"
+                className="bg-primary text-primary-foreground hover:bg-primary/90 w-full"
               >
-                Try again
+                Intentar de nuevo
               </Button>
               <Link href="/signup">
                 <Button
                   variant="outline"
-                  className="w-full border-border text-muted-foreground hover:bg-muted hover:text-foreground"
+                  className="border-border text-muted-foreground hover:bg-muted hover:text-foreground w-full"
                 >
-                  Create a new account instead
+                  Mejor crear una cuenta nueva
                 </Button>
               </Link>
             </>
           ) : (
             <>
               <Link href="/signup">
-                <Button className="w-full bg-primary text-primary-foreground hover:bg-primary/90">
-                  Create a new account instead
+                <Button className="bg-primary text-primary-foreground hover:bg-primary/90 w-full">
+                  Mejor crear una cuenta nueva
                 </Button>
               </Link>
               <Link href="/login">
                 <Button
                   variant="outline"
-                  className="w-full border-border text-muted-foreground hover:bg-muted hover:text-foreground"
+                  className="border-border text-muted-foreground hover:bg-muted hover:text-foreground w-full"
                 >
-                  Sign in
+                  Iniciar sesión
                 </Button>
               </Link>
             </>
@@ -293,20 +297,19 @@ export default function JoinPage() {
   // ----- Peek OK -----
   const inviteHeader = (
     <CardHeader className="items-center text-center">
-      <div className="mb-2 flex h-12 w-12 items-center justify-center rounded-xl bg-primary/10">
-        <UsersRound className="h-6 w-6 text-primary" />
+      <div className="bg-primary/10 mb-2 flex h-12 w-12 items-center justify-center rounded-xl">
+        <UsersRound className="text-primary h-6 w-6" />
       </div>
-      <CardTitle className="text-xl text-foreground">
-        You&apos;re invited to{' '}
-        <span className="text-primary">{peek.account_name}</span>
+      <CardTitle className="text-foreground text-xl">
+        Te invitaron a <span className="text-primary">{peek.account_name}</span>
       </CardTitle>
       <CardDescription className="text-muted-foreground">
-        You&apos;ll join as{' '}
-        <span className="inline-flex items-center gap-1 text-foreground">
-          <ShieldCheck className="size-3.5 text-primary" />
+        Te unirás como{' '}
+        <span className="text-foreground inline-flex items-center gap-1">
+          <ShieldCheck className="text-primary size-3.5" />
           {ROLE_LABEL[peek.role]}
         </span>
-        . Link valid until{' '}
+        . Enlace válido hasta el{' '}
         {new Date(peek.expires_at).toLocaleDateString(undefined, {
           year: 'numeric',
           month: 'short',
@@ -321,30 +324,31 @@ export default function JoinPage() {
   if (authedUserId) {
     return (
       <>
-        <Card className="w-full max-w-md border-border bg-card">
+        <Card className="border-border bg-card w-full max-w-md">
           {inviteHeader}
           <CardContent className="flex flex-col gap-3">
             <Button
               onClick={handleAccept}
               disabled={accepting}
-              className="w-full bg-primary text-primary-foreground hover:bg-primary/90"
+              className="bg-primary text-primary-foreground hover:bg-primary/90 w-full"
             >
               {accepting ? (
                 <>
                   <Loader2 className="size-4 animate-spin" />
-                  Accepting…
+                  Aceptando…
                 </>
               ) : (
                 <>
                   <CheckCircle className="size-4" />
-                  Accept invitation
+                  Aceptar invitación
                 </>
               )}
             </Button>
-            <p className="text-center text-xs text-muted-foreground">
-              Accepting moves your login into{' '}
-              <span className="text-muted-foreground">{peek.account_name}</span>. Your
-              empty personal account from signup will be cleaned up.
+            <p className="text-muted-foreground text-center text-xs">
+              Al aceptar, tu acceso pasa a{' '}
+              <span className="text-muted-foreground">{peek.account_name}</span>
+              . La cuenta personal vacía que se creó al registrarte se
+              eliminará.
             </p>
           </CardContent>
         </Card>
@@ -361,21 +365,23 @@ export default function JoinPage() {
         >
           <DialogContent className="bg-popover border-border sm:max-w-md">
             <DialogHeader>
-              <DialogTitle className="flex items-center gap-2 text-popover-foreground">
+              <DialogTitle className="text-popover-foreground flex items-center gap-2">
                 <AlertTriangle className="size-4 text-amber-400" />
-                Can&apos;t join {peek.account_name} with this account
+                No puedes unirte a {peek.account_name} con esta cuenta
               </DialogTitle>
               <DialogDescription className="text-muted-foreground">
                 {conflictMessage}
               </DialogDescription>
             </DialogHeader>
-            <div className="space-y-2 py-2 text-xs text-muted-foreground">
+            <div className="text-muted-foreground space-y-2 py-2 text-xs">
               <p>
-                To join{' '}
-                <span className="text-popover-foreground">{peek.account_name}</span>,
-                sign out and sign up again with a different email address.
-                The invite link stays valid as long as it hasn&apos;t
-                expired.
+                Para unirte a{' '}
+                <span className="text-popover-foreground">
+                  {peek.account_name}
+                </span>
+                , cierra sesión y regístrate de nuevo con otro correo
+                electrónico. El enlace de invitación sigue siendo válido
+                mientras no haya vencido.
               </p>
             </div>
             <DialogFooter className="bg-popover border-border">
@@ -384,7 +390,7 @@ export default function JoinPage() {
                 onClick={() => setConflictMessage(null)}
                 className="border-border text-popover-foreground hover:bg-muted"
               >
-                Stay signed in
+                Mantener la sesión
               </Button>
               <Button
                 onClick={handleSignOutAndRetry}
@@ -394,10 +400,10 @@ export default function JoinPage() {
                 {signingOut ? (
                   <>
                     <Loader2 className="size-4 animate-spin" />
-                    Signing out…
+                    Cerrando sesión…
                   </>
                 ) : (
-                  'Sign out & use a different email'
+                  'Cerrar sesión y usar otro correo'
                 )}
               </Button>
             </DialogFooter>
@@ -409,20 +415,20 @@ export default function JoinPage() {
 
   // ----- Not authed: prompt to sign up or sign in -----
   return (
-    <Card className="w-full max-w-md border-border bg-card">
+    <Card className="border-border bg-card w-full max-w-md">
       {inviteHeader}
       <CardContent className="flex flex-col gap-2">
         <Link href={`/signup?invite=${encodeURIComponent(token!)}`}>
-          <Button className="w-full bg-primary text-primary-foreground hover:bg-primary/90">
-            Create account &amp; join
+          <Button className="bg-primary text-primary-foreground hover:bg-primary/90 w-full">
+            Crear cuenta y unirse
           </Button>
         </Link>
         <Link href={`/login?invite=${encodeURIComponent(token!)}`}>
           <Button
             variant="outline"
-            className="w-full border-border text-muted-foreground hover:bg-muted hover:text-foreground"
+            className="border-border text-muted-foreground hover:bg-muted hover:text-foreground w-full"
           >
-            I already have an account
+            Ya tengo una cuenta
           </Button>
         </Link>
       </CardContent>

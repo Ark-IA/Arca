@@ -75,7 +75,9 @@
     "menuSettings": "Configuración",
     "menuSignOut": "Cerrar sesión",
     "collapse": "Contraer",
-    "expand": "Expandir"
+    "expand": "Expandir",
+    "reports": "Informes",
+    "superadmin": "Superadmin"
   },
   "Dashboard": {
     "page": {
@@ -599,7 +601,7 @@
       "toastImported_plural": "{count} contactos importados",
       "toastTagsAssigned": "{count} asignación de etiqueta aplicada",
       "toastTagsAssigned_plural": "{count} asignaciones de etiquetas aplicadas",
-      "toastTagsSkipped": "Etiquetas desconocidas omitidas (creálas primero en Configuración): {sample}{more}",
+      "toastTagsSkipped": "Etiquetas desconocidas omitidas (créalas primero en Configuración): {sample}{more}",
       "toastSkipped": "{count} duplicado omitido",
       "toastSkipped_plural": "{count} duplicados omitidos",
       "toastFailed": "{count} contacto no se pudo importar",
@@ -1495,7 +1497,7 @@
       "labelTooLong": "La etiqueta debe tener {max} caracteres o menos",
       "copied": "Enlace de invitación copiado",
       "clipboardBlocked": "El portapapeles está bloqueado — copia el enlace a mano",
-      "whatsappMessage": "Sumate a {accountName} con este enlace (vale por {expiresInDays} días): {url}"
+      "whatsappMessage": "Únete a {accountName} con este enlace (vale por {expiresInDays} días): {url}"
     },
     "apiKeys": {
       "title": "Claves de API",
@@ -1676,7 +1678,7 @@
     },
     "templates": {
       "title": "Plantillas de mensaje",
-      "description": "Crea plantillas y enviálas a Meta para su aprobación. Usa \"Sincronizar desde Meta\" para traer las que aprobaste en otro lado.",
+      "description": "Crea plantillas y envíalas a Meta para su aprobación. Usa \"Sincronizar desde Meta\" para traer las que aprobaste en otro lado.",
       "syncFromMeta": "Sincronizar desde Meta",
       "syncing": "Sincronizando…",
       "syncTitle": "Traer las plantillas aprobadas de tu cuenta de WhatsApp Business de Meta",
@@ -1697,7 +1699,7 @@
       "dialogNewTitle": "Nueva plantilla de mensaje",
       "dialogEditDesc": "Guarda los cambios para volver a enviarla a Meta. El estado vuelve a PENDIENTE durante la revisión.",
       "dialogNewDesc": "Arma una plantilla y enviala a Meta para su aprobación. Una vez aprobada, la puedes usar en envíos masivos y en la bandeja.",
-      "authWarning": "Las plantillas de AUTENTICACIÓN tienen un cuerpo fijo y un botón OTP que necesitan otro constructor. Por ahora creálas en el Administrador de WhatsApp de Meta y usa <bold>Sincronizar desde Meta</bold> para traerlas.",
+      "authWarning": "Las plantillas de AUTENTICACIÓN tienen un cuerpo fijo y un botón OTP que necesitan otro constructor. Por ahora créalas en el Administrador de WhatsApp de Meta y usa <bold>Sincronizar desde Meta</bold> para traerlas.",
       "templateName": "Nombre de la plantilla",
       "namePlaceholder": "ej.: confirmacion_pedido",
       "nameFixed": "El nombre queda fijo una vez que la plantilla existe en Meta: crea una nueva para cambiarlo.",

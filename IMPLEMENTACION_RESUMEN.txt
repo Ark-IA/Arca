@@ -1,4 +1,23 @@
 ================================================================================
+  AVISO - DOCUMENTO HISTORICO
+  Escrito el dia de la implementacion (septiembre 2026). Describe lo que se
+  construyo ese dia y lo que se pensaba hacer despues, no lo que funciona hoy.
+
+  Cosas que aqui quedaron y ya no son ciertas:
+
+   * Las migraciones NO son 070_custom_objects.sql ni 071_enterprise_features.sql.
+     Al integrarse con el resto de la rama se renumeraron a
+     077_objetos_personalizados.sql y 078_funciones_enterprise.sql. Los numeros
+     070 y 071 hoy son otras migraciones distintas.
+   * Supabase es AUTOALOJADO EN DOCKER, no Supabase Cloud. No hay dashboard de
+     supabase.com para este proyecto. Ver docs/APLICAR_MIGRACIONES.md.
+   * Varias caracteristicas marcadas como completas estan construidas pero sin
+     conectar a nada.
+
+  EL ESTADO REAL ESTA EN ESTADO.md
+================================================================================
+
+================================================================================
                     ARCA ENTERPRISE - IMPLEMENTACIÓN
                     Inspirado en Twenty CRM
                     Fecha: Septiembre 2026

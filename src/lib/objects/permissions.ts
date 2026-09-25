@@ -5,9 +5,35 @@
 
 import type { SupabaseClient } from '@supabase/supabase-js';
 
+/** El modismo del repo para sacar texto de algo que se atrapó en un catch. */
+function mensaje(error: unknown): string {
+  return error instanceof Error ? error.message : String(error);
+}
+
 export type Role = 'owner' | 'admin' | 'agent' | 'viewer';
 export type PermissionScope = 'ALL' | 'OWN' | 'TEAM' | 'NONE';
 export type ActionType = 'read' | 'create' | 'update' | 'delete';
+
+/** Fila de `object_permissions` tal como vuelve de PostgREST. */
+interface FilaDePermiso {
+  id: string;
+  account_id: string;
+  object_id: string;
+  role: string;
+  can_read: boolean;
+  can_create: boolean;
+  can_update: boolean;
+  can_delete: boolean;
+  read_scope: PermissionScope;
+  create_scope: PermissionScope;
+  update_scope: PermissionScope;
+  delete_scope: PermissionScope;
+  // JSONB, no text[]: la columna guarda objetos `FieldPermission`
+  // (`{ fieldId, canRead, canUpdate }`), no una lista de nombres.
+  // Tiparlo como string[] compilaba y luego entregaba cadenas donde
+  // el resto del codigo espera objetos.
+  restricted_fields?: FieldPermission[];
+}
 
 export interface ObjectPermission {
   id: string;
@@ -143,8 +169,8 @@ export class PermissionManager {
         allowed: true,
         restrictedFields: restrictedFields.length > 0 ? restrictedFields : undefined,
       };
-    } catch (error: any) {
-      return { allowed: false, reason: error.message };
+    } catch (error) {
+      return { allowed: false, reason: mensaje(error) };
     }
   }
 
@@ -220,13 +246,13 @@ export class PermissionManager {
   async filterFieldsByPermissions(
     objectId: string,
     userId: string,
-    fields: Record<string, any>,
+    fields: Record<string, unknown>,
     action: 'read' | 'update'
-  ): Promise<Record<string, any>> {
+  ): Promise<Record<string, unknown>> {
     const fieldIds = Object.keys(fields);
     const { allowed } = await this.checkFieldPermissions(objectId, userId, fieldIds, action);
     
-    const filtered: Record<string, any> = {};
+    const filtered: Record<string, unknown> = {};
     for (const fieldId of allowed) {
       filtered[fieldId] = fields[fieldId];
     }
@@ -274,7 +300,7 @@ export class PermissionManager {
         return { success: false, error: 'Solo owners y admins pueden modificar permisos' };
       }
 
-      const updateData: any = { ...input };
+      const updateData: Record<string, unknown> = { ...input };
       if (input.restrictedFields) {
         updateData.restricted_fields = JSON.stringify(input.restrictedFields);
       }
@@ -289,8 +315,8 @@ export class PermissionManager {
       if (error) throw error;
 
       return { success: true, error: null };
-    } catch (error: any) {
-      return { success: false, error: error.message };
+    } catch (error) {
+      return { success: false, error: mensaje(error) };
     }
   }
 
@@ -360,8 +386,8 @@ export class PermissionManager {
       if (error) throw error;
 
       return { success: true, error: null };
-    } catch (error: any) {
-      return { success: false, error: error.message };
+    } catch (error) {
+      return { success: false, error: mensaje(error) };
     }
   }
 
@@ -452,7 +478,7 @@ export class PermissionManager {
   }
 
   // Helper de mapeo
-  private mapToPermission(data: any): ObjectPermission {
+  private mapToPermission(data: FilaDePermiso): ObjectPermission {
     return {
       id: data.id,
       accountId: data.account_id,

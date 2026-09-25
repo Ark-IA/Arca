@@ -50,6 +50,20 @@ it. Grant the minimum.
 | `conversations:read` | List and read conversations              |
 | `broadcasts:send`    | Launch broadcast campaigns               |
 | `webhooks:manage`    | Register and manage outbound webhooks    |
+| `objects:read`       | List custom objects, fields and records  |
+| `objects:write`      | Create and update custom-object records  |
+| `objects:delete`     | Delete custom-object records             |
+| `companies:read` / `:write` / `:delete`  | Companies              |
+| `tasks:read` / `:write` / `:delete`      | Tasks                  |
+| `notes:read` / `:write` / `:delete`      | Notes                  |
+| `calendar:read` / `:write` / `:delete`   | Calendar events        |
+| `deals:read` / `:write` / `:delete`      | Deals                  |
+| `pipelines:read` / `:write`              | Pipelines and stages   |
+
+`:read` covers list and read, `:write` covers create and update, and
+`:delete` covers delete. Delete is a separate scope on purpose: most
+integrations need to create and update but never to destroy, so the
+ordinary key can be issued without the ability to lose data.
 
 A key with **no scopes** still authenticates and can call
 `GET /api/v1/me` — useful for verifying a key works.
@@ -374,10 +388,146 @@ resolve to a public address — requests to `localhost`, private/RFC1918
 ranges, link-local (incl. cloud metadata `169.254.169.254`), and similar
 internal targets are refused at delivery time.
 
+## Custom objects
+
+Custom objects are the account's own record types, defined in the
+dashboard under **Objects**. They do **not** get a hand-written
+endpoint each: one generic set of routes serves every object, present
+and future, by reading the object's definition at request time.
+
+An object is addressed in the URL by its `name` — its singular name,
+e.g. `project`. Its plural and its UUID also resolve, because guessing
+wrong about pluralisation is the most likely mistake a caller makes.
+
+### `GET /api/v1/objects`
+
+Discovery. Lists every object with its labels, icon and active flag.
+Scope: `objects:read`. Objects are schema, not data, so the whole set
+comes back unpaged and `meta.next_cursor` is always `null`.
+
+```bash
+curl https://your-crm.example.com/api/v1/objects   -H "Authorization: Bearer wacrm_live_xxx"
+```
+
+### `GET /api/v1/objects/{object}`
+
+The object's schema: every active field with its `name`, `label`,
+`type`, `required` and `options`. Scope: `objects:read`. Read this
+before writing a record — payloads are keyed by field **name**.
+
+### `GET /api/v1/objects/{object}/records`
+
+List records, newest first, keyset-paginated like every other
+collection. Scope: `objects:read`.
+
+Filter on exact field values with `where[<field>]=<value>`:
+
+```bash
+curl "https://your-crm.example.com/api/v1/objects/project/records?where[status]=open&limit=20"   -H "Authorization: Bearer wacrm_live_xxx"
+```
+
+A `where` key that is not a field on the object is a `400`, not a
+silently ignored filter — otherwise a typo would look like "no matching
+records" and quietly return the wrong answer.
+
+### `POST /api/v1/objects/{object}/records`
+
+Create a record. Scope: `objects:write`. Field values are keyed by
+field name:
+
+```bash
+curl -X POST https://your-crm.example.com/api/v1/objects/project/records   -H "Authorization: Bearer wacrm_live_xxx"   -H "Content-Type: application/json"   -d '{ "fields": { "name": "Rebuild the website", "budget": 12000 } }'
+```
+
+A bare `{ "name": … }` without the `fields` wrapper is accepted too.
+**Unknown field names are rejected**, with the error naming the field
+and listing what the object actually has.
+
+### `GET` / `PATCH` / `DELETE /api/v1/objects/{object}/records/{id}`
+
+Read, update and delete one record. Scopes: `objects:read`,
+`objects:write`, `objects:delete`.
+
+`PATCH` **merges**: the keys you send are written, the rest are left
+alone. It never replaces the whole field map — a client that
+round-trips a subset of fields would otherwise wipe the others.
+
+Writes go through the same path the dashboard uses, so each one
+appends to the object's audit log (`field_audit_logs`).
+
+## CRM records
+
+Six ordinary resources, all account-scoped, all following the same
+shape: `GET` (list) and `POST` on the collection, `GET` / `PATCH` /
+`DELETE` on `/{id}`. A `DELETE` answers `204` with no body. Another
+account's id is a `404`, never a `403`.
+
+| Resource | Path | Scopes |
+| -------- | ---- | ------ |
+| Companies | `/api/v1/companies` | `companies:*` |
+| Tasks | `/api/v1/tasks` | `tasks:*` |
+| Notes | `/api/v1/notes` | `notes:*` |
+| Calendar events | `/api/v1/calendar-events` | `calendar:*` |
+| Deals | `/api/v1/deals` | `deals:*` |
+| Pipelines | `/api/v1/pipelines` | `pipelines:*` |
+
+### Filters
+
+| Resource | Query parameters |
+| -------- | ---------------- |
+| Companies | `search` (name/domain), `ideal=true` |
+| Tasks | `status`, `priority`, `assignee` (user id, or `none`), `due_before`, `due_after`, `search` |
+| Notes | `contact_id`, `company_id`, `deal_id`, `search` |
+| Calendar events | `from`, `to` (ISO, bounding `starts_at`), `status`, `contact_id`, `company_id`, `deal_id` |
+| Deals | `pipeline_id`, `stage_id`, `status`, `contact_id`, `assigned_to`, `search` |
+| Pipelines | — (stages come embedded) |
+
+### Notes attach to exactly one record
+
+Pass one of `contact_id`, `company_id` or `deal_id` when creating a
+note and it is attached to that record; pass none for a free-standing
+note. Sending two is a `400`. The attachment cannot be changed
+afterwards — re-pointing a note at a different contact would rewrite
+history the timeline has already rendered.
+
+### Deals and the board
+
+`stage_id` must belong to the deal's `pipeline_id`; a mismatch is a
+`400`, because a deal on a foreign stage renders in no column of the
+board. Moving a deal to another pipeline therefore requires sending
+`stage_id` in the same request — the endpoint will not pick a stage
+for you, since where a deal lands is a sales decision.
+
+### Calendar events do not create Meet or Teams links
+
+`meeting_url` is a plain link **you supply**. Nothing here talks to
+Google Meet, Microsoft Teams, Google Calendar or Outlook: there is no
+OAuth connection, no room is created, and nothing syncs. Creating a
+real Meet room requires an authenticated Google account, which this
+API does not hold.
+
+Also note that events page by **creation** date, not start time, like
+every other v1 collection — the keyset cursor contract is
+`(created_at, id)` across the whole API. To draw an agenda, bound the
+window with `from`/`to` and sort by `starts_at` client-side.
+
+### Pipelines cannot be deleted
+
+There is no `DELETE /api/v1/pipelines/{id}`. `deals.pipeline_id`
+cascades, so dropping a board would silently destroy every deal on it
+— an outcome that should require a human looking at a warning, not an
+API key with a typo in a script. Stages have no delete either: a stage
+still holding deals cannot be removed at the database level anyway, and
+an endpoint that fails exactly when it matters is worse than none.
+
+Stages are managed at `POST /api/v1/pipelines/{id}/stages` and
+`PATCH /api/v1/pipelines/{id}/stages/{stageId}`, or created inline by
+passing a `stages` array when creating the pipeline.
+
 ## Roadmap
 
 The public API now covers messaging, contacts, conversations,
-broadcasts, and outbound webhooks — the full scope of
-[#245](https://github.com/ArnasDon/wacrm/issues/245). Future ideas
-(deals/pipelines, templates, flows, a delivery queue for webhooks) are
-not yet scheduled.
+broadcasts, outbound webhooks, custom objects and the CRM records
+(companies, tasks, notes, calendar events, deals, pipelines). Not yet
+scheduled: templates, flows, telephony, the AI agent, a delivery queue
+for webhooks, and calendar sync with Google/Microsoft.

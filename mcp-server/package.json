@@ -1,19 +1,23 @@
 {
-  "name": "wacrm-mcp",
+  "name": "arca-mcp",
   "version": "0.1.1",
-  "mcpName": "io.github.ArnasDon/wacrm-mcp",
-  "description": "Model Context Protocol (MCP) server for wacrm — drive your self-hosted WhatsApp CRM from Claude, Cursor, and other MCP clients.",
+  "mcpName": "io.github.Ark-IA/arca-mcp",
+  "description": "Model Context Protocol (MCP) server for ARCA — drive your self-hosted WhatsApp CRM, its custom objects and its CRM records from Claude, Cursor, and other MCP clients.",
   "license": "MIT",
-  "author": "Arnas Donauskas",
-  "homepage": "https://github.com/ArnasDon/wacrm",
+  "author": "ARK-IA",
+  "contributors": [
+    "Arnas Donauskas (wacrm, the project this is built on)"
+  ],
+  "homepage": "https://github.com/Ark-IA/Arca",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/ArnasDon/wacrm.git",
+    "url": "git+https://github.com/Ark-IA/Arca.git",
     "directory": "mcp-server"
   },
   "keywords": [
     "mcp",
     "model-context-protocol",
+    "arca",
     "wacrm",
     "whatsapp",
     "crm",
@@ -25,7 +29,7 @@
     "node": ">=20.0.0"
   },
   "bin": {
-    "wacrm-mcp": "./dist/index.js"
+    "arca-mcp": "./dist/index.js"
   },
   "files": [
     "dist",

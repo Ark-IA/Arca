@@ -223,6 +223,19 @@ function sendPathDb(
       const builder: Record<string, unknown> = {
         select: () => builder,
         eq: () => builder,
+        // `estaBloqueado` (lib/whatsapp/bloqueo.ts) chains
+        // `.in().in().limit()` on `blocklist` before every send. The
+        // send path grew that check after this fake was written, and
+        // a builder missing a link fails as "db.from(...).select(...)
+        // .eq(...).in is not a function" — which reads like a broken
+        // test rather than a fake that has fallen behind.
+        in: () => builder,
+        limit: () => builder,
+        // `configDeWhatsApp` (lib/whatsapp/credenciales.ts) reads the
+        // account's primary line with `.order('created_at').limit(1)
+        // .maybeSingle()`. It replaced a plain `.single()` when one
+        // account gained several WhatsApp lines.
+        order: () => builder,
         insert: (row: Record<string, unknown>) => {
           if (table === 'messages') captured.message = row;
           return builder;
@@ -231,7 +244,14 @@ function sendPathDb(
           if (table === 'conversations') captured.conversation = row;
           return builder;
         },
-        maybeSingle: async () => ({ data: null, error: null }),
+        // `whatsapp_config` is now read through `.maybeSingle()`, not
+        // `.single()`. Returning null for it here would leave the send
+        // path with no credentials and fail every test for a reason
+        // that has nothing to do with what they assert.
+        maybeSingle: async () => ({
+          data: table === 'whatsapp_config' ? config : null,
+          error: null,
+        }),
         single: async () => {
           if (table === 'conversations') {
             return { data: conversation, error: null };
@@ -242,7 +262,10 @@ function sendPathDb(
           }
           return { data: null, error: null };
         },
-        // Bare-await result — only message_templates is read this way.
+        // Bare-await result. `message_templates` is read this way, and
+        // so is `blocklist` — an empty array there means "this
+        // destination is not blocked", which is what every test in
+        // this file assumes when it expects the send to go through.
         then: (resolve: (r: { data: unknown[]; error: null }) => unknown) =>
           resolve({
             data: table === 'message_templates' ? templateRows : [],

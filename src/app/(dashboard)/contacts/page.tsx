@@ -58,6 +58,9 @@ import { ContactForm } from '@/components/contacts/contact-form';
 import { ImportModal } from '@/components/contacts/import-modal';
 import { CustomFieldsManager } from '@/components/contacts/custom-fields-manager';
 import { useCan } from '@/hooks/use-can';
+import { useAuth } from '@/hooks/use-auth';
+import { BotonExportar } from '@/components/exportar/boton-exportar';
+import { exportarContactos } from '@/lib/exportar/entidades';
 import { GatedButton } from '@/components/ui/gated-button';
 import { useTranslations } from 'next-intl';
 
@@ -73,6 +76,7 @@ export default function ContactsPage() {
   const supabase = createClient();
   const canEdit = useCan('send-messages');
   const canEditSettings = useCan('edit-settings');
+  const { accountId } = useAuth();
 
   const [contacts, setContacts] = useState<ContactWithTags[]>([]);
   const [loading, setLoading] = useState(true);
@@ -409,7 +413,13 @@ export default function ContactsPage() {
             {totalCount > 0 ? t('subtitle', { count: totalCount }) : t('subtitleZero')}
           </p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
+          <BotonExportar
+            archivo="contactos"
+            disabled={!accountId}
+            exportar={() => exportarContactos(supabase, accountId!)}
+            className="border-border text-muted-foreground hover:bg-muted"
+          />
           {canEditSettings && (
             <Button
               variant="outline"

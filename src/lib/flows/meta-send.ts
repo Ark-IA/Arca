@@ -175,6 +175,12 @@ interface SendMediaEngineArgs {
   caption?: string
   /** Document-only; ignored by Meta for image/video. */
   filename?: string
+  /**
+   * Lo que se guarda en la bandeja además del tipo. La respuesta por voz del
+   * agente lo usa para que se pueda escuchar el audio y leer lo que dijo;
+   * sin esto la fila queda como "[audio]" sin nada que reproducir.
+   */
+  guardar?: { mediaUrl?: string; texto?: string }
 }
 
 /**
@@ -255,12 +261,13 @@ export async function engineSendMedia(
   // messages_content_type_check constraint (migration 001 + 010).
   // content_text carries the caption (or empty) so the conversation
   // list preview shows something meaningful when the user glances at it.
-  const preview = args.caption?.trim() || `[${args.kind}]`
+  const preview = args.caption?.trim() || args.guardar?.texto?.trim() || `[${args.kind}]`
   const { error: msgErr } = await db.from('messages').insert({
     conversation_id: args.conversationId,
     sender_type: 'bot',
     content_type: args.kind,
-    content_text: args.caption ?? null,
+    content_text: args.caption ?? args.guardar?.texto ?? null,
+    ...(args.guardar?.mediaUrl ? { media_url: args.guardar.mediaUrl } : {}),
     message_id: waMessageId,
     status: 'sent',
   })

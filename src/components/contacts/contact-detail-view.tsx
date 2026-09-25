@@ -41,6 +41,7 @@ import { useTranslations } from 'next-intl';
 import { PanelNotas } from '@/components/registros/panel-notas';
 import { PanelAdjuntos } from '@/components/registros/panel-adjuntos';
 import { PanelLineaDeTiempo } from '@/components/registros/panel-linea-de-tiempo';
+import { ActividadWeb } from '@/components/contacts/actividad-web';
 import { PanelTareasDeContacto } from '@/components/registros/panel-tareas-de-contacto';
 import { PanelProximaGestion } from '@/components/registros/panel-proxima-gestion';
 import { AvisoProximaGestion } from '@/components/registros/aviso-proxima-gestion';
@@ -250,7 +251,14 @@ export function ContactDetailView({
     setLoadingCustom(true);
 
     const [fieldsRes, valuesRes] = await Promise.all([
-      supabase.from('custom_fields').select('*').order('field_name'),
+      // object_id NULL = a contact field. Custom objects keep their own
+      // fields in this same table (migration 077); without the filter
+      // they would render on every contact card, always empty.
+      supabase
+        .from('custom_fields')
+        .select('*')
+        .is('object_id', null)
+        .order('field_name'),
       supabase
         .from('contact_custom_values')
         .select('*')
@@ -815,7 +823,10 @@ export function ContactDetailView({
 
               <div className="min-h-0 flex-1 overflow-y-auto p-3">
                 {pestana === 'activity' && contactId && (
-                  <PanelLineaDeTiempo tipo="contact" registroId={contactId} conChat={false} />
+                  <>
+                    <ActividadWeb contactId={contactId} />
+                    <PanelLineaDeTiempo tipo="contact" registroId={contactId} conChat={false} />
+                  </>
                 )}
 
                 {/* Notas. Usa el panel compartido, el mismo que la ficha de

@@ -31,7 +31,7 @@ export interface CreateFieldFormData {
   label: string;
   type: FieldType;
   required: boolean;
-  defaultValue?: any;
+  defaultValue?: unknown;
   description?: string;
   options?: { id: string; label: string; color: string; position: number }[];
   targetObject?: string;
@@ -42,7 +42,7 @@ export interface UpdateFieldFormData {
   label?: string;
   type?: FieldType;
   required?: boolean;
-  defaultValue?: any;
+  defaultValue?: unknown;
   description?: string;
   options?: { id: string; label: string; color: string; position: number }[];
   visibleInList?: boolean;

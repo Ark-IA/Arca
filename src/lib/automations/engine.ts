@@ -19,6 +19,7 @@ import type {
   AssignConversationStepConfig,
 } from '@/types'
 import { supabaseAdmin } from './admin-client'
+import { moduloActivo } from '@/lib/modulos/servidor'
 import { addContactTagIfAbsent } from '@/lib/contacts/tag-write'
 import { MAX_TAG_CHAIN_DEPTH, getTagChainDepth } from '@/lib/contacts/tag-chain'
 import { engineSendText, engineSendTemplate, engineSendInteractive } from './meta-send'
@@ -68,6 +69,10 @@ export interface DispatchInput {
 export async function runAutomationsForTrigger(input: DispatchInput): Promise<void> {
   try {
     const db = supabaseAdmin()
+
+    // Módulo apagado en esta instalación: las automatizaciones guardadas no
+    // se ejecutan, aunque sigan marcadas como activas.
+    if (!(await moduloActivo('automatizaciones'))) return
 
     // Tenant isolation. `contactId` can be caller-supplied (the manual
     // POST /api/automations/engine entrypoint reads it straight from the
@@ -539,11 +544,17 @@ async function runStep(step: AutomationStep, args: ExecuteArgs): Promise<string>
         }
         // Defense in depth: the service-role client bypasses RLS, so confirm
         // the field definition belongs to this account before writing.
+        //
+        // It must also be a CONTACT field. Since migration 077 this table
+        // also holds custom objects' fields (object_id set), and writing a
+        // contact_custom_values row against one would attach a value to a
+        // field that no contact form reads — silently, and forever.
         const { data: field } = await db
           .from('custom_fields')
           .select('id')
           .eq('id', customFieldId)
           .eq('account_id', args.automation.account_id)
+          .is('object_id', null)
           .maybeSingle()
         if (!field) {
           return `field ${cfg.field} not writable from automations`

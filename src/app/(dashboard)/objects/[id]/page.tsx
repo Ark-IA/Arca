@@ -10,6 +10,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { FieldEditor } from '@/components/objects/field-editor';
 import { toast } from 'sonner';
 import { createCustomObjectsManager } from '@/lib/objects/manager';
+import type { CreateFieldInput } from '@/lib/objects/manager';
 import type { ObjectDefinition, FieldDefinition } from '@/types/objects';
 
 export default function ObjectDetailPage() {
@@ -22,7 +23,9 @@ export default function ObjectDetailPage() {
   useEffect(() => {
     async function loadObject() {
       try {
-        const { data: { user } } = await supabase.auth.getUser();
+        const {
+          data: { user },
+        } = await supabase.auth.getUser();
         if (!user) return;
 
         const { data: profile } = await supabase
@@ -33,7 +36,10 @@ export default function ObjectDetailPage() {
 
         if (!profile) return;
 
-        const manager = createCustomObjectsManager(supabase, profile.account_id);
+        const manager = createCustomObjectsManager(
+          supabase,
+          profile.account_id
+        );
         const result = await manager.getObject(objectId);
 
         if (result.error) {
@@ -52,9 +58,11 @@ export default function ObjectDetailPage() {
     loadObject();
   }, [objectId, supabase]);
 
-  const handleAddField = async (field: any) => {
+  const handleAddField = async (field: CreateFieldInput) => {
     try {
-      const { data: { user } } = await supabase.auth.getUser();
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
       if (!user) return;
 
       const { data: profile } = await supabase
@@ -84,9 +92,14 @@ export default function ObjectDetailPage() {
     }
   };
 
-  const handleUpdateField = async (fieldId: string, updates: any) => {
+  const handleUpdateField = async (
+    fieldId: string,
+    updates: Partial<CreateFieldInput>
+  ) => {
     try {
-      const { data: { user } } = await supabase.auth.getUser();
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
       if (!user) return;
 
       const { data: profile } = await supabase
@@ -107,7 +120,7 @@ export default function ObjectDetailPage() {
         if (object) {
           setObject({
             ...object,
-            fields: object.fields.map(f =>
+            fields: object.fields.map((f) =>
               f.id === fieldId ? { ...f, ...updates } : f
             ),
           });
@@ -119,12 +132,16 @@ export default function ObjectDetailPage() {
   };
 
   const handleDeleteField = async (fieldId: string) => {
-    if (!confirm('¿Eliminar este campo? Los datos de este campo se perderán.')) {
+    if (
+      !confirm('¿Eliminar este campo? Los datos de este campo se perderán.')
+    ) {
       return;
     }
 
     try {
-      const { data: { user } } = await supabase.auth.getUser();
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
       if (!user) return;
 
       const { data: profile } = await supabase
@@ -145,7 +162,7 @@ export default function ObjectDetailPage() {
         if (object) {
           setObject({
             ...object,
-            fields: object.fields.filter(f => f.id !== fieldId),
+            fields: object.fields.filter((f) => f.id !== fieldId),
           });
         }
       }
@@ -156,8 +173,8 @@ export default function ObjectDetailPage() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-64">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
+      <div className="flex h-64 items-center justify-center">
+        <div className="border-primary h-8 w-8 animate-spin rounded-full border-b-2" />
       </div>
     );
   }
@@ -173,7 +190,10 @@ export default function ObjectDetailPage() {
           {/* El Button de este proyecto es el de Base UI y no tiene el
               `asChild` de Radix. Se estiliza el Link con buttonVariants,
               que además conserva el "abrir en pestaña nueva". */}
-          <Link href="/objects" className={buttonVariants({ className: 'mt-4' })}>
+          <Link
+            href="/objects"
+            className={buttonVariants({ className: 'mt-4' })}
+          >
             Volver a objetos
           </Link>
         </div>
@@ -182,7 +202,7 @@ export default function ObjectDetailPage() {
   }
 
   return (
-    <div className="p-6 space-y-6">
+    <div className="space-y-6 p-6">
       <div className="flex items-center gap-4">
         <Link
           href="/objects"
@@ -191,7 +211,9 @@ export default function ObjectDetailPage() {
           <ArrowLeft className="h-5 w-5" />
         </Link>
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">{object.labelPlural}</h1>
+          <h1 className="text-3xl font-bold tracking-tight">
+            {object.labelPlural}
+          </h1>
           <p className="text-muted-foreground">{object.description}</p>
         </div>
       </div>
@@ -206,13 +228,6 @@ export default function ObjectDetailPage() {
             <List className="h-4 w-4" />
             Registros
           </TabsTrigger>
-          <TabsTrigger value="views" className="gap-2">
-            <Database className="h-4 w-4" />
-            Vistas
-          </TabsTrigger>
-          <TabsTrigger value="permissions" className="gap-2">
-            Permisos
-          </TabsTrigger>
         </TabsList>
 
         <TabsContent value="fields" className="space-y-4">
@@ -225,51 +240,18 @@ export default function ObjectDetailPage() {
         </TabsContent>
 
         <TabsContent value="records">
-          <div className="text-center py-12">
-            <List className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
+          <div className="py-12 text-center">
+            <List className="text-muted-foreground mx-auto mb-4 h-12 w-12" />
             <h3 className="text-lg font-semibold">Registros</h3>
             <p className="text-muted-foreground mb-4">
-              Los datos cargados para {object.labelSingular.toLowerCase()}: listarlos,
-              buscarlos y cargar nuevos
+              Los datos cargados para {object.labelSingular.toLowerCase()}:
+              listarlos, buscarlos y cargar nuevos
             </p>
             <Link
               href={`/objects/${objectId}/records`}
               className={buttonVariants()}
             >
               Ver Registros
-            </Link>
-          </div>
-        </TabsContent>
-
-        <TabsContent value="views">
-          <div className="text-center py-12">
-            <Database className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
-            <h3 className="text-lg font-semibold">Vistas</h3>
-            <p className="text-muted-foreground mb-4">
-              Cómo se listan los registros —tabla, kanban, línea de tiempo,
-              galería— y cómo se ordenan los campos en la ficha
-            </p>
-            <Link
-              href={`/objects/${objectId}/views`}
-              className={buttonVariants()}
-            >
-              Gestionar Vistas
-            </Link>
-          </div>
-        </TabsContent>
-
-        <TabsContent value="permissions">
-          <div className="text-center py-12">
-            <h3 className="text-lg font-semibold">Permisos</h3>
-            <p className="text-muted-foreground mb-4">
-              Qué puede hacer cada rol —ver, crear, editar, borrar— y sobre
-              cuáles registros
-            </p>
-            <Link
-              href={`/objects/${objectId}/permissions`}
-              className={buttonVariants()}
-            >
-              Configurar Permisos
             </Link>
           </div>
         </TabsContent>

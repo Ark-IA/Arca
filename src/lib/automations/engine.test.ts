@@ -5,7 +5,10 @@ import { describe, it, expect, beforeEach, vi } from "vitest";
 const h = vi.hoisted(() => ({
   state: {
     owned: null as { id: string } | null,
-    ownedCustomField: null as { id: string } | null,
+    // `object_id` distinguishes a contact field (null) from a custom
+    // object's field (set) — both live in `custom_fields` since
+    // migration 077, and only the first is writable from automations.
+    ownedCustomField: null as { id: string; object_id?: string | null } | null,
     automations: [] as Record<string, unknown>[],
     steps: [] as Record<string, unknown>[],
     fromCalls: [] as string[],
@@ -35,7 +38,16 @@ vi.mock("./admin-client", () => {
       return { data: state.owned, error: null };
     }
     if (table === "custom_fields") {
-      // account-scoped ownership lookup for a custom field definition
+      // Account-scoped ownership lookup for a custom field definition.
+      // The engine also filters `.is('object_id', null)`, so honour it
+      // here — a double that swallowed the filter would let this test
+      // pass no matter what the engine asked for.
+      const wantsContactField = ops.filters.some(
+        ([op, key, value]) => op === "is" && key === "object_id" && value === null,
+      );
+      if (wantsContactField && state.ownedCustomField?.object_id != null) {
+        return { data: null, error: null };
+      }
       return { data: state.ownedCustomField, error: null };
     }
     if (table === "contact_custom_values") {
@@ -76,7 +88,7 @@ vi.mock("./admin-client", () => {
       upsert: (p: unknown) => ((ops.type = "upsert"), (ops.payload = p), b),
       eq: (k: string, v: unknown) => (ops.filters.push(["eq", k, v]), b),
       gte: () => b,
-      is: () => b,
+      is: (k: string, v: unknown) => (ops.filters.push(["is", k, v]), b),
       order: () => b,
       limit: () => b,
       single: () => Promise.resolve(resolve(ops)),
@@ -274,6 +286,44 @@ describe("update_contact_field — custom fields", () => {
 
     expect(h.state.upsertCalls).toHaveLength(0);
     expect(h.state.updateCalls).toHaveLength(0);
+  });
+
+  it("refuses to write a custom OBJECT's field as if it were a contact field", async () => {
+    // Since migration 077 `custom_fields` holds both kinds of row.
+    // This one belongs to a custom object, so it is in the account but
+    // is not a contact field: writing a contact_custom_values row
+    // against it would attach a value no contact form ever reads.
+    h.state.owned = { id: "c1" };
+    h.state.ownedCustomField = { id: "cf1", object_id: "obj-1" };
+    h.state.automations = [automationWithUpdateStep()];
+    h.state.steps = [customStep("custom:cf1", "x")];
+
+    await runAutomationsForTrigger({
+      accountId: ACCOUNT,
+      triggerType: "new_message_received",
+      contactId: "c1",
+      context: {},
+    });
+
+    expect(h.state.upsertCalls).toHaveLength(0);
+    expect(h.state.updateCalls).toHaveLength(0);
+  });
+
+  it("still writes a genuine contact field (object_id null)", async () => {
+    // The guard above must not have cost us the ordinary case.
+    h.state.owned = { id: "c1" };
+    h.state.ownedCustomField = { id: "cf1", object_id: null };
+    h.state.automations = [automationWithUpdateStep()];
+    h.state.steps = [customStep("custom:cf1", "x")];
+
+    await runAutomationsForTrigger({
+      accountId: ACCOUNT,
+      triggerType: "new_message_received",
+      contactId: "c1",
+      context: {},
+    });
+
+    expect(h.state.upsertCalls).toHaveLength(1);
   });
 });
 

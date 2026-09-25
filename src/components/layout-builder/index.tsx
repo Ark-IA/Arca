@@ -34,6 +34,19 @@ import {
 import { Badge } from '@/components/ui/badge';
 import type { FieldDefinition } from '@/types/objects';
 
+/**
+ * Pasa a texto un valor sacado del JSONB de un registro para poder
+ * pintarlo. React no renderiza objetos ni listas, así que un campo con
+ * forma inesperada rompía toda la vista previa en vez de mostrarse mal.
+ */
+function formatearValor(valor: unknown): string {
+  if (valor === null || valor === undefined || valor === '') return '—';
+  if (Array.isArray(valor)) return valor.map(String).join(', ');
+  if (typeof valor === 'object') return JSON.stringify(valor);
+  return String(valor);
+}
+
+
 export interface LayoutSection {
   id: string;
   title: string;
@@ -507,7 +520,7 @@ export function LayoutBuilder({ initialLayout, onSave, onCancel }: LayoutBuilder
 // Componente para visualizar un layout guardado
 interface LayoutViewerProps {
   layout: LayoutConfig;
-  fieldValues: Record<string, any>;
+  fieldValues: Record<string, unknown>;
   onFieldClick?: (fieldId: string) => void;
 }
 
@@ -539,7 +552,10 @@ export function LayoutViewer({ layout, fieldValues, onFieldClick }: LayoutViewer
                         {field.label}
                       </Label>
                       <div className="font-medium">
-                        {fieldValues[field.name] || '—'}
+                        {/* Los valores vienen de un JSONB: pueden ser
+                            objetos o listas, que React no sabe pintar.
+                            A texto, y un guion cuando no hay nada. */}
+                        {formatearValor(fieldValues[field.name])}
                       </div>
                     </div>
                   ))}

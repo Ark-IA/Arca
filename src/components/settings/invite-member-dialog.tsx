@@ -127,7 +127,7 @@ export function InviteMemberDialog({
 
       if (!res.ok) {
         const payload = await res.json().catch(() => ({}));
-        toast.error(payload.error || 'Failed to create invitation');
+        toast.error(payload.error || 'No se pudo crear la invitación');
         return;
       }
 
@@ -145,12 +145,12 @@ export function InviteMemberDialog({
         // string if `account` hasn't loaded yet (shouldn't happen
         // — the dialog requires admin+ which requires a loaded
         // profile — but stay safe).
-        accountName: account?.name ?? 'our wacrm account',
+        accountName: account?.name ?? 'nuestra cuenta',
       });
       onCreated();
     } catch (err) {
       console.error('[InviteMemberDialog] create error:', err);
-      toast.error('Could not reach the server. Try again?');
+      toast.error('No se pudo contactar al servidor. Inténtalo de nuevo.');
     } finally {
       setSubmitting(false);
     }
@@ -172,10 +172,14 @@ export function InviteMemberDialog({
   function whatsappShareUrl(url: string): string {
     // Include the account name so the recipient knows which team
     // they're being invited to before clicking through. This matters
-    // for users in multi-team contexts where "our wacrm account"
+    // for users in multi-team contexts where "nuestra cuenta"
     // wouldn't be enough to disambiguate.
-    const accountName = result?.accountName ?? 'our wacrm account';
-    const message = t('whatsappMessage', { accountName, expiresInDays: result?.expiresInDays ?? 0, url });
+    const accountName = result?.accountName ?? 'nuestra cuenta';
+    const message = t('whatsappMessage', {
+      accountName,
+      expiresInDays: result?.expiresInDays ?? 0,
+      url,
+    });
     return `https://wa.me/?text=${encodeURIComponent(message)}`;
   }
 
@@ -194,15 +198,15 @@ export function InviteMemberDialog({
         {result ? (
           <>
             <DialogHeader>
-              <DialogTitle className="flex items-center gap-2 text-popover-foreground">
-                <Sparkles className="size-4 text-primary" />
+              <DialogTitle className="text-popover-foreground flex items-center gap-2">
+                <Sparkles className="text-primary size-4" />
                 {t('inviteCreated')}
               </DialogTitle>
               <DialogDescription className="text-muted-foreground">
                 {t.rich('inviteCreatedDesc', {
                   role: tRoles(result.role),
                   days: result.expiresInDays,
-                  bold: (chunks: React.ReactNode) => <strong>{chunks}</strong>
+                  bold: (chunks: React.ReactNode) => <strong>{chunks}</strong>,
                 })}
               </DialogDescription>
             </DialogHeader>
@@ -250,7 +254,7 @@ export function InviteMemberDialog({
                 className={buttonVariants({
                   variant: 'outline',
                   className:
-                    'w-full border-border text-muted-foreground hover:bg-muted',
+                    'border-border text-muted-foreground hover:bg-muted w-full',
                 })}
               >
                 <MessageCircle className="size-4" />
@@ -270,7 +274,9 @@ export function InviteMemberDialog({
         ) : (
           <>
             <DialogHeader>
-              <DialogTitle className="text-popover-foreground">{t('dialogTitle')}</DialogTitle>
+              <DialogTitle className="text-popover-foreground">
+                {t('dialogTitle')}
+              </DialogTitle>
               <DialogDescription className="text-muted-foreground">
                 {t('dialogDesc')}
               </DialogDescription>
@@ -278,12 +284,14 @@ export function InviteMemberDialog({
 
             <div className="space-y-4 py-2">
               <div className="space-y-2">
-                <Label className="text-muted-foreground">{t('roleLabel')}</Label>
+                <Label className="text-muted-foreground">
+                  {t('roleLabel')}
+                </Label>
                 <Select
                   value={role}
                   onValueChange={(v) => v && setRole(v as InviteRole)}
                 >
-                  <SelectTrigger className="w-full bg-muted border-border text-foreground">
+                  <SelectTrigger className="bg-muted border-border text-foreground w-full">
                     <SelectValue>{tRoles(role)}</SelectValue>
                   </SelectTrigger>
                   <SelectContent>
@@ -292,18 +300,19 @@ export function InviteMemberDialog({
                     <SelectItem value="viewer">{tRoles('viewer')}</SelectItem>
                   </SelectContent>
                 </Select>
-                <p className="text-xs text-muted-foreground">
-                  {tRoles(`${role}Hint` as 'adminHint' | 'agentHint' | 'viewerHint')}
+                <p className="text-muted-foreground text-xs">
+                  {tRoles(
+                    `${role}Hint` as 'adminHint' | 'agentHint' | 'viewerHint'
+                  )}
                 </p>
               </div>
 
               <div className="space-y-2">
-                <Label className="text-muted-foreground">{t('validForLabel')}</Label>
-                <Select
-                  value={expiry}
-                  onValueChange={(v) => v && setExpiry(v)}
-                >
-                  <SelectTrigger className="w-full bg-muted border-border text-foreground">
+                <Label className="text-muted-foreground">
+                  {t('validForLabel')}
+                </Label>
+                <Select value={expiry} onValueChange={(v) => v && setExpiry(v)}>
+                  <SelectTrigger className="bg-muted border-border text-foreground w-full">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -319,7 +328,9 @@ export function InviteMemberDialog({
               <div className="space-y-2">
                 <Label className="text-muted-foreground">
                   {t('labelTitle')}{' '}
-                  <span className="text-xs text-muted-foreground">{t('optional')}</span>
+                  <span className="text-muted-foreground text-xs">
+                    {t('optional')}
+                  </span>
                 </Label>
                 <Input
                   placeholder={t('labelPlaceholder')}
@@ -328,7 +339,7 @@ export function InviteMemberDialog({
                   maxLength={MAX_LABEL_LEN}
                   className="bg-muted border-border text-foreground placeholder:text-muted-foreground"
                 />
-                <p className="text-xs text-muted-foreground">
+                <p className="text-muted-foreground text-xs">
                   {t('labelHint')}
                 </p>
               </div>
@@ -337,10 +348,12 @@ export function InviteMemberDialog({
                   porque el momento de dar de alta a alguien es cuando se
                   sabe si va a atender llamadas o no. */}
               <div className="space-y-2">
-                <Label className="flex items-center gap-1.5 text-muted-foreground">
+                <Label className="text-muted-foreground flex items-center gap-1.5">
                   <Phone className="size-3.5" />
                   Extensión telefónica{' '}
-                  <span className="text-xs text-muted-foreground">(opcional)</span>
+                  <span className="text-muted-foreground text-xs">
+                    (opcional)
+                  </span>
                 </Label>
                 <Input
                   inputMode="numeric"
@@ -351,12 +364,12 @@ export function InviteMemberDialog({
                     // tiene por que saber que un espacio de mas lo invalida.
                     setExtension(e.target.value.replace(/\D/g, '').slice(0, 6))
                   }
-                  className="w-32 bg-muted border-border text-foreground placeholder:text-muted-foreground font-mono"
+                  className="bg-muted border-border text-foreground placeholder:text-muted-foreground w-32 font-mono"
                 />
-                <p className="text-xs text-muted-foreground">
-                  De 3 a 6 dígitos. Queda reservada hasta que la persona entre; ahí
-                  se le habilita el teléfono del CRM. Déjalo vacío si no atiende
-                  llamadas.
+                <p className="text-muted-foreground text-xs">
+                  De 3 a 6 dígitos. Queda reservada hasta que la persona entre;
+                  ahí se le habilita el teléfono del CRM. Déjalo vacío si no
+                  atiende llamadas.
                 </p>
               </div>
             </div>

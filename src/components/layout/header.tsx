@@ -18,6 +18,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { ModeToggle } from "@/components/layout/mode-toggle";
 import { BusquedaGlobal } from "@/components/search/busqueda-global";
+import { AsistenteVoz } from "@/components/asistente/asistente-voz";
 import { CampanaMensajes } from "@/components/inbox/campana-mensajes";
 
 const pageTitles: Record<string, string> = {
@@ -79,6 +80,8 @@ export function Header({ onOpenSidebar }: HeaderProps) {
         {/* Va en el encabezado y no en una página: la búsqueda global sirve
             justamente para saltar desde donde sea a otra cosa. */}
         <BusquedaGlobal />
+        {/* Asistente por voz: se le pide al CRM lo que se haría a mano. */}
+        <AsistenteVoz />
         {/* Campanita de mensajes sin leer. Va en el encabezado y no en el
             menú lateral porque el menú se pliega, y una señal que se puede
             esconder no sirve como señal. */}

@@ -6,6 +6,7 @@ import Script from "next/script";
 import "./globals.css";
 import { ThemeProvider } from "@/hooks/use-theme";
 import { ThemedToaster } from "@/components/themed-toaster";
+import { MARCA } from "@/lib/marca";
 import {
   DEFAULT_MODE,
   DEFAULT_THEME,
@@ -22,8 +23,8 @@ const inter = Inter({
 
 export const metadata: Metadata = {
   title: {
-    default: "ARK-IA Enterprise",
-    template: "%s — ARK-IA Enterprise",
+    default: MARCA,
+    template: `%s — ${MARCA}`,
   },
   description:
     "CRM de ventas por WhatsApp con inteligencia artificial y automatizaciones.",

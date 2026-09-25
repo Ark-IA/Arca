@@ -68,9 +68,18 @@ export function CustomFieldsPanel() {
   const fetchFields = useCallback(async () => {
     if (!accountId) return;
     setLoading(true);
+    // `custom_fields` holds two different things since migration 077:
+    // contact fields (object_id NULL) and the fields of custom objects
+    // (object_id set). This screen manages ONLY contact fields — and it
+    // can delete them, which cascades into `contact_custom_values`.
+    // Without this filter an object's schema would be listed here and
+    // could be deleted from under it. Every other reader of this table
+    // carries the same filter; `src/lib/objects/manager.ts` is the
+    // mirror image, filtering by object_id instead.
     const { data } = await supabase
       .from('custom_fields')
       .select('*')
+      .is('object_id', null)
       .order('field_name');
     setFields((data as CustomField[] | null) ?? []);
     setLoading(false);
@@ -112,6 +121,9 @@ export function CustomFieldsPanel() {
       field_type: 'text',
       user_id: user.id,
       account_id: accountId,
+      // Explicit, though the column has no default: this is what marks
+      // the row as a CONTACT field rather than a custom object's.
+      object_id: null,
     });
     setCreating(false);
 
@@ -140,7 +152,11 @@ export function CustomFieldsPanel() {
     const { error } = await supabase
       .from('custom_fields')
       .update({ field_name: name })
-      .eq('id', field.id);
+      .eq('id', field.id)
+      // Belt and braces: the list above can no longer show an object's
+      // field, but a tab left open before that fix still holds the old
+      // ids. Scoping the write means a stale page cannot rename one.
+      .is('object_id', null);
     setBusyId(null);
     if (error) {
       toast.error(t('toastRenameFailed'));
@@ -162,7 +178,10 @@ export function CustomFieldsPanel() {
     const { error } = await supabase
       .from('custom_fields')
       .delete()
-      .eq('id', field.id);
+      .eq('id', field.id)
+      // Same reasoning as the rename, and it matters more here: this
+      // delete is the one that would take an object's schema with it.
+      .is('object_id', null);
     setBusyId(null);
     if (error) {
       toast.error(t('toastDeleteFailed'));

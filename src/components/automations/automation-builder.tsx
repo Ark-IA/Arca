@@ -273,7 +273,15 @@ function ResourcesProvider({ children }: { children: ReactNode }) {
             .select("*")
             .eq("status", "APPROVED")
             .order("name"),
-          supabase.from("custom_fields").select("*").order("field_name"),
+          // Contact fields only (object_id NULL) — a custom object's
+          // field is not something an automation can read or write on
+          // a contact. See lib/automations/engine.ts, which enforces
+          // the same rule at write time.
+          supabase
+            .from("custom_fields")
+            .select("*")
+            .is("object_id", null)
+            .order("field_name"),
           supabase.from("pipelines").select("id, name").order("name"),
           supabase
             .from("pipeline_stages")

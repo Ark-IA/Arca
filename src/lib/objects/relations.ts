@@ -5,6 +5,11 @@
 
 import type { SupabaseClient } from '@supabase/supabase-js';
 
+/** El modismo del repo para sacar texto de algo que se atrapó en un catch. */
+function mensaje(error: unknown): string {
+  return error instanceof Error ? error.message : String(error);
+}
+
 export interface RelationDefinition {
   id: string;
   accountId: string;
@@ -15,6 +20,19 @@ export interface RelationDefinition {
   toFieldId?: string; // Para relaciones bidireccionales
   isBidirectional: boolean;
   cascadeDelete: boolean;
+}
+
+/** Fila de `object_relations` tal como vuelve de PostgREST. */
+interface FilaDeRelacion {
+  id: string;
+  account_id: string;
+  from_object_id: string;
+  to_object_id: string;
+  relation_type: RelationDefinition['relationType'];
+  from_field_id: string;
+  to_field_id?: string;
+  is_bidirectional: boolean;
+  cascade_delete: boolean;
 }
 
 export interface CreateRelationInput {
@@ -111,8 +129,15 @@ export class RelationManager {
         .single();
 
       if (relationError) {
-        // Rollback: eliminar el campo creado
-        await this.supabase.from('custom_fields').delete().eq('id', fromField.id);
+        // Rollback: eliminar el campo creado. Acotado por cuenta como
+        // todos los borrados de este archivo, aunque el id sea uno que
+        // acabamos de crear: un borrado sin filtro de cuenta es una
+        // excepcion que luego alguien copia.
+        await this.supabase
+          .from('custom_fields')
+          .delete()
+          .eq('id', fromField.id)
+          .eq('account_id', this.accountId);
         return { relation: null, error: relationError.message };
       }
 
@@ -141,8 +166,16 @@ export class RelationManager {
 
         if (inverseFieldError) {
           // Rollback parcial
-          await this.supabase.from('object_relations').delete().eq('id', relationData.id);
-          await this.supabase.from('custom_fields').delete().eq('id', fromField.id);
+          await this.supabase
+            .from('object_relations')
+            .delete()
+            .eq('id', relationData.id)
+            .eq('account_id', this.accountId);
+          await this.supabase
+            .from('custom_fields')
+            .delete()
+            .eq('id', fromField.id)
+            .eq('account_id', this.accountId);
           return { relation: null, error: inverseFieldError.message };
         }
 
@@ -162,8 +195,8 @@ export class RelationManager {
       }
 
       return { relation: this.mapToRelation(relationData), error: null };
-    } catch (error: any) {
-      return { relation: null, error: error.message };
+    } catch (error) {
+      return { relation: null, error: mensaje(error) };
     }
   }
 
@@ -187,35 +220,65 @@ export class RelationManager {
    */
   async deleteRelation(relationId: string): Promise<{ success: boolean; error: string | null }> {
     try {
-      // Obtener relación para cleanup
+      // Obtener relación para cleanup.
+      //
+      // Acotado por cuenta: `relationId` entra por parámetro, y sin este
+      // filtro bastaba con un id ajeno para que las dos eliminaciones de
+      // abajo borraran campos de otra cuenta. Si no aparece, no hay nada
+      // que limpiar y el borrado final tampoco tocará nada.
       const { data: relation } = await this.supabase
         .from('object_relations')
         .select('from_field_id, to_field_id')
         .eq('id', relationId)
-        .single();
+        .eq('account_id', this.accountId)
+        .maybeSingle();
 
-      // Eliminar campos de relación
+      // Eliminar campos de relación.
+      //
+      // `custom_fields` guarda también los campos personalizados de los
+      // contactos (object_id nulo, desde la migración 077). Exigir que
+      // object_id tenga valor impide que una relación con datos
+      // corrompidos se lleve por delante un campo de contacto.
       if (relation?.from_field_id) {
-        await this.supabase.from('custom_fields').delete().eq('id', relation.from_field_id);
+        await this.supabase
+          .from('custom_fields')
+          .delete()
+          .eq('id', relation.from_field_id)
+          .eq('account_id', this.accountId)
+          .not('object_id', 'is', null);
       }
       if (relation?.to_field_id) {
-        await this.supabase.from('custom_fields').delete().eq('id', relation.to_field_id);
+        await this.supabase
+          .from('custom_fields')
+          .delete()
+          .eq('id', relation.to_field_id)
+          .eq('account_id', this.accountId)
+          .not('object_id', 'is', null);
       }
 
-      // Eliminar registros de relación many-to-many
-      await this.supabase.from('object_relation_records').delete().eq('relation_id', relationId);
+      // Eliminar registros de relación many-to-many.
+      //
+      // `object_relation_records` lleva su propio account_id, así que
+      // se acota igual: un relationId ajeno no debe poder vaciar los
+      // vínculos de otra cuenta.
+      await this.supabase
+        .from('object_relation_records')
+        .delete()
+        .eq('relation_id', relationId)
+        .eq('account_id', this.accountId);
 
       // Eliminar relación
       const { error } = await this.supabase
         .from('object_relations')
         .delete()
-        .eq('id', relationId);
+        .eq('id', relationId)
+        .eq('account_id', this.accountId);
 
       if (error) throw error;
 
       return { success: true, error: null };
-    } catch (error: any) {
-      return { success: false, error: error.message };
+    } catch (error) {
+      return { success: false, error: mensaje(error) };
     }
   }
 
@@ -238,8 +301,8 @@ export class RelationManager {
       if (error) throw error;
 
       return { success: true, error: null };
-    } catch (error: any) {
-      return { success: false, error: error.message };
+    } catch (error) {
+      return { success: false, error: mensaje(error) };
     }
   }
 
@@ -258,8 +321,8 @@ export class RelationManager {
       if (error) throw error;
 
       return { success: true, error: null };
-    } catch (error: any) {
-      return { success: false, error: error.message };
+    } catch (error) {
+      return { success: false, error: mensaje(error) };
     }
   }
 
@@ -300,8 +363,8 @@ export class RelationManager {
       if (error) throw error;
 
       return { success: true, error: null };
-    } catch (error: any) {
-      return { success: false, error: error.message };
+    } catch (error) {
+      return { success: false, error: mensaje(error) };
     }
   }
 
@@ -313,7 +376,7 @@ export class RelationManager {
     relationFieldId: string,
     targetFieldId: string,
     operation: 'COUNT' | 'SUM' | 'AVG' | 'MIN' | 'MAX'
-  ): Promise<any> {
+  ): Promise<unknown> {
     try {
       // Obtener el registro
       const { data: record } = await this.supabase
@@ -374,7 +437,7 @@ export class RelationManager {
   /**
    * Actualizar valores ROLLUP después de un cambio
    */
-  async updateRollups(affectedRecordId: string, fieldId: string, newValue: any): Promise<void> {
+  async updateRollups(affectedRecordId: string, fieldId: string, newValue: unknown): Promise<void> {
     // Esta función se llamaría desde triggers o después de actualizaciones
     // Implementación simplificada - en producción se usarían triggers de DB
     
@@ -384,13 +447,13 @@ export class RelationManager {
   }
 
   // Helper de mapeo
-  private mapToRelation(data: any): RelationDefinition {
+  private mapToRelation(data: FilaDeRelacion): RelationDefinition {
     return {
       id: data.id,
       accountId: data.account_id,
       fromObjectId: data.from_object_id,
       toObjectId: data.to_object_id,
-      relationType: data.relation_type as any,
+      relationType: data.relation_type,
       fromFieldId: data.from_field_id,
       toFieldId: data.to_field_id,
       isBidirectional: data.is_bidirectional,

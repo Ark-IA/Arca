@@ -3,6 +3,7 @@
 import { Suspense, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
+import { MARCA } from "@/lib/marca";
 import { useTranslations } from "next-intl";
 import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -108,7 +109,7 @@ function LoginPageInner() {
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
           src="/brand/logo.svg"
-          alt="ARK-IA Enterprise"
+          alt={MARCA}
           className="mb-6 h-14 w-auto max-w-[300px]"
         />
 
@@ -205,23 +206,24 @@ function LoginPageInner() {
             </Button>
           </form>
 
-          <p className="mt-6 text-center text-sm text-[#8FA59D]">
-            {t('noAccount')}{" "}
-            <Link
-              href={
-                inviteToken
-                  ? `/signup?invite=${encodeURIComponent(inviteToken)}`
-                  : "/signup"
-              }
-              className="text-[#00FFA2] hover:text-[#00FFA2]/80"
-            >
-              {t('createAccount')}
-            </Link>
-          </p>
+          {/* Crear cuenta solo con una invitación: el registro está cerrado
+              (ver src/middleware.ts). Sin invitación, el enlace llevaría a
+              una página que redirige aquí mismo. */}
+          {inviteToken && (
+            <p className="mt-6 text-center text-sm text-[#8FA59D]">
+              {t('noAccount')}{" "}
+              <Link
+                href={`/signup?invite=${encodeURIComponent(inviteToken)}`}
+                className="text-[#00FFA2] hover:text-[#00FFA2]/80"
+              >
+                {t('createAccount')}
+              </Link>
+            </p>
+          )}
         </CardContent>
       </Card>
 
-        <p className="mt-8 text-xs text-[#5F7169]">ARK-IA Enterprise</p>
+        <p className="mt-8 text-xs text-[#5F7169]">{MARCA}</p>
       </div>
     </div>
   );

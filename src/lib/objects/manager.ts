@@ -6,6 +6,72 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { ObjectDefinition, FieldDefinition, ViewDefinition, FieldType } from '@/types/objects';
 
+/** El modismo del repo para sacar texto de algo que se atrapó en un catch. */
+function mensaje(error: unknown): string {
+  return error instanceof Error ? error.message : String(error);
+}
+
+/**
+ * Filas tal como vuelven de PostgREST. Se escriben aquí en vez de
+ * usar `any` para que un cambio de columna salga en el typecheck y no
+ * en producción: estos mapeadores son el único punto donde el nombre
+ * en snake_case de la base se traduce al camelCase del dominio, así
+ * que es donde una columna renombrada tiene que doler.
+ */
+interface FilaDeObjeto {
+  id: string;
+  name_singular: string;
+  name_plural: string;
+  label_singular: string;
+  label_plural: string;
+  description?: string;
+  icon: string;
+  primary_field_id: string;
+  default_view?: ObjectDefinition['defaultView'];
+  permissions?: ObjectDefinition['permissions'];
+  is_system: boolean;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+interface FilaDeCampo {
+  id: string;
+  field_name: string;
+  label: string;
+  field_type: string;
+  required: boolean;
+  default_value?: unknown;
+  description?: string;
+  icon?: string;
+  field_options?: FieldDefinition['options'];
+  target_object?: string;
+  position: number;
+  visible_in_list: boolean;
+  column_size?: FieldDefinition['columnSize'];
+  is_system: boolean;
+  is_active: boolean;
+}
+
+interface FilaDeVista {
+  id: string;
+  object_id: string;
+  name: string;
+  type: ViewDefinition['type'];
+  filters?: ViewDefinition['filters'];
+  sorts?: ViewDefinition['sorts'];
+  columns?: ViewDefinition['columns'];
+  kanban_field_id?: string;
+  timeline_start_field_id?: string;
+  timeline_end_field_id?: string;
+  gallery_field_id?: string;
+  is_default: boolean;
+  position: number;
+  created_by: string;
+  created_at: string;
+  updated_at: string;
+}
+
 export interface CreateObjectInput {
   nameSingular: string;
   namePlural: string;
@@ -23,7 +89,7 @@ export interface CreateFieldInput {
   label: string;
   type: FieldType;
   required?: boolean;
-  defaultValue?: any;
+  defaultValue?: unknown;
   description?: string;
   icon?: string;
   options?: { id: string; label: string; color: string; position: number }[];
@@ -151,8 +217,8 @@ export class CustomObjectsManager {
       if (permError) throw permError;
 
       return { object: this.mapToObjectDefinition(objectData), error: null };
-    } catch (error: any) {
-      return { object: null, error: error.message };
+    } catch (error) {
+      return { object: null, error: mensaje(error) };
     }
   }
 
@@ -209,7 +275,7 @@ export class CustomObjectsManager {
    */
   async updateObject(objectId: string, input: UpdateObjectInput): Promise<{ success: boolean; error: string | null }> {
     try {
-      const updateData: any = {};
+      const updateData: Record<string, unknown> = {};
       
       if (input.nameSingular !== undefined) updateData.name_singular = input.nameSingular;
       if (input.namePlural !== undefined) updateData.name_plural = input.namePlural;
@@ -230,8 +296,8 @@ export class CustomObjectsManager {
       if (error) throw error;
 
       return { success: true, error: null };
-    } catch (error: any) {
-      return { success: false, error: error.message };
+    } catch (error) {
+      return { success: false, error: mensaje(error) };
     }
   }
 
@@ -249,8 +315,8 @@ export class CustomObjectsManager {
       if (error) throw error;
 
       return { success: true, error: null };
-    } catch (error: any) {
-      return { success: false, error: error.message };
+    } catch (error) {
+      return { success: false, error: mensaje(error) };
     }
   }
 
@@ -295,8 +361,8 @@ export class CustomObjectsManager {
       if (error) throw error;
 
       return { field: this.mapToFieldDefinition(data), error: null };
-    } catch (error: any) {
-      return { field: null, error: error.message };
+    } catch (error) {
+      return { field: null, error: mensaje(error) };
     }
   }
 
@@ -305,7 +371,7 @@ export class CustomObjectsManager {
    */
   async updateField(fieldId: string, input: Partial<CreateFieldInput>): Promise<{ success: boolean; error: string | null }> {
     try {
-      const updateData: any = {};
+      const updateData: Record<string, unknown> = {};
       
       if (input.label !== undefined) updateData.label = input.label;
       if (input.type !== undefined) updateData.field_type = input.type;
@@ -320,13 +386,18 @@ export class CustomObjectsManager {
         .from('custom_fields')
         .update(updateData)
         .eq('id', fieldId)
-        .eq('account_id', this.accountId);
+        .eq('account_id', this.accountId)
+        // The mirror of the filter every contact-field screen carries:
+        // this table also holds contact fields (object_id NULL), and
+        // this manager must never reach one. Retyping a contact field
+        // from here would break the contact form that reads it.
+        .not('object_id', 'is', null);
 
       if (error) throw error;
 
       return { success: true, error: null };
-    } catch (error: any) {
-      return { success: false, error: error.message };
+    } catch (error) {
+      return { success: false, error: mensaje(error) };
     }
   }
 
@@ -339,13 +410,16 @@ export class CustomObjectsManager {
         .from('custom_fields')
         .update({ is_active: false })
         .eq('id', fieldId)
-        .eq('account_id', this.accountId);
+        .eq('account_id', this.accountId)
+        // Same reason as updateField: never deactivate a contact field
+        // (object_id NULL) from the custom-objects side.
+        .not('object_id', 'is', null);
 
       if (error) throw error;
 
       return { success: true, error: null };
-    } catch (error: any) {
-      return { success: false, error: error.message };
+    } catch (error) {
+      return { success: false, error: mensaje(error) };
     }
   }
 
@@ -371,8 +445,8 @@ export class CustomObjectsManager {
   async createView(objectId: string, input: {
     name: string;
     type: 'TABLE' | 'KANBAN' | 'TIMELINE' | 'GALLERY' | 'CALENDAR';
-    filters?: any[];
-    sorts?: any[];
+    filters?: unknown[];
+    sorts?: unknown[];
     columns?: string[];
     kanbanFieldId?: string;
   }): Promise<{ view: ViewDefinition | null; error: string | null }> {
@@ -401,13 +475,13 @@ export class CustomObjectsManager {
       if (error) throw error;
 
       return { view: this.mapToViewDefinition(data), error: null };
-    } catch (error: any) {
-      return { view: null, error: error.message };
+    } catch (error) {
+      return { view: null, error: mensaje(error) };
     }
   }
 
   // Helpers de mapeo
-  private mapToObjectDefinition(data: any): ObjectDefinition {
+  private mapToObjectDefinition(data: FilaDeObjeto): ObjectDefinition {
     return {
       id: data.id,
       nameSingular: data.name_singular,
@@ -418,7 +492,7 @@ export class CustomObjectsManager {
       icon: data.icon,
       primaryFieldId: data.primary_field_id,
       fields: [],
-      defaultView: data.default_view as any,
+      defaultView: data.default_view,
       permissions: data.permissions,
       isSystem: data.is_system,
       isActive: data.is_active,
@@ -427,7 +501,7 @@ export class CustomObjectsManager {
     };
   }
 
-  private mapToFieldDefinition(data: any): FieldDefinition {
+  private mapToFieldDefinition(data: FilaDeCampo): FieldDefinition {
     return {
       id: data.id,
       name: data.field_name,
@@ -449,12 +523,12 @@ export class CustomObjectsManager {
     };
   }
 
-  private mapToViewDefinition(data: any): ViewDefinition {
+  private mapToViewDefinition(data: FilaDeVista): ViewDefinition {
     return {
       id: data.id,
       objectId: data.object_id,
       name: data.name,
-      type: data.type as any,
+      type: data.type,
       filters: data.filters,
       sorts: data.sorts,
       columns: data.columns,

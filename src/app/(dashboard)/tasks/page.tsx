@@ -22,12 +22,15 @@ import { useAuth } from '@/hooks/use-auth';
 import { canSendMessages } from '@/lib/auth/roles';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
+import { BotonExportar } from '@/components/exportar/boton-exportar';
+import { exportarTareas } from '@/lib/exportar/entidades';
+import { createClient } from '@/lib/supabase/client';
 
 type Alcance = 'mias' | 'todas' | 'vencidas';
 
 export default function PaginaTareas() {
   const { tareas, cargando, crear, actualizar, borrar, alternarHecha } = useTasks();
-  const { user, accountRole } = useAuth();
+  const { user, accountRole, accountId } = useAuth();
   const puedeEditar = accountRole ? canSendMessages(accountRole) : false;
 
   const [alcance, setAlcance] = useState<Alcance>('mias');
@@ -155,13 +158,18 @@ export default function PaginaTareas() {
         <span className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-primary-soft text-primary">
           <CheckSquare className="size-5" />
         </span>
-        <div>
+        <div className="flex-1">
           <h1 className="text-2xl font-bold text-foreground">Tareas</h1>
           <p className="mt-0.5 text-sm text-muted-foreground">
             Lo que hay que hacer, con responsable y plazo. Se pueden colgar de un
             contacto, una empresa o un negocio.
           </p>
         </div>
+        <BotonExportar
+          archivo="tareas"
+          disabled={!accountId}
+          exportar={() => exportarTareas(createClient(), accountId!)}
+        />
       </div>
 
       <div className="flex flex-col gap-2 sm:flex-row sm:items-center">

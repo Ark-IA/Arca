@@ -1,0 +1,53 @@
+# Servicios de voz de ARCA: transcribir las notas que llegan (Whisper) y
+# responder con voz clonada (Chatterbox). Van aparte de la app porque son
+# pesados (varios GB de modelos) y no toda instalación los quiere.
+#
+#   docker compose -f docker-compose.voz.yml up -d --build
+#
+# Quedan en la red de Supabase/ARCA sin publicar puertos: solo los llama la
+# app, por el nombre del contenedor.
+#   Transcripción (Configuración → Agente de IA): protocolo whispercpp,
+#     dirección http://arca-whisper:8080
+#   Voz: ARCA_TTS_URL=http://arca-voz:8000 y ARCA_TTS_CLAVE=<la misma TTS_CLAVE>
+#
+# Memoria: Whisper small ~1 GB, Chatterbox ~2-3 GB. Con 8 GB en total conviene
+# no correr más cosas pesadas en el mismo servidor.
+
+services:
+  whisper:
+    build: ./servicios/whisper
+    container_name: arca-whisper
+    restart: unless-stopped
+    volumes:
+      - ./servicios/whisper/models:/models
+    mem_limit: 2g
+    cpus: 6
+    networks: [arca]
+
+  voz:
+    build: ./servicios/tts
+    container_name: arca-voz
+    restart: unless-stopped
+    environment:
+      TTS_MODELO: ${TTS_MODELO:-multilingue}
+      TTS_IDIOMA: ${TTS_IDIOMA:-es}
+      TTS_CLAVE: ${TTS_CLAVE:?pon una clave en TTS_CLAVE}
+      TTS_HILOS: ${TTS_HILOS:-4}
+      # 1 = cargar el modelo con la primera nota y soltarlo tras 15 min sin
+      # uso. Recomendado si la base de datos vive en el mismo servidor.
+      TTS_CARGA_PEREZOSA: ${TTS_CARGA_PEREZOSA:-1}
+      TTS_DESCARGAR_TRAS_MIN: ${TTS_DESCARGAR_TRAS_MIN:-15}
+    volumes:
+      - ./servicios/tts/modelos:/modelos
+      - ./servicios/tts/datos:/datos
+    # Tope duro y SIN swap: si el modelo se pasa, se reinicia este servicio y
+    # no arrastra a la base de datos ni al CRM.
+    mem_limit: 3g
+    memswap_limit: 3g
+    cpus: 4
+    networks: [arca]
+
+networks:
+  arca:
+    name: ${ARCA_RED:-supabase_default}
+    external: true

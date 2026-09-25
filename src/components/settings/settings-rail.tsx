@@ -5,6 +5,8 @@ import { useTranslations } from 'next-intl';
 
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/hooks/use-auth';
+import { useModulos } from '@/hooks/use-modulos';
+import { moduloDeAjuste } from '@/lib/modulos/catalogo';
 import { puedeVer } from './settings-sections';
 import {
   RAIL_GROUPS,
@@ -34,6 +36,7 @@ export function SettingsRail({
   hints?: Partial<Record<SettingsSection, ReactNode>>;
 }) {
   const { accountRole } = useAuth();
+  const { apagados } = useModulos();
   const t = useTranslations('Settings');
   const activeRef = useRef<HTMLButtonElement>(null);
 
@@ -62,7 +65,8 @@ export function SettingsRail({
         const items = SETTINGS_SECTIONS.filter(
           (s) =>
             SECTION_META[s].group === group &&
-            puedeVer(SECTION_META[s], accountRole),
+            puedeVer(SECTION_META[s], accountRole) &&
+            !apagados.has(moduloDeAjuste(s) ?? ''),
         );
         // Un grupo que se queda sin secciones no dibuja su titulo: dejar
         // "Espacio de trabajo" con nada debajo se ve como algo que no cargo.

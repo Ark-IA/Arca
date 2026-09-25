@@ -36,8 +36,8 @@ describe('puedeVer — qué sección ve cada rol', () => {
     ]);
   });
 
-  it('un administrador ve todo', () => {
-    expect(visiblesPara('admin')).toEqual([...SETTINGS_SECTIONS]);
+  it('un administrador ve todo menos la voz, que es solo del dueño', () => {
+    expect(visiblesPara('admin')).toEqual(SETTINGS_SECTIONS.filter((s) => s !== 'voz'));
     expect(visiblesPara('owner')).toEqual([...SETTINGS_SECTIONS]);
   });
 

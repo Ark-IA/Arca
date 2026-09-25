@@ -25,6 +25,9 @@ import {
 } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
+import { BotonExportar } from '@/components/exportar/boton-exportar';
+import { exportarEmpresas } from '@/lib/exportar/entidades';
+import { createClient } from '@/lib/supabase/client';
 import { Card, CardContent } from '@/components/ui/card';
 import {
   Dialog,
@@ -59,7 +62,7 @@ function formatearImporte(valor: number | null, moneda: string): string {
 
 export default function PaginaEmpresas() {
   const { empresas, cargando, error, crear, actualizar, borrar } = useCompanies();
-  const { accountRole, defaultCurrency } = useAuth();
+  const { accountRole, defaultCurrency, accountId } = useAuth();
   const puedeEditar = accountRole ? canSendMessages(accountRole) : false;
   const puedeBorrar = accountRole ? canEditSettings(accountRole) : false;
 
@@ -173,12 +176,19 @@ export default function PaginaEmpresas() {
                 }`}
           </p>
         </div>
-        {puedeEditar && (
-          <Button onClick={abrirNueva}>
-            <Plus className="size-4" />
-            Nueva empresa
-          </Button>
-        )}
+        <div className="flex items-center gap-2">
+          <BotonExportar
+            archivo="empresas"
+            disabled={!accountId}
+            exportar={() => exportarEmpresas(createClient(), accountId!)}
+          />
+          {puedeEditar && (
+            <Button onClick={abrirNueva}>
+              <Plus className="size-4" />
+              Nueva empresa
+            </Button>
+          )}
+        </div>
       </div>
 
       <div className="flex flex-col gap-2 sm:flex-row sm:items-center">

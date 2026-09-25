@@ -6,6 +6,8 @@ import { useTranslations } from 'next-intl';
 
 import { useAuth } from '@/hooks/use-auth';
 import { useTheme } from '@/hooks/use-theme';
+import { useModulos } from '@/hooks/use-modulos';
+import { moduloDeAjuste } from '@/lib/modulos/catalogo';
 import { SettingsRail } from '@/components/settings/settings-rail';
 import { SettingsOverview } from '@/components/settings/settings-overview';
 import { ProfileForm } from '@/components/settings/profile-form';
@@ -23,6 +25,8 @@ import { MembersTab } from '@/components/settings/members-tab';
 import { ColasPanel } from '@/components/settings/colas-panel';
 import { ConexionesPanel } from '@/components/settings/conexiones-panel';
 import { ApiKeysSettings } from '@/components/settings/api-keys-settings';
+import { SeguimientoWeb } from '@/components/settings/seguimiento-web';
+import { RespuestaPorVoz } from '@/components/agents/respuesta-por-voz';
 import {
   DEFAULT_SECTION,
   SECTION_META,
@@ -65,8 +69,12 @@ function SettingsPageInner() {
   // El rail ya no la dibuja, pero el rail no es la unica forma de llegar:
   // basta escribir la direccion, o abrir un enlace que alguien paso por
   // chat. Sin esta linea, esconder la seccion habria sido decoracion.
+  const { apagados } = useModulos();
   const section: SettingsSection =
-    puedeVer(SECTION_META[pedida], accountRole) ? pedida : DEFAULT_SECTION;
+    puedeVer(SECTION_META[pedida], accountRole) &&
+    !apagados.has(moduloDeAjuste(pedida) ?? '')
+      ? pedida
+      : DEFAULT_SECTION;
 
   const go = (next: SettingsSection) => {
     const params = new URLSearchParams(searchParams.toString());
@@ -101,7 +109,9 @@ function SettingsPageInner() {
     members: <MembersTab />,
     colas: <ColasPanel />,
     'agente-ia': <AgenteIaBandejas />,
+    voz: <RespuestaPorVoz />,
     blocklist: <ListaDeBloqueo />,
+    'seguimiento-web': <SeguimientoWeb />,
     api: <ApiKeysSettings />,
   };
 

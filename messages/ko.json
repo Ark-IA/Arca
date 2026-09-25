@@ -44,7 +44,9 @@
     "menuSettings": "설정",
     "menuSignOut": "로그아웃",
     "collapse": "메뉴 접기",
-    "expand": "메뉴 펼치기"
+    "expand": "메뉴 펼치기",
+    "reports": "보고서",
+    "superadmin": "슈퍼관리자"
   },
   "Header": {
     "dashboard": "대시보드",

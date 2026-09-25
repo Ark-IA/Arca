@@ -92,7 +92,14 @@ export function Step3Personalize({
     (async () => {
       const supabase = createClient();
       const [fieldsRes, contactRes] = await Promise.all([
-        supabase.from('custom_fields').select('*').order('field_name'),
+        // Contact fields only (object_id NULL). A custom object's field
+        // offered as a merge tag would never resolve, and the broadcast
+        // would go out with an empty placeholder in every message.
+        supabase
+          .from('custom_fields')
+          .select('*')
+          .is('object_id', null)
+          .order('field_name'),
         supabase
           .from('contacts')
           .select('*')

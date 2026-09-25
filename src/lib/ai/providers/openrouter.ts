@@ -1,6 +1,7 @@
 import type { ProviderResult } from '../types'
 import { generarChatCompletions } from './chat-completions'
 import type { ProviderArgs } from './shared'
+import { MARCA } from '@/lib/marca'
 
 const OPENROUTER_URL = 'https://openrouter.ai/api/v1/chat/completions'
 
@@ -33,8 +34,8 @@ export async function generateOpenRouter(args: ProviderArgs): Promise<ProviderRe
     // gasto entre lo que consume el CRM y cualquier otra cosa que use la
     // misma clave.
     cabeceras: {
-      'HTTP-Referer': process.env.NEXT_PUBLIC_SITE_URL || 'https://crm.ark-ia.com',
-      'X-Title': 'ARK-IA Enterprise',
+      'HTTP-Referer': process.env.NEXT_PUBLIC_SITE_URL || 'https://arca.local',
+      'X-Title': MARCA,
     },
   })
 }

@@ -70,13 +70,13 @@ export function AiUsageCard() {
       });
       const json = await res.json().catch(() => null);
       if (!res.ok) {
-        toast.error(json?.error ?? 'Failed to load usage');
+        toast.error(json?.error ?? 'No se pudo cargar el consumo');
         setData(null);
         return;
       }
       setData(json as UsageResponse);
     } catch {
-      toast.error('Failed to load usage');
+      toast.error('No se pudo cargar el consumo');
       setData(null);
     } finally {
       setLoading(false);
@@ -95,8 +95,10 @@ export function AiUsageCard() {
   if (profileLoading || !canView) return null;
 
   const chartData =
-    data?.daily.map((d) => ({ day: format(parseISO(d.date), 'MMM d'), Tokens: d.tokens })) ??
-    [];
+    data?.daily.map((d) => ({
+      day: format(parseISO(d.date), 'MMM d'),
+      Tokens: d.tokens,
+    })) ?? [];
   const hasSpend = (data?.totals.total_tokens ?? 0) > 0;
 
   return (
@@ -105,11 +107,12 @@ export function AiUsageCard() {
         <div className="flex items-start justify-between gap-4">
           <div>
             <CardTitle className="flex items-center gap-2 text-base">
-              <BarChart3 className="h-4 w-4 text-primary" /> Token usage
+              <BarChart3 className="text-primary h-4 w-4" /> Consumo de tokens
             </CardTitle>
             <CardDescription>
-              Tokens spent on your provider key by drafts and the auto-reply
-              bot. Counts only — no message content is stored here.
+              Tokens consumidos con la clave de tu proveedor por los borradores
+              y el bot de respuesta automática. Solo se guardan conteos, no el
+              contenido de los mensajes.
             </CardDescription>
           </div>
           <Select
@@ -122,7 +125,7 @@ export function AiUsageCard() {
             <SelectContent>
               {WINDOWS.map((w) => (
                 <SelectItem key={w} value={String(w)}>
-                  Last {w} days
+                  Últimos {w} días
                 </SelectItem>
               ))}
             </SelectContent>
@@ -133,33 +136,39 @@ export function AiUsageCard() {
         {loading || !data ? (
           <Skeleton className="h-[220px] w-full" />
         ) : !hasSpend ? (
-          <div className="flex flex-col items-center justify-center gap-2 py-10 text-center text-sm text-muted-foreground">
+          <div className="text-muted-foreground flex flex-col items-center justify-center gap-2 py-10 text-center text-sm">
             <BarChart3 className="h-8 w-8 opacity-40" />
-            <p>No AI usage in the last {data.window_days} days yet.</p>
+            <p>
+              Aún no hay consumo de IA en los últimos {data.window_days} días.
+            </p>
             <p className="text-xs">
-              This fills in as the assistant drafts and auto-replies.
+              Esto se irá llenando a medida que el asistente redacte borradores
+              y responda automáticamente.
             </p>
           </div>
         ) : (
           <>
             <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-              <Stat label="Total tokens" value={formatCompactNumber(data.totals.total_tokens)} />
-              <Stat label="LLM calls" value={String(data.totals.calls)} />
               <Stat
-                label="Auto-reply"
+                label="Tokens totales"
+                value={formatCompactNumber(data.totals.total_tokens)}
+              />
+              <Stat label="Llamadas al LLM" value={String(data.totals.calls)} />
+              <Stat
+                label="Respuesta automática"
                 value={formatCompactNumber(data.by_mode.auto_reply.tokens)}
                 icon={Bot}
               />
               <Stat
-                label="Drafts"
+                label="Borradores"
                 value={formatCompactNumber(data.by_mode.draft.tokens)}
                 icon={PencilLine}
               />
             </div>
 
             <div>
-              <p className="mb-2 text-xs font-medium text-muted-foreground">
-                Tokens per day
+              <p className="text-muted-foreground mb-2 text-xs font-medium">
+                Tokens por día
               </p>
               <BarChart
                 data={chartData}
@@ -175,10 +184,10 @@ export function AiUsageCard() {
 
             {data.by_model.length > 0 && (
               <div>
-                <p className="mb-2 text-xs font-medium text-muted-foreground">
-                  By model
+                <p className="text-muted-foreground mb-2 text-xs font-medium">
+                  Por modelo
                 </p>
-                <ul className="divide-y divide-border rounded-md border border-border">
+                <ul className="divide-border border-border divide-y rounded-md border">
                   {data.by_model.map((m) => (
                     <li
                       key={`${m.provider}:${m.model}`}
@@ -186,13 +195,13 @@ export function AiUsageCard() {
                     >
                       <span className="min-w-0 truncate">
                         <span className="text-foreground">{m.model}</span>{' '}
-                        <span className="text-xs text-muted-foreground">
+                        <span className="text-muted-foreground text-xs">
                           ({m.provider})
                         </span>
                       </span>
-                      <span className="flex-shrink-0 tabular-nums text-muted-foreground">
+                      <span className="text-muted-foreground flex-shrink-0 tabular-nums">
                         {formatCompactNumber(m.tokens)} tok · {m.calls}{' '}
-                        {m.calls === 1 ? 'call' : 'calls'}
+                        {m.calls === 1 ? 'llamada' : 'llamadas'}
                       </span>
                     </li>
                   ))}
@@ -201,9 +210,9 @@ export function AiUsageCard() {
             )}
 
             {data.truncated && (
-              <p className="text-xs text-muted-foreground">
-                Showing a partial window — usage is high enough that only the
-                most recent records are summarized here.
+              <p className="text-muted-foreground text-xs">
+                Se muestra un periodo parcial: el consumo es tan alto que aquí
+                solo se resumen los registros más recientes.
               </p>
             )}
           </>
@@ -223,12 +232,12 @@ function Stat({
   icon?: typeof Bot;
 }) {
   return (
-    <div className="rounded-md border border-border p-3">
-      <p className="flex items-center gap-1 text-xs text-muted-foreground">
+    <div className="border-border rounded-md border p-3">
+      <p className="text-muted-foreground flex items-center gap-1 text-xs">
         {Icon && <Icon className="h-3 w-3" />}
         {label}
       </p>
-      <p className="mt-1 text-lg font-semibold tabular-nums text-foreground">
+      <p className="text-foreground mt-1 text-lg font-semibold tabular-nums">
         {value}
       </p>
     </div>

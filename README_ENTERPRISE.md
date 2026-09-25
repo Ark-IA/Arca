@@ -1,3 +1,22 @@
+> [!WARNING]
+> **Documento histórico — escrito el día de la implementación (septiembre 2026).**
+>
+> Describe lo que se construyó ese día y lo que se pensaba hacer después, no lo
+> que está funcionando hoy. Concretamente, aquí quedaron cosas que ya no son
+> ciertas:
+>
+> - Las migraciones **no** son `070_custom_objects.sql` ni
+>   `071_enterprise_features.sql`. Al integrarse con el resto de la rama se
+>   renumeraron a **`077_objetos_personalizados.sql`** y
+>   **`078_funciones_enterprise.sql`**; los números 070 y 071 hoy son otras
+>   migraciones distintas.
+> - Supabase es **autoalojado en Docker**, no Supabase Cloud. No hay dashboard
+>   de supabase.com para este proyecto. Ver [APLICAR_MIGRACIONES](docs/APLICAR_MIGRACIONES.md).
+> - Varias características marcadas como completas están construidas pero **sin
+>   conectar a nada**.
+>
+> **El estado real está en [ESTADO.md](ESTADO.md).**
+
 # 🎉 ARCA Enterprise - Implementación Completada
 
 ## ✅ Resumen de la Implementación

@@ -1,8 +1,10 @@
 import { getRequestConfig } from 'next-intl/server';
 
 export default getRequestConfig(async () => {
-  // Read the locale from the environment, defaulting to 'en'
-  const locale = process.env.NEXT_PUBLIC_APP_LOCALE || 'en';
+  // Idioma de la instalación. Por defecto español: las pantallas propias de
+  // ARCA (tareas, empresas, colas, formularios web…) tienen el texto en
+  // español escrito en el código, así que con 'en' la interfaz sale mezclada.
+  const locale = process.env.NEXT_PUBLIC_APP_LOCALE || 'es';
 
   let messages;
   try {

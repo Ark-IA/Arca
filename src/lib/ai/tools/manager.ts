@@ -13,6 +13,67 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { createCustomRecordsManager } from '@/lib/objects/records';
 import { createPermissionManager } from '@/lib/objects/permissions';
+import type { Filter } from '@/types/objects';
+
+/**
+ * Parámetros de cada herramienta.
+ *
+ * Los escribe un modelo de lenguaje, así que llegan como JSON suelto y
+ * hay que declarar su forma en alguna parte. Declararla aquí, y no con
+ * `any` en cada método, es lo que hace que renombrar un campo salga en
+ * el typecheck en vez de convertirse en un `undefined` silencioso a
+ * mitad de una herramienta que el agente creía haber ejecutado bien.
+ */
+export interface ParametrosCrearRegistro {
+  objectType: string;
+  fields: Record<string, unknown>;
+}
+
+export interface ParametrosRegistroPorId {
+  recordId: string;
+}
+
+export interface ParametrosListarRegistros {
+  objectType: string;
+  filters?: Filter[];
+  limit?: number;
+  offset?: number;
+}
+
+export interface ParametrosActualizarRegistro {
+  recordId: string;
+  fields: Record<string, unknown>;
+}
+
+export interface ParametrosBuscarRegistros {
+  objectType: string;
+  query: string;
+  searchFields?: string[];
+}
+
+export interface ParametrosEnviarWhatsApp {
+  contactId: string;
+  message: string;
+}
+
+export interface ParametrosCrearTarea {
+  title: string;
+  description?: string;
+  dueDate?: string;
+  assigneeId?: string;
+}
+
+export interface ParametrosMetricas {
+  metricType: string;
+  timeRange?: string;
+}
+
+
+/** El modismo del repo para sacar texto de algo que se atrapó en un catch. */
+function mensaje(error: unknown): string {
+  return error instanceof Error ? error.message : String(error);
+}
+
 
 export type ToolCategory = 'CRUD' | 'SEARCH' | 'COMMUNICATION' | 'AUTOMATION' | 'ANALYTICS';
 
@@ -36,8 +97,8 @@ export interface ToolDefinition {
 
 export interface ToolExecution {
   toolId: string;
-  parameters: Record<string, any>;
-  result: any;
+  parameters: Record<string, unknown>;
+  result: unknown;
   error?: string;
   executedAt: Date;
   executionTime: number;
@@ -278,7 +339,7 @@ export class AIToolsManager {
   /**
    * Ejecutar una herramienta
    */
-  async executeTool(toolId: string, parameters: Record<string, any>): Promise<ToolExecution> {
+  async executeTool(toolId: string, parameters: Record<string, unknown>): Promise<ToolExecution> {
     const startTime = performance.now();
     const tools = this.getAllTools();
     const tool = tools.find(t => t.id === toolId);
@@ -302,36 +363,49 @@ export class AIToolsManager {
         // Verificación simplificada - en producción verificar por objeto específico
       }
 
-      let result: any;
+      let result: unknown;
+
+      // Los parámetros los escribe un modelo de lenguaje, así que
+      // llegan como JSON sin comprobar. Cada método declara la forma
+      // que espera y aquí se afirma, que es exactamente lo que el
+      // código hacía antes con `any` — sólo que ahora está dicho en
+      // voz alta.
+      //
+      // PENDIENTE: validarlos de verdad antes de ejecutar. Hoy, una
+      // herramienta a la que le falta un campo obligatorio falla
+      // dentro, con el mensaje que devuelva Postgres, en vez de
+      // rechazarse con un "te falta `recordId`" que el agente pueda
+      // entender y corregir. Ver ESTADO.md.
+      const p = parameters as never;
 
       // Ejecutar herramienta según tipo
       switch (toolId) {
         case 'create_record':
-          result = await this.executeCreateRecord(parameters);
+          result = await this.executeCreateRecord(p);
           break;
         case 'get_record':
-          result = await this.executeGetRecord(parameters);
+          result = await this.executeGetRecord(p);
           break;
         case 'list_records':
-          result = await this.executeListRecords(parameters);
+          result = await this.executeListRecords(p);
           break;
         case 'update_record':
-          result = await this.executeUpdateRecord(parameters);
+          result = await this.executeUpdateRecord(p);
           break;
         case 'delete_record':
-          result = await this.executeDeleteRecord(parameters);
+          result = await this.executeDeleteRecord(p);
           break;
         case 'search_records':
-          result = await this.executeSearchRecords(parameters);
+          result = await this.executeSearchRecords(p);
           break;
         case 'send_whatsapp_message':
-          result = await this.executeSendWhatsApp(parameters);
+          result = await this.executeSendWhatsApp(p);
           break;
         case 'create_task':
-          result = await this.executeCreateTask(parameters);
+          result = await this.executeCreateTask(p);
           break;
         case 'get_metrics':
-          result = await this.executeGetMetrics(parameters);
+          result = await this.executeGetMetrics(p);
           break;
         default:
           throw new Error(`Herramienta no implementada: ${toolId}`);
@@ -358,12 +432,12 @@ export class AIToolsManager {
         executionTime: endTime - startTime,
         userId: this.userId,
       };
-    } catch (error: any) {
+    } catch (error) {
       return {
         toolId,
         parameters,
         result: null,
-        error: error.message,
+        error: mensaje(error),
         executedAt: new Date(),
         executionTime: 0,
         userId: this.userId,
@@ -374,7 +448,7 @@ export class AIToolsManager {
   /**
    * Implementaciones de herramientas
    */
-  private async executeCreateRecord(params: any): Promise<any> {
+  private async executeCreateRecord(params: ParametrosCrearRegistro): Promise<unknown> {
     const recordsManager = createCustomRecordsManager(this.supabase, this.accountId, this.userId);
     const { objectType, fields } = params;
     
@@ -386,7 +460,7 @@ export class AIToolsManager {
     return result;
   }
 
-  private async executeGetRecord(params: any): Promise<any> {
+  private async executeGetRecord(params: ParametrosRegistroPorId): Promise<unknown> {
     const recordsManager = createCustomRecordsManager(this.supabase, this.accountId, this.userId);
     const { recordId } = params;
     
@@ -394,7 +468,7 @@ export class AIToolsManager {
     return result.record;
   }
 
-  private async executeListRecords(params: any): Promise<any> {
+  private async executeListRecords(params: ParametrosListarRegistros): Promise<unknown> {
     const recordsManager = createCustomRecordsManager(this.supabase, this.accountId, this.userId);
     const { objectType, filters, limit = 20, offset = 0 } = params;
     
@@ -407,7 +481,7 @@ export class AIToolsManager {
     return result.records;
   }
 
-  private async executeUpdateRecord(params: any): Promise<any> {
+  private async executeUpdateRecord(params: ParametrosActualizarRegistro): Promise<unknown> {
     const recordsManager = createCustomRecordsManager(this.supabase, this.accountId, this.userId);
     const { recordId, fields } = params;
     
@@ -415,7 +489,7 @@ export class AIToolsManager {
     return result;
   }
 
-  private async executeDeleteRecord(params: any): Promise<any> {
+  private async executeDeleteRecord(params: ParametrosRegistroPorId): Promise<unknown> {
     const recordsManager = createCustomRecordsManager(this.supabase, this.accountId, this.userId);
     const { recordId } = params;
     
@@ -423,7 +497,7 @@ export class AIToolsManager {
     return result;
   }
 
-  private async executeSearchRecords(params: any): Promise<any> {
+  private async executeSearchRecords(params: ParametrosBuscarRegistros): Promise<unknown> {
     const recordsManager = createCustomRecordsManager(this.supabase, this.accountId, this.userId);
     const { objectType, query, searchFields } = params;
     
@@ -436,7 +510,7 @@ export class AIToolsManager {
     return result.records;
   }
 
-  private async executeSendWhatsApp(params: any): Promise<any> {
+  private async executeSendWhatsApp(params: ParametrosEnviarWhatsApp): Promise<unknown> {
     // Integración con WhatsApp existente en ARCA
     const { contactId, message } = params;
     
@@ -459,7 +533,7 @@ export class AIToolsManager {
     return { success: true, phone, message };
   }
 
-  private async executeCreateTask(params: any): Promise<any> {
+  private async executeCreateTask(params: ParametrosCrearTarea): Promise<unknown> {
     const recordsManager = createCustomRecordsManager(this.supabase, this.accountId, this.userId);
     const { title, description, dueDate, assigneeId } = params;
     
@@ -477,7 +551,7 @@ export class AIToolsManager {
     return result;
   }
 
-  private async executeGetMetrics(params: any): Promise<any> {
+  private async executeGetMetrics(params: ParametrosMetricas): Promise<unknown> {
     const { metricType, timeRange = 'month' } = params;
     
     // Obtener métricas del dashboard existente
